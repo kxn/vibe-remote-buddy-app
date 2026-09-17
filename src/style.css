@@ -1,0 +1,767 @@
+:root {
+  font:
+    14px/1.5 "Segoe UI Variable",
+    "Segoe UI",
+    "Microsoft YaHei",
+    system-ui,
+    sans-serif;
+  color-scheme: light dark;
+  --bg: light-dark(#fffdf8, #302d29);
+  --canvas: light-dark(#f5f2ea, #24221f);
+  --soft: light-dark(#eeeae1, #39352f);
+  --ink: light-dark(#37332d, #eee8de);
+  --muted: light-dark(#756e64, #b9afa2);
+  --line: light-dark(#e2dbcf, #4c453d);
+  --accent: light-dark(#a84f35, #e5a58a);
+  --tint: light-dark(#f5e4d9, #50392e);
+  --on-accent: light-dark(#fffdf8, #39261e);
+  --green: light-dark(#37754b, #9ad6a6);
+  --red: light-dark(#a73532, #f5aaa0);
+  --device: light-dark(#443e37, #cfc3b3);
+  --device-key: light-dark(#5d544a, #e9dfd0);
+  --device-ink: light-dark(#eee5d9, #493e33);
+  --shadow: light-dark(#50382112, #00000026);
+  background: var(--canvas);
+  color: var(--ink);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--bg);
+  padding: 0.65rem 1rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+button:hover:not(:disabled) {
+  background: var(--soft);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(0.95);
+}
+.quiet {
+  border-color: transparent;
+  background: transparent;
+}
+.danger {
+  color: var(--red);
+}
+h1,
+h2,
+p {
+  margin: 0;
+}
+h1 {
+  font-size: 1.9rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+h2 {
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.muted,
+.model {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+svg {
+  flex-shrink: 0;
+}
+.app {
+  min-height: 100vh;
+}
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2.25rem;
+}
+.brand,
+.header-right,
+.connection {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.brand {
+  font-weight: 500;
+}
+.logo {
+  display: block;
+  width: 2.4rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+}
+.connection {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+}
+.dot.offline {
+  background: var(--muted);
+}
+.icon {
+  width: 2.75rem;
+  padding: 0.5rem;
+}
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.title p {
+  margin-top: 0.5rem;
+}
+main {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem 3rem 3rem;
+}
+.devices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+.device {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 5px 16px var(--shadow);
+  min-width: 0;
+}
+.device-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 16rem;
+  margin: 0.75rem 0.75rem 0;
+  background: var(--soft);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.device-art:before,
+.device-art:after {
+  content: "";
+  position: absolute;
+  width: 13rem;
+  height: 13rem;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.device-art:after {
+  width: 19rem;
+  height: 19rem;
+}
+.more {
+  position: absolute;
+  right: 0.65rem;
+  top: 0.65rem;
+  background: var(--bg);
+  border-radius: 50%;
+  z-index: 1;
+}
+.mini-remote {
+  z-index: 1;
+  width: 4.7rem;
+  padding: 1.3rem 0.7rem;
+  background: var(--device);
+  border-radius: 1.6rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem 0.35rem;
+  transform: rotate(-12deg);
+  box-shadow: 10px 14px 16px var(--shadow);
+}
+.mini-remote.unicom {
+  padding: 1rem 0.7rem;
+  gap: 0.3rem 0.35rem;
+  transform: rotate(11deg) scale(0.88);
+}
+.mini-key {
+  height: 1rem;
+  border-radius: 50%;
+  background: var(--device-key);
+}
+.mini-remote.unicom .mini-key {
+  height: 0.8rem;
+}
+.mini-key.voice {
+  background: light-dark(#d99a7d, #b97051);
+}
+.mini-key.empty {
+  background: transparent;
+}
+.device-copy {
+  padding: 1.5rem;
+}
+.model {
+  margin-top: 0.35rem;
+}
+.device-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 1.5rem;
+  margin: 1rem 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+.device-status > span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.available {
+  color: var(--green);
+}
+.configure {
+  width: 100%;
+  justify-content: space-between;
+  background: var(--soft);
+  border-color: transparent;
+}
+main > .empty {
+  padding: 4rem 1rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.capacity {
+  margin-top: 1rem;
+}
+.back {
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  color: var(--muted);
+  min-height: 2rem;
+}
+.layout-panel {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+.layout-stage {
+  padding: 1.75rem 1rem 1rem;
+  background: var(--soft);
+  border-radius: 1.5rem;
+}
+.handset {
+  max-width: 100%;
+  width: 210px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 1.75rem;
+  background: var(--device);
+  border-radius: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  box-shadow: 5px 10px 16px var(--shadow);
+}
+.handset button {
+  padding: 0 0.15rem;
+  min-height: 2.75rem;
+  border-radius: 1.4rem;
+  border-color: transparent;
+  background: var(--device-key);
+  color: var(--device-ink);
+  font-size: 0.875rem;
+}
+.handset button.voice {
+  background: light-dark(#dfac91, #855a46);
+  color: light-dark(#512e20, #fff0df);
+}
+.handset button:hover {
+  background: var(--tint);
+  color: var(--ink);
+}
+.caption {
+  text-align: center;
+  margin-top: 1rem;
+}
+.keylist {
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: var(--bg);
+  overflow: hidden;
+}
+.keylist:empty {
+  display: none;
+}
+.key {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 1.25rem 1rem;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(3rem, 1fr) minmax(0, auto) 1rem;
+  gap: 0.65rem;
+  align-items: center;
+  text-align: left;
+}
+.key:last-child {
+  border-bottom: 0;
+}
+.key-symbol {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.7rem;
+  background: var(--soft);
+  color: var(--accent);
+}
+.function {
+  text-align: right;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.setting {
+  padding: 1.3rem 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+details {
+  margin-top: 1.5rem;
+}
+summary {
+  cursor: pointer;
+  padding: 0.5rem 0;
+  color: var(--muted);
+}
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1.2rem;
+  height: 1.2rem;
+}
+.note,
+.error {
+  padding: 1rem;
+  border-radius: 0.7rem;
+  background: var(--soft);
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  overflow-wrap: anywhere;
+}
+.error {
+  color: var(--red);
+}
+.shade {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: light-dark(#43372c40, #110d085c);
+  backdrop-filter: blur(5px);
+  z-index: 5;
+}
+.dialog {
+  padding: 1.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--bg);
+  width: 460px;
+  max-width: 100%;
+  max-height: calc(100dvh - 3rem);
+  overflow: auto;
+  box-shadow: 0 22px 65px light-dark(#4933262b, #0008);
+}
+.dialog > p {
+  margin-top: 0.75rem;
+}
+.dialog .error {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+.field {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+input:not([type="checkbox"]),
+select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--soft);
+}
+.modifiers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.modifiers label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.candidate {
+  width: 100%;
+  justify-content: space-between;
+  text-align: left;
+  margin-top: 1rem;
+  padding: 1rem;
+}
+.candidate.selected {
+  border-color: var(--accent);
+  background: var(--tint);
+}
+.scan-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  color: var(--muted);
+}
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 0.75rem 1.5rem;
+  border-radius: 2rem;
+  max-width: 90%;
+  z-index: 8;
+}
+pre {
+  padding: 1rem;
+  background: var(--soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+@media (max-width: 720px) {
+  main {
+    padding: 1.5rem;
+  }
+  .layout-panel {
+    grid-template-columns: 1fr;
+  }
+  header {
+    padding: 1.25rem;
+  }
+  .device-copy {
+    padding: 1.25rem;
+  }
+}
+@media (max-width: 580px) {
+  .devices {
+    grid-template-columns: 1fr;
+  }
+  .connection {
+    display: none;
+  }
+  .title {
+    flex-wrap: wrap;
+  }
+  .shade {
+    padding: 1rem;
+  }
+  .dialog {
+    max-height: calc(100dvh - 2rem);
+  }
+  .key {
+    gap: 0.5rem;
+    padding: 1rem 0.75rem;
+  }
+  .device-art {
+    height: 16rem;
+  }
+}
+main {
+  container-type: inline-size;
+}
+@container (max-width:44rem) {
+  .devices {
+    grid-template-columns: 1fr;
+  }
+  .layout-panel {
+    grid-template-columns: 1fr;
+  }
+}
+.action-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.action-tools {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.window-picker {
+  padding: 1.25rem;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.window-picker header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.window-picker h1 {
+  font-size: 1.25rem;
+}
+.window-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+}
+.window-list button {
+  text-align: left;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 0.3rem;
+  padding: 0.9rem;
+}
+.window-list button[aria-selected="true"] {
+  background: var(--soft, #f2dfd1);
+  border-color: #b57152;
+}
+.window-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.window-list span {
+  color: #777;
+  font-size: 0.85rem;
+}
+/* Status takes the same row before, during and after recording. */
+.remote-state {
+  white-space: nowrap;
+  min-height: 1.5rem;
+}
+.recording-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+}
+.recording-mark:not(.active)::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.recording-mark i {
+  display: none;
+  width: 2px;
+  height: 0.65rem;
+  background: currentColor;
+  border-radius: 2px;
+}
+.recording-mark.active i {
+  display: block;
+  animation: recording-level 0.85s ease-in-out infinite alternate;
+}
+.recording-mark.active i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.recording-mark.active i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+@keyframes recording-level {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .recording-mark.active i {
+    animation: none;
+  }
+}
+.xiaomi-body.handset,
+.xiaomi-body.mini-remote {
+  position: relative;
+  display: block;
+  padding: 0;
+  background: linear-gradient(
+    90deg,
+    #959da0,
+    #c4c9ca 10%,
+    #b4babc 85%,
+    #939b9e
+  );
+  border-radius: 0.5rem;
+}
+.xiaomi-body.handset {
+  width: 176px;
+  height: 600px;
+}
+.xiaomi-body.mini-remote {
+  width: 4.1rem;
+  height: 14rem;
+}
+.xiaomi-ring {
+  position: absolute;
+  left: 8%;
+  top: 13.7%;
+  width: 84%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #22282a;
+  box-shadow: inset 0 0 0 1px #14191b;
+}
+.xiaomi-volume {
+  position: absolute;
+  left: 60%;
+  top: 38.6%;
+  width: 30%;
+  height: 18.8%;
+  border-radius: 999px;
+  background: #22282a;
+}
+.xiaomi-body .xiaomi-key {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 30%;
+  height: 8.8%;
+  min-height: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  color: #d5dbdc;
+  background: #22282a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+.xiaomi-body .key-1,
+.xiaomi-body .key-2 {
+  width: 23%;
+  height: 6.75%;
+  background: transparent;
+  color: #4c5457;
+  border: 1px solid #6e777b;
+}
+.xiaomi-body .key-3,
+.xiaomi-body .key-4,
+.xiaomi-body .key-5,
+.xiaomi-body .key-6 {
+  width: 27%;
+  height: 7.9%;
+  background: transparent;
+}
+.xiaomi-body .key-7 {
+  width: 43%;
+  height: 12.6%;
+  border: 1px solid #101618;
+}
+.xiaomi-body .key-12,
+.xiaomi-body .key-13 {
+  background: transparent;
+  font-size: 1.2rem;
+}
+.xiaomi-body button:hover {
+  background: #45575b;
+  color: white;
+}
+.xiaomi-body button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.xiaomi-body.mini-remote .xiaomi-key {
+  font-size: 0.35rem;
+}
+.xiaomi-body.mini-remote svg {
+  width: 0.5rem;
+  height: 0.5rem;
+}

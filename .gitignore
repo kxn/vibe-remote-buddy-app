@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+src-tauri/target/
+src-tauri/gen/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.log
+*.wav
+.DS_Store
+Thumbs.db
