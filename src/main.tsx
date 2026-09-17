@@ -171,21 +171,25 @@ function App() {
             7: "连接异常",
           }[s.state] ?? "未连接");
   const describe = (m: Mapping) =>
-    m.kind === 0
-      ? "不使用"
-      : m.kind === 2
-        ? (media[m.value] ?? `媒体键 ${m.value}`)
-        : m.kind === 3
-          ? m.modifiers === 64 && !m.value
-            ? "豆包输入法"
-            : m.modifiers === 9 && !m.value
-              ? "微信输入法"
-              : chord(m.modifiers, m.value)
-          : m.kind === 4
-            ? (service.settings.boards[snap.board?.serial ?? ""]?.actions[
-                m.value
-              ]?.label ?? `未配置的功能 #${m.value}`)
-            : chord(m.modifiers, m.value);
+    m.kind === 5
+      ? m.value === 1
+        ? "豆包输入法 · 默认"
+        : "微信输入法 · 默认"
+      : m.kind === 0
+        ? "不使用"
+        : m.kind === 2
+          ? (media[m.value] ?? `媒体键 ${m.value}`)
+          : m.kind === 3
+            ? m.modifiers === 64 && !m.value
+              ? "豆包输入法"
+              : m.modifiers === 9 && !m.value
+                ? "微信输入法"
+                : chord(m.modifiers, m.value)
+            : m.kind === 4
+              ? (service.settings.boards[snap.board?.serial ?? ""]?.actions[
+                  m.value
+                ]?.label ?? `未配置的功能 #${m.value}`)
+              : chord(m.modifiers, m.value);
   const openMore = (s: Slot) => {
     setPeer(s.peer_id);
     setModal("more");
@@ -1055,7 +1059,11 @@ function Editor({
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
     [profile, setProfile] = useState(
-      voicePreset(entry.map.modifiers, entry.map.value),
+      entry.map.kind === 5
+        ? entry.map.value === 1
+          ? "doubao"
+          : "wechat"
+        : "custom",
     ),
     [discard, setDiscard] = useState(false);
   const voice = entry.catalog.key === 2,
@@ -1141,7 +1149,21 @@ function Editor({
                 setProfile(e.target.value);
                 const preset =
                   voicePresets[e.target.value as keyof typeof voicePresets];
-                if (preset) setMap({ ...map, kind: 3, ...preset });
+                if (preset)
+                  setMap({
+                    ...map,
+                    kind: 5,
+                    modifiers: 0,
+                    value: e.target.value === "doubao" ? 1 : 2,
+                  });
+                else if (map.kind === 5)
+                  setMap({
+                    ...map,
+                    kind: 3,
+                    ...(map.value === 2
+                      ? voicePresets.wechat
+                      : voicePresets.doubao),
+                  });
               }}
             >
               <option value="doubao">豆包输入法</option>
@@ -1150,10 +1172,11 @@ function Editor({
             </select>
           </label>
           <p className="muted">按住说话，松开结束。</p>
-          <details open={profile === "custom"}>
-            <summary>快捷键设置</summary>
-            {keyboard}
-          </details>
+          {profile === "custom" ? (
+            keyboard
+          ) : (
+            <p className="muted">默认快捷键 · 随系统调整</p>
+          )}
         </>
       ) : (
         <>

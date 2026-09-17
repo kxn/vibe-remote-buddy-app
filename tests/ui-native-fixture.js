@@ -51,6 +51,8 @@ window.__TAURI_INTERNALS__ = {
       } else if (q.opcode === 0x403)
         body = {
           firmware: "ui-fixture",
+          voice_presets: 1,
+          host_os: 1,
           slots: 4,
           voice_owner: f.voiceOwner,
           manual_pairing: true,

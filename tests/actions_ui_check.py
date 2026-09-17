@@ -22,7 +22,7 @@ with sync_playwright() as p:
  page.locator('.handset button[aria-label="主页"]').click();assert page.get_by_label('功能',exact=True).input_value()=='input:chatgpt'
  page.get_by_label('功能',exact=True).select_option('command:next_app_window');page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
  page.locator('.handset button[aria-label="语音"]').click();page.get_by_role('combobox',name='语音输入',exact=True).select_option('wechat');assert 'Windows 语音输入' not in page.locator('[role=dialog]').inner_text()
- page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].modifiers')==9
+ page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].kind')==5;assert page.evaluate('fixture.maps["0:2"].value')==2
  page.locator('.handset button[aria-label="语音"]').click();assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='wechat'
  assert not errors,errors;b.close()
 print('PASS: one-step application commands; WeChat preset persistence; 13-key Xiaomi layout; zero recording layout shift')

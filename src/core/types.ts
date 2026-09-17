@@ -4,6 +4,8 @@ export interface Port {
   name: string;
 }
 export interface Info {
+  voice_presets?: number;
+  host_os?: number;
   firmware: string;
   slots: number;
   voice_owner: number;

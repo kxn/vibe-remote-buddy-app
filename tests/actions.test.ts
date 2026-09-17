@@ -151,6 +151,15 @@ describe("per-remote input method", () => {
   it("uses only enabled recognized voice mappings", () => {
     const map = { key: 2, kind: 3, modifiers: 64, value: 0, revision: 1 };
     expect(inputMethodForVoice(map)).toBe("doubao");
+    expect(
+      inputMethodForVoice({ ...map, kind: 5, modifiers: 0, value: 1 }),
+    ).toBe("doubao");
+    expect(
+      inputMethodForVoice({ ...map, kind: 5, modifiers: 0, value: 2 }),
+    ).toBe("wechat");
+    expect(
+      inputMethodForVoice({ ...map, kind: 5, modifiers: 0, value: 3 }),
+    ).toBeUndefined();
     expect(inputMethodForVoice({ ...map, modifiers: 9 })).toBe("wechat");
     expect(inputMethodForVoice({ ...map, kind: 0 })).toBeUndefined();
     expect(inputMethodForVoice({ ...map, modifiers: 1 })).toBeUndefined();

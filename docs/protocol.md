@@ -140,3 +140,15 @@ JSON 示例为了可读性省略部分引号，实际 payload 必须是合法 JS
 COBS 解码后，所有多字节整数为小端。偏移 0–1 为 ASCII RB；2 为 major=3；3 为 minor=0；4 为 kind；5 为 flags=0；6–7 为 header_size=32；8–11 session_id；12–15 tx_seq；16–19 request_id；20–21 opcode；22–23 status；24–25 payload_length；26–27 reserved=0；28–31 connection_id=0。随后为 UTF-8 JSON，末尾 4 字节是对头和 payload 计算的 CRC32C。整个帧 COBS 编码后以 0 分隔。实现与已知向量见 src/core/wire.ts 和 tests/hello-vector.json。
 
 CANDIDATE.bound_slot=-1 表示未绑定，0–3 表示已绑定位置，不能仅判断是否小于 4。
+
+## 自动语音预设（voice_presets=1）
+
+INFO 新增 voice_presets=1，以及 host_os：0 未知、1 Windows、2 macOS、3 其他。识别来自 USB 字符串描述符请求行为，只是推测；其他和未知采用 Windows 快捷键。分类只影响默认语音预设，不改变普通键、音频格式、USB VID/PID 或蓝牙行为。
+
+映射 kind=5 表示“输入法默认快捷键”：modifiers 必须为 0，value=1 豆包 / 2 微信，仅允许逻辑语音键 key=2。Windows/未知/其他分别发右 Alt、左 Ctrl+左 GUI；macOS 发 Apple Fn。kind=3 始终是用户指定的原始快捷键，不按主机类型转换。
+
+出厂映射和 MAP_RESET 使用 kind=5/value=1。已有持久 kind=3 映射不迁移，因为不能判断原来是预设还是用户手工选择；用户重新选择输入法预设后才保存 kind=5。无需扩大持久映射结构。旧固件不支持 kind=5，应用检测 INFO.voice_presets 后明确要求升级，不悄悄改成固定键。
+
+Fn 使用 Apple Top Case Usage Page 0x00ff / Usage 0x03，在原 8 字节 keyboard 报告的第二字节 bit0 中发送，其余 7 位保留。每次语音取得 owner 时锁定本次键盘报告，按原尾音排空策略释放；检测结果变动不能中途换键。没有新增 HID 队列或终端驱动。
+
+macOS 目前没有实机验证。Apple 驱动对 vendor usage 支持存在条件，不能保证保持接收器自有 VID/PID 的所有新 macOS 均会把报告当作 Fn；这部分是待验证实现，不宣称已实现免驱兼容认证，也不冒用 Apple 设备身份。

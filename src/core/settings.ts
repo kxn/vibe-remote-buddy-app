@@ -40,14 +40,15 @@ export function validateSettings(value: unknown): Settings {
         !Number.isInteger(m.key) ||
         m.key < 1 ||
         m.key > 63 ||
-        ![0, 1, 2, 3].includes(m.kind) ||
+        ![0, 1, 2, 3, 5].includes(m.kind) ||
         !Number.isInteger(m.modifiers) ||
         m.modifiers < 0 ||
         m.modifiers > 255 ||
         !Number.isInteger(m.value) ||
         m.value < 0 ||
         m.value > 65535 ||
-        (m.key === 2) !== (m.kind === 3)
+        (m.key === 2) !== (m.kind === 3 || m.kind === 5) ||
+        (m.kind === 5 && (m.modifiers !== 0 || ![1, 2].includes(m.value)))
       )
         throw Error("通用按键配置无效");
     for (const keys of Object.values(b.followers))

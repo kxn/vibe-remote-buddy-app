@@ -352,6 +352,8 @@ export class BuddyService {
     return keys;
   }
   async saveMap(slot: Slot, desired: Mapping, action?: Action) {
+    if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
+      throw Error("请先更新接收器固件，再使用自动语音预设");
     this.ensureMutable();
     if (action && !validAction(action)) throw Error("软件动作配置无效");
     const id = this.identity(slot),

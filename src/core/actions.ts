@@ -140,6 +140,8 @@ export type VoiceInputMethod = "doubao" | "wechat";
 export function inputMethodForVoice(
   map: Mapping,
 ): VoiceInputMethod | undefined {
+  if (map.kind === 5 && map.modifiers === 0)
+    return map.value === 1 ? "doubao" : map.value === 2 ? "wechat" : undefined;
   if (map.kind !== 3) return undefined;
   const preset = voicePreset(map.modifiers, map.value);
   return preset === "doubao" || preset === "wechat" ? preset : undefined;
