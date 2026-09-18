@@ -11,18 +11,18 @@ with sync_playwright() as p:
  before=rects();page.evaluate('fixture.voiceOwner=0');page.get_by_role('status').filter(has_text='正在录音').wait_for();assert before==rects()
  page.screenshot(path=str(root/'build/host-ui/recording-cards.png'),full_page=True)
  page.evaluate('fixture.voiceOwner=255');page.wait_for_function('!document.querySelector(".recording-mark.active")');assert before==rects()
- page.locator('.configure').first.click();page.locator('.handset button[aria-label="主页"]').wait_for()
- box=lambda name:page.locator(f'.handset button[aria-label="{name}"]').bounding_box()
+ page.locator('.configure').first.click();page.locator('.model-full button[aria-label="主页"]').wait_for()
+ box=lambda name:page.locator(f'.model-full button[aria-label="{name}"]').bounding_box()
  assert box('电源')['x']<box('语音')['x'];assert box('返回')['y']<box('主页')['y']<box('菜单')['y'];assert box('音量 +')['x']>box('返回')['x'];assert box('电视')['y']==box('菜单')['y']
- assert len(page.locator('.handset button').all())==13
+ assert len(page.locator('.model-full button').all())==13
  page.screenshot(path=str(root/'build/host-ui/xiaomi-photo-layout.png'),full_page=True)
- page.locator('.handset button[aria-label="主页"]').click();page.get_by_label('功能',exact=True).select_option('input:chatgpt')
+ page.locator('.model-full button[aria-label="主页"]').click();page.get_by_label('功能',exact=True).select_option('input:chatgpt')
  assert page.get_by_label('正在运行的应用',exact=True).count()==0
  page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
- page.locator('.handset button[aria-label="主页"]').click();assert page.get_by_label('功能',exact=True).input_value()=='input:chatgpt'
+ page.locator('.model-full button[aria-label="主页"]').click();assert page.get_by_label('功能',exact=True).input_value()=='input:chatgpt'
  page.get_by_label('功能',exact=True).select_option('command:next_app_window');page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
- page.locator('.handset button[aria-label="语音"]').click();page.get_by_role('combobox',name='语音输入',exact=True).select_option('wechat');assert 'Windows 语音输入' not in page.locator('[role=dialog]').inner_text()
+ page.locator('.model-full button[aria-label="语音"]').click();page.get_by_role('combobox',name='语音输入',exact=True).select_option('wechat');assert 'Windows 语音输入' not in page.locator('[role=dialog]').inner_text()
  page.get_by_role('button',name='保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].kind')==5;assert page.evaluate('fixture.maps["0:2"].value')==2
- page.locator('.handset button[aria-label="语音"]').click();assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='wechat'
- assert not errors,errors;b.close()
+ page.locator('.model-full button[aria-label="语音"]').click();assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='wechat'
+ assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors;b.close()
 print('PASS: one-step application commands; WeChat preset persistence; 13-key Xiaomi layout; zero recording layout shift')

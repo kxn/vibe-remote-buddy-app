@@ -4,6 +4,17 @@ export interface Port {
   name: string;
 }
 export interface Info {
+  probe_api?: number;
+  probe_voice_api?: number;
+  model_api?: number;
+  model_capacity?: number;
+  update_api?: number;
+  target?: string;
+  schema?: number;
+  bank?: number;
+  confirmed?: boolean;
+  flash_bytes?: number;
+  psram_bytes?: number;
   voice_presets?: number;
   host_os?: number;
   firmware: string;
@@ -99,4 +110,5 @@ export interface Snapshot {
   error: string;
   logs: string[];
   busy: boolean;
+  firmwareProgress?: { phase: string; percent: number; active: boolean };
 }

@@ -152,3 +152,35 @@ INFO 新增 voice_presets=1，以及 host_os：0 未知、1 Windows、2 macOS、
 Fn 使用 Apple Top Case Usage Page 0x00ff / Usage 0x03，在原 8 字节 keyboard 报告的第二字节 bit0 中发送，其余 7 位保留。每次语音取得 owner 时锁定本次键盘报告，按原尾音排空策略释放；检测结果变动不能中途换键。没有新增 HID 队列或终端驱动。
 
 macOS 目前没有实机验证。Apple 驱动对 vendor usage 支持存在条件，不能保证保持接收器自有 VID/PID 的所有新 macOS 均会把报告当作 Fn；这部分是待验证实现，不宣称已实现免驱兼容认证，也不冒用 Apple 设备身份。
+
+## USB 固件更新扩展
+
+INFO.update_api=1 表示支持更新扩展，详细状态机和0x420–0x425字段见 [固件更新](firmware-update.md)。不要把只支持旧管理接口的设备视为可直接更新。
+
+## Adaptation interface
+
+Receivers advertising `probe_api: 1` support temporary discovery through 0x440–0x449:
+BEGIN, END, STATUS, CONNECT, SECURITY, DISCOVER, ATTR, READ, SUBSCRIBE, REPORT.
+The implementation and response types are in `src/core/probe.ts`; the workflow,
+limits and resource format are documented in [remote-probe.md](remote-probe.md).
+
+This interface is explicitly entered and lease-scoped. It never forwards unknown
+input to USB, does not commit a normal remote slot, and cleans only newly created
+bonds. Normal management mutations are BUSY until cleanup completes. Do not share
+an adaptation client across management sessions. Full NimBLE SDK errors remain
+available in STATUS and command error details.
+
+## 适配向导语音验证（固件 0.8.0）
+
+`INFO.probe_voice_api=1` 表示支持同一探测连接上的真实语音验证。
+
+| 命令 | 请求 | 返回/用途 |
+| --- | --- | --- |
+| 0x44a PROBE_VOICE_ARM | family, map_crc, report, usage | 新 capture；复用协议族初始化与解码 |
+| 0x44b PROBE_VOICE_STATUS | 无 | active/ready/idle/armed/recording/released、capture/samples/rate/codec/peak、error/sdk_error/decode_error/end_reason |
+| 0x44c PROBE_VOICE_READ | capture, offset（字节） | 同 capture/offset 和最多192字节小端 PCM hex；仅正常结束并松开后可读 |
+| 0x44d PROBE_VOICE_CANCEL | 无 | 撤销本轮录制并停麦；idle 后才可重试 |
+
+family=1 为 ATVV，family=2 为 HID/ICO。普通键 report=1/3；联通专用语音 report=248、usage=1，不写入普通键表。ARM 需要加密连接和已完整读取的 Report Map CRC，同一连接更换协议或语音键码需要重新建联。客户端先采集键码再准备协议，准备完成后用户再次按住说话。
+
+录音为16kHz mono s16，最长10秒。客户端读取后封装 WAV，试听并确认后才标记语音通过；截断、缺包导致不可恢复错误、未松开或解码失败均不算通过。测试音频不输出 USB HID/UAC，不触发输入法。此为诊断快照读回，不是实时音频接口。

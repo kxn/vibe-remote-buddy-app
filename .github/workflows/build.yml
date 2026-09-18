@@ -19,9 +19,9 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
-      - run: npm run tauri -- build --no-bundle
+      - run: npm run release
       - uses: actions/upload-artifact@v4
         with:
           name: vibe-remote-buddy-app-windows
-          path: src-tauri/target/release/vibe-remote-buddy.exe
+          path: out/latest/
           if-no-files-found: error

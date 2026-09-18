@@ -1,3 +1,4 @@
+import { transientFocus } from "./platform";
 import { call } from "./native";
 import {
   inputProfiles,
@@ -67,7 +68,7 @@ export async function runAction(a: Action, inputMethod?: VoiceInputMethod) {
           if (
             current !== origin &&
             current !== window?.token &&
-            !current.startsWith("0:")
+            !transientFocus(current)
           )
             throw Error("前台窗口已变化，已取消聚焦");
           if (!window) await new Promise((r) => setTimeout(r, 100));

@@ -1,3 +1,15 @@
+import {
+  loadModels,
+  syncModels,
+  remoteModels,
+  type ModelSource,
+} from "./models";
+import {
+  validatePackage,
+  transferFirmware,
+  isNewer,
+  type FirmwarePackage,
+} from "./firmware";
 import { validateSettings } from "./settings";
 import {
   validAction,
@@ -20,12 +32,14 @@ import type {
   Action,
 } from "./types";
 export interface Platform {
+  models?(): Promise<ModelSource[]>;
   ports(): Promise<Port[]>;
   transport(): Transport;
   load(): Promise<Partial<Settings>>;
   save(value: Settings): Promise<void>;
   run(action: Action, inputMethod?: VoiceInputMethod): Promise<void>;
   background(enabled: boolean): Promise<void>;
+  updateLock?(enabled: boolean): Promise<void>;
 }
 export class BuddyService {
   snapshot: Snapshot = {
@@ -42,6 +56,8 @@ export class BuddyService {
   private stopped = true;
   private loop?: Promise<void>;
   private connecting = false;
+  private updating = false;
+  private cancelUpdate = false;
   private manualSerial?: string;
   private settingsTail: Promise<unknown> = Promise.resolve();
   constructor(private platform: Platform) {}
@@ -91,9 +107,17 @@ export class BuddyService {
     } catch (e) {
       this.report(e);
     }
+    try {
+      if (this.platform.models)
+        for (const error of loadModels(await this.platform.models()))
+          this.report(Error(error));
+    } catch (e) {
+      this.report(e);
+    }
     this.loop = this.work();
   }
   async stop() {
+    if (this.updating) throw Error("接收器正在更新");
     this.stopped = true;
     await this.loop;
     const s = this.session;
@@ -103,6 +127,10 @@ export class BuddyService {
   }
   private async work() {
     while (!this.stopped) {
+      if (this.updating) {
+        await sleep(200);
+        continue;
+      }
       try {
         if (!this.session && !this.connecting) {
           const ports = await this.platform.ports();
@@ -122,8 +150,8 @@ export class BuddyService {
       await sleep(1000);
     }
   }
-  async connect(port: Port) {
-    if (this.connecting || this.snapshot.busy) return;
+  async connect(port: Port, forUpdate = false) {
+    if (this.connecting || (this.snapshot.busy && !forUpdate)) return;
     if (!port.serial) {
       this.report(Error("接收器没有稳定设备标识"));
       return;
@@ -153,7 +181,7 @@ export class BuddyService {
           slots: this.snapshot.slots.map((x) => ({ ...x, state: 1 })),
           info: undefined,
         });
-        this.report(e);
+        if (!this.updating) this.report(e);
         void s.close(false).catch((e) => this.report(e));
       };
       s.onEvent = (f) => {
@@ -163,7 +191,19 @@ export class BuddyService {
       await s.open(port.path);
       if (this.session !== s) throw Error("握手过程中连接中断");
       await this.refresh();
-      this.update({ status: "connected", error: "" });
+      if (this.platform.models && remoteModels.size) {
+        if (this.snapshot.info?.model_api === 1) {
+          try {
+            await syncModels(
+              (op, body) => s.command(op, body),
+              this.snapshot.info.model_capacity ?? 16,
+            );
+          } catch (e) {
+            this.report(e);
+          }
+        } else this.log("接收器固件不支持外部型号，请先更新固件");
+      }
+      this.update({ status: "connected" });
       this.log(`管理连接已建立 ${port.serial}`);
     } catch (e) {
       const s = this.session;
@@ -237,8 +277,55 @@ export class BuddyService {
       throw Error("遥控器已变化，请重新选择");
     return { slot: slot.slot, peer_id: slot.peer_id };
   }
+  async beginProbe() {
+    this.ensureMutable();
+    if (
+      this.snapshot.info?.probe_api !== 1 ||
+      this.snapshot.info?.probe_voice_api !== 1
+    )
+      throw Error("接收器固件不支持适配工具，请先更新固件");
+    this.update({ busy: true });
+    const session = this.require();
+    try {
+      await session.command(OP.PROBE_BEGIN);
+    } catch (e) {
+      this.update({ busy: false });
+      throw e;
+    }
+    return async <T = Record<string, unknown>>(
+      op: number,
+      body: Record<string, unknown> = {},
+    ) => {
+      if (this.session !== session)
+        throw Error("探测连接已断开，请关闭工具后重新打开");
+      return session.command<T>(op, body);
+    };
+  }
+  releaseProbe() {
+    this.update({ busy: false });
+  }
+  async reloadModels() {
+    if (!this.platform.models) return;
+    const errors = loadModels(await this.platform.models());
+    if (errors.length) throw Error(errors.join("\n"));
+    if (this.snapshot.info?.model_api === 1) {
+      const session = this.require();
+      await syncModels(
+        (op, body) => session.command(op, body),
+        this.snapshot.info.model_capacity ?? 16,
+      );
+    }
+    this.update();
+  }
   async scan() {
     this.ensureMutable();
+    if (this.platform.models && this.snapshot.info?.model_api === 1) {
+      const session = this.require();
+      await syncModels(
+        (op, body) => session.command(op, body),
+        this.snapshot.info.model_capacity ?? 16,
+      );
+    }
     return this.require().command<{ scan_epoch: number }>(OP.SCAN, {
       duration_ms: 30000,
     });
@@ -406,6 +493,7 @@ export class BuddyService {
     }
   }
   private async action(event: Record<string, unknown>) {
+    if (this.updating) return;
     try {
       const origin = this.require();
       if (
@@ -460,19 +548,124 @@ export class BuddyService {
           throw Error("接收器已变化，已取消操作");
         inputMethod = inputMethodForVoice(voiceMap);
       }
+      if (this.updating) return;
       await this.platform.run(action, inputMethod);
     } catch (e) {
       this.report(e);
     }
   }
+  cancelFirmwareUpdate() {
+    this.cancelUpdate = true;
+  }
+  async updateFirmware(pkg: FirmwarePackage) {
+    this.ensureMutable();
+    const old = this.require(),
+      board = this.snapshot.board!,
+      info = this.snapshot.info!;
+    if (info.voice_owner !== 255) throw Error("请先结束录音");
+    this.updating = true;
+    this.cancelUpdate = false;
+    this.update({
+      busy: true,
+      error: "",
+      firmwareProgress: { phase: "正在检查", percent: 0, active: true },
+    });
+    try {
+      await this.platform.updateLock?.(true);
+      const image = await validatePackage(pkg, info);
+      if (!isNewer(pkg.manifest.version, info.firmware))
+        throw Error("接收器已是当前版本或更新版本");
+      await transferFirmware(
+        old,
+        pkg,
+        image,
+        (p) => this.update({ firmwareProgress: p }),
+        () => this.cancelUpdate,
+      );
+      this.update({
+        firmwareProgress: { phase: "正在重启", percent: 98, active: true },
+      });
+      if (this.session === old) this.session = undefined;
+      await old.close(false);
+      await sleep(1200);
+      const deadline = Date.now() + 45000;
+      while (Date.now() < deadline) {
+        if (!this.session) {
+          const port = (await this.platform.ports()).find(
+            (p) => p.serial === board.serial,
+          );
+          if (port) await this.connect(port, true);
+        }
+        if (this.session) {
+          try {
+            await this.refresh();
+          } catch {
+            // USB can disappear a second time when the bootloader rolls back.
+            const lost = this.session;
+            this.session = undefined;
+            if (lost) await lost.close(false).catch(() => {});
+            await sleep(500);
+            continue;
+          }
+          const current = this.snapshot.info;
+          if (
+            current?.firmware === `buddy-${pkg.manifest.version}` &&
+            current.bank !== info.bank &&
+            current.confirmed
+          ) {
+            this.update({
+              error: "",
+              firmwareProgress: {
+                phase: "更新完成",
+                percent: 100,
+                active: false,
+              },
+            });
+            return;
+          }
+          if (
+            current?.confirmed &&
+            current?.firmware === info.firmware &&
+            current.bank === info.bank
+          )
+            throw Error("更新未生效，接收器仍运行原版本");
+        }
+        await sleep(500);
+      }
+      throw Error("未能确认更新结果，请重新连接接收器检查版本");
+    } catch (e) {
+      this.update({
+        firmwareProgress: {
+          phase: e instanceof Error ? e.message : String(e),
+          percent: 0,
+          active: false,
+        },
+      });
+      throw e;
+    } finally {
+      this.updating = false;
+      this.update({ busy: false });
+      await this.platform.updateLock?.(false);
+    }
+  }
   async diagnostics() {
     const s = this.require(),
       result: unknown[] = [];
-    for (let index = 0; index < 5; index++) {
+    // Faults, audio/USB counters, negotiated links, probe status and control history.
+    // Read only on request; do not poll the high-volume HCI ring during recording.
+    const indices = [
+      ...Array.from({ length: 11 }, (_, i) => i),
+      12,
+      ...Array.from({ length: 64 }, (_, i) => i + 16),
+    ];
+    for (const index of indices) {
       try {
-        result.push(await s.command(OP.STATS, { index }));
+        const data = await s.command(OP.STATS, { index });
+        if (this.session !== s) throw Error("接收器已变化");
+        result.push({ index, data });
       } catch (e) {
         if (!(e instanceof DeviceError && e.status === 6)) throw e;
+        if (index >= 16) break; // Newest-first history is contiguous.
       }
     }
     return result;

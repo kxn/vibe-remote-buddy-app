@@ -1,3 +1,6 @@
+import { ProbeWorkbench } from "./ProbeWorkbench";
+import { remoteModels, loadModels } from "./core/models";
+import { isNewer, type FirmwarePackage } from "./core/firmware";
 import React, {
   useEffect,
   useRef,
@@ -40,17 +43,12 @@ import type {
   Settings,
 } from "./core/types";
 import { validateSettings } from "./core/settings";
-import {
-  labels,
-  layouts,
-  modifiers,
-  usages,
-  media,
-  chord,
-} from "./core/layout";
+import { labels, modifiers, usages, media, chord } from "./core/layout";
 import "./style.css";
 import { ActionFields } from "./ActionFields";
 import { WindowPicker } from "./WindowPicker";
+import { ProjectLinks, ExternalLink, project } from "./ProjectLinks";
+import { configurePlatform } from "./platform";
 import { runAction } from "./action-runner";
 import {
   validAction,
@@ -60,13 +58,39 @@ import {
   voicePreset,
 } from "./core/actions";
 
+if (!native) {
+  const packages = import.meta.glob("../resources/remotes/*/model.json", {
+    eager: true,
+    import: "default",
+  });
+  const artwork = import.meta.glob<string>("../resources/remotes/*/*.svg", {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  });
+  loadModels(
+    Object.entries(packages).map(([source, model]) => ({
+      source,
+      model,
+      image:
+        artwork[
+          source.replace(
+            "model.json",
+            (model as { layout?: { artwork?: string } }).layout?.artwork ?? "",
+          )
+        ],
+    })),
+  );
+}
 const service = new BuddyService({
+  models: () => call("remote_model_resources"),
   ports: () => call<Port[]>("ports"),
   transport: () => new SerialTransport(),
   load: () => call("load_settings"),
   save: (value) => call("save_settings", { value }),
   run: runAction,
   background: (enabled) => call("set_background", { enabled }),
+  updateLock: (enabled) => call("firmware_lock", { enabled }),
 });
 const icons: Record<number, React.ComponentType<{ size?: number }>> = {
   1: Power,
@@ -92,6 +116,14 @@ function Spinner() {
   return <LoaderCircle className="spin" size={16} />;
 }
 function App() {
+  const [firmware, setFirmware] = useState<FirmwarePackage | null>(null);
+  useEffect(() => {
+    if (native)
+      void call<FirmwarePackage | null>("firmware_package")
+        .then(setFirmware)
+        .catch((e) => service.report(e));
+  }, []);
+
   const snap = useSyncExternalStore(service.subscribe, service.getSnapshot),
     [page, setPage] = useState<"home" | "keys" | "settings">("home"),
     [peer, setPeer] = useState(0),
@@ -104,9 +136,11 @@ function App() {
       | "rename"
       | "remove"
       | "edit"
+      | "probe"
       | "diagnostics"
       | "shared"
       | "backup"
+      | "about"
       | null
     >(null),
     [edit, setEdit] = useState<KeyEntry>(),
@@ -122,7 +156,12 @@ function App() {
     recording = connected && snap.info?.voice_owner !== 255;
   useEffect(() => {
     if (native) {
-      void service.start();
+      void call<string>("desktop_platform")
+        .then((platform) => {
+          configurePlatform(platform);
+          return service.start();
+        })
+        .catch((e) => service.report(e));
       void call<boolean>("plugin:autostart|is_enabled")
         .then(setAutostart)
         .catch((e) => service.report(e));
@@ -197,10 +236,17 @@ function App() {
   return (
     <div className="app">
       <header>
-        <div className="brand">
+        <button
+          className="brand quiet"
+          aria-label="Vibe Remote Buddy 首页"
+          onClick={() => {
+            setModal(null);
+            setPage("home");
+          }}
+        >
           <img className="logo" src="/icon.svg" alt="" width="32" height="32" />
           Vibe Remote Buddy
-        </div>
+        </button>
         <div className="header-right">
           <span className="connection">
             {snap.status === "connecting" ? (
@@ -214,6 +260,7 @@ function App() {
                 ? "正在连接…"
                 : "未找到接收器"}
           </span>
+          <ProjectLinks onError={(e) => service.report(e)} />
           <button
             className="icon quiet"
             aria-label="设置"
@@ -360,39 +407,14 @@ function App() {
             ) : selected ? (
               <div className="layout-panel">
                 <div className="layout-stage">
-                  {selected.model === "xiaomi.rc003" ? (
-                    <XiaomiRemote
-                      onKey={(id) => {
-                        setEdit(entries.find((e) => e.catalog.key === id));
-                        setModal("edit");
-                      }}
-                      keys={entries.map((e) => e.catalog.key)}
-                    />
-                  ) : layouts[selected.model] ? (
-                    <div className="handset">
-                      {layouts[selected.model].flat().map((id, i) =>
-                        id && entries.some((e) => e.catalog.key === id) ? (
-                          <button
-                            aria-label={labels[id] ?? String(id)}
-                            key={i}
-                            className={id === 2 ? "voice" : ""}
-                            onClick={() => {
-                              setEdit(
-                                entries.find((e) => e.catalog.key === id),
-                              );
-                              setModal("edit");
-                            }}
-                          >
-                            <KeyIcon id={id} />
-                          </button>
-                        ) : (
-                          <span key={i} />
-                        ),
-                      )}
-                    </div>
-                  ) : (
-                    <p className="muted">此型号使用按键列表</p>
-                  )}
+                  <ModelRemote
+                    model={selected.model}
+                    keys={entries.map((e) => e.catalog.key)}
+                    onKey={(id) => {
+                      setEdit(entries.find((e) => e.catalog.key === id));
+                      setModal("edit");
+                    }}
+                  />
                   <p className="caption muted">按键示意</p>
                 </div>
                 <div>
@@ -416,7 +438,7 @@ function App() {
                         />
                       ))}
                   </div>
-                  <details open={!layouts[selected.model]}>
+                  <details open={!remoteModels.has(selected.model)}>
                     <summary>其他按键</summary>
                     <div className="keylist">
                       {entries
@@ -479,8 +501,63 @@ function App() {
                 }
               />
             </label>
+            <div className="setting">
+              <span>
+                接收器固件
+                <br />
+                <small className="muted">
+                  {snap.info?.firmware ?? "未连接"}
+                  {firmware ? ` · 可用 ${firmware.manifest.version}` : ""}
+                </small>
+              </span>
+              <button
+                disabled={
+                  !connected ||
+                  busy ||
+                  !firmware ||
+                  snap.info?.update_api !== 1 ||
+                  !isNewer(firmware.manifest.version, snap.info?.firmware ?? "")
+                }
+                onClick={() =>
+                  void safely(() => service.updateFirmware(firmware!))
+                }
+              >
+                更新
+              </button>
+            </div>
+            {firmware && <p className="muted">{firmware.manifest.notes}</p>}
+            {connected && snap.info?.update_api !== 1 && (
+              <p className="muted">此接收器需要首次安装新版固件</p>
+            )}
+            {snap.firmwareProgress && (
+              <div role="status" aria-live="polite">
+                <span>{snap.firmwareProgress.phase}</span>
+                {snap.firmwareProgress.active && (
+                  <progress
+                    style={{ width: "100%" }}
+                    max={100}
+                    value={snap.firmwareProgress.percent}
+                  />
+                )}
+                {snap.firmwareProgress.active &&
+                  snap.firmwareProgress.percent < 96 && (
+                    <button onClick={() => service.cancelFirmwareUpdate()}>
+                      取消更新
+                    </button>
+                  )}
+              </div>
+            )}
             <details>
               <summary>高级</summary>
+              <div className="setting">
+                <span>遥控器适配工具</span>
+                <button
+                  disabled={!connected || busy}
+                  onClick={() => setModal("probe")}
+                >
+                  打开
+                </button>
+              </div>
 
               <div className="setting">
                 <span>备份与恢复</span>
@@ -505,10 +582,6 @@ function App() {
                   查看
                 </button>
               </div>
-              <div className="setting">
-                <span>版本</span>
-                <span className="muted">0.1.0</span>
-              </div>
               <button
                 disabled={!native}
                 onClick={() =>
@@ -521,9 +594,41 @@ function App() {
                 退出 Vibe Remote Buddy
               </button>
             </details>
+            <button
+              className="setting about-entry quiet"
+              onClick={() => setModal("about")}
+            >
+              <span>关于 Vibe Remote Buddy</span>
+              <ChevronRight size={17} />
+            </button>
           </>
         )}
       </main>
+      {modal === "probe" && (
+        <ProbeWorkbench service={service} close={() => setModal(null)} />
+      )}
+      {modal === "about" && (
+        <Dialog title="关于" close={() => setModal(null)}>
+          <div className="about-product">
+            <img className="logo" src="/icon.svg" alt="" />
+            <div>
+              <h2>Vibe Remote Buddy</h2>
+              <p className="muted">版本 0.1.0 · 作者 kxn</p>
+            </div>
+          </div>
+          <ProjectLinks onError={(e) => service.report(e)} />
+          <ExternalLink
+            href={project.notices}
+            onError={(e) => service.report(e)}
+          >
+            第三方代码与版权声明 <ArrowUpRight size={15} />
+          </ExternalLink>
+          <p className="muted">© 2026 kxn · MIT License</p>
+          <footer>
+            <button onClick={() => setModal(null)}>关闭</button>
+          </footer>
+        </Dialog>
+      )}
       {modal === "add" && (
         <PairDialog
           service={service}
@@ -690,69 +795,79 @@ function App() {
   );
 }
 function modelName(id: string) {
-  return id.startsWith("xiaomi.")
-    ? "小米 Remote 2 Pro"
-    : id.startsWith("unicom.")
-      ? "联通 BLE 遥控器"
-      : id;
+  return remoteModels.get(id)?.title ?? id;
 }
-const xiaomiPositions: [number, number, number][] = [
-  [1, 25, 6],
-  [2, 75, 6],
-  [3, 50, 18],
-  [5, 22, 26],
-  [7, 50, 26],
-  [6, 78, 26],
-  [4, 50, 34],
-  [8, 25, 43],
-  [12, 75, 43],
-  [9, 25, 53],
-  [13, 75, 53],
-  [10, 25, 63],
-  [11, 75, 63],
-];
-function XiaomiRemote({
+function ModelRemote({
+  model,
   mini = false,
   onKey,
   keys,
 }: {
+  model: string;
   mini?: boolean;
   onKey?: (id: number) => void;
   keys?: number[];
 }) {
+  const resource = remoteModels.get(model);
+  if (!resource)
+    return (
+      <div className="muted">
+        {mini ? <Radio size={32} /> : "此型号使用按键列表"}
+      </div>
+    );
+  const layout = resource.layout;
+  const image = resource.image
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(resource.image)}`
+    : undefined;
   return (
     <div
-      className={`xiaomi-body ${mini ? "mini-remote" : "handset"}`}
+      className={`model-remote ${mini ? "model-mini" : "model-full"}`}
       aria-hidden={mini || undefined}
+      style={{
+        aspectRatio: `${layout.width}/${layout.height}`,
+        transform: mini ? `rotate(${layout.angle ?? -9}deg)` : undefined,
+      }}
     >
-      <div className="xiaomi-ring" />
-      <div className="xiaomi-volume" />
-      {xiaomiPositions.map(([id, x, y]) => {
+      {image && (
+        <img className="model-artwork" src={image} alt="" draggable={false} />
+      )}
+      {layout.buttons.map((b) => {
+        const definition = resource.keys.find((k) => k.id === b.key)!;
         const props = {
-          className: `xiaomi-key key-${id}`,
-          style: { left: `${x}%`, top: `${y}%` },
+          className: `model-button ${b.key === 2 ? "voice" : ""}`,
+          style: {
+            left: `${b.x}%`,
+            top: `${b.y}%`,
+            width: `${b.width}%`,
+            height: `${b.height}%`,
+            borderRadius: `${b.radius}%`,
+            background: b.fill,
+            color: b.color,
+            borderColor: b.border,
+          },
         };
-        const symbol =
-          id === 11 ? (
-            <span>TV</span>
-          ) : id === 12 ? (
-            <span>+</span>
-          ) : id === 13 ? (
-            <span>−</span>
-          ) : (
-            <KeyIcon id={id} />
-          );
+        const symbol = b.symbol ? (
+          <span>{b.symbol}</span>
+        ) : b.key === 11 ? (
+          <span>TV</span>
+        ) : b.key === 12 ? (
+          <span>+</span>
+        ) : b.key === 13 ? (
+          <span>−</span>
+        ) : (
+          <KeyIcon id={b.key} />
+        );
         return mini ? (
-          <span key={id} {...props}>
-            {symbol}
+          <span key={b.key} {...props}>
+            {layout.thumbnailSymbols ? symbol : null}
           </span>
         ) : (
           <button
-            key={id}
+            key={b.key}
             {...props}
-            aria-label={labels[id]}
-            disabled={keys && !keys.includes(id)}
-            onClick={() => onKey?.(id)}
+            aria-label={definition.label}
+            disabled={keys && !keys.includes(b.key)}
+            onClick={() => onKey?.(b.key)}
           >
             {symbol}
           </button>
@@ -762,27 +877,7 @@ function XiaomiRemote({
   );
 }
 function MiniRemote({ model }: { model: string }) {
-  if (model === "xiaomi.rc003") return <XiaomiRemote mini />;
-  const layout = layouts[model];
-  return (
-    <div
-      className={`mini-remote ${model.startsWith("unicom") ? "unicom" : ""}`}
-      aria-hidden="true"
-    >
-      {layout ? (
-        layout
-          .flat()
-          .map((id, i) => (
-            <span
-              className={`mini-key ${id === 2 ? "voice" : !id ? "empty" : ""}`}
-              key={i}
-            />
-          ))
-      ) : (
-        <Radio size={32} />
-      )}
-    </div>
-  );
+  return <ModelRemote model={model} mini />;
 }
 function KeyRow({
   entry,
@@ -798,7 +893,13 @@ function KeyRow({
       <span className="key-symbol">
         <KeyIcon id={entry.catalog.key} />
       </span>
-      <span>{labels[entry.catalog.key] ?? entry.catalog.name}</span>
+      <span>
+        {remoteModels
+          .get(entry.catalog.model)
+          ?.keys.find((k) => k.id === entry.catalog.key)?.label ??
+          labels[entry.catalog.key] ??
+          entry.catalog.name}
+      </span>
       <span className="function">{description}</span>
       <ChevronRight size={14} />
     </button>
@@ -832,7 +933,7 @@ function Dialog({
         if (e.key === "Tab") {
           const els = Array.from(
             ref.current?.querySelectorAll<HTMLElement>(
-              "button:not(:disabled),input:not(:disabled),select:not(:disabled),summary",
+              "button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,a[href]",
             ) ?? [],
           );
           if (e.shiftKey && document.activeElement === els[0]) {
@@ -1135,7 +1236,13 @@ function Editor({
   return (
     <Dialog
       title={
-        voice ? "语音输入" : (labels[entry.catalog.key] ?? entry.catalog.name)
+        voice
+          ? "语音输入"
+          : (remoteModels
+              .get(entry.catalog.model)
+              ?.keys.find((k) => k.id === entry.catalog.key)?.label ??
+            labels[entry.catalog.key] ??
+            entry.catalog.name)
       }
       close={requestClose}
     >

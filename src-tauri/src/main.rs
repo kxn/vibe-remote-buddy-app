@@ -9,26 +9,18 @@ use std::{
     time::Duration,
 };
 use tauri::{Manager, State};
-mod activate;
-mod desktop;
-mod ime;
-mod installed_apps;
+mod models;
+mod platform;
+use platform::{activate, desktop, ime, installed_apps};
+fn show_main(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
 fn tray_image() -> Result<tauri::image::Image<'static>, tauri::Error> {
-    #[cfg(windows)]
-    let size = unsafe {
-        use windows::{
-            core::w,
-            Win32::UI::{HiDpi::GetDpiForWindow, WindowsAndMessaging::FindWindowW},
-        };
-        let dpi = FindWindowW(w!("Shell_TrayWnd"), None)
-            .ok()
-            .map(|h| GetDpiForWindow(h))
-            .filter(|d| *d > 0)
-            .unwrap_or(96);
-        (16 * dpi + 95) / 96
-    };
-    #[cfg(not(windows))]
-    let size = 32;
+    let size = platform::shell::tray_size();
     let bytes: &[u8] = match size {
         0..=16 => include_bytes!("../icons/tray-16.png"),
         17..=20 => include_bytes!("../icons/tray-20.png"),
@@ -64,8 +56,12 @@ async fn launch_installed_application(app_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn desktop_platform() -> &'static str {
+    std::env::consts::OS
+}
+#[tauri::command]
 fn desktop_available() -> bool {
-    cfg!(windows)
+    platform::DESKTOP_AVAILABLE
 }
 #[tauri::command]
 fn desktop_windows() -> Result<Vec<desktop::Window>, String> {
@@ -113,29 +109,11 @@ fn picker_prepared(
     p.error = error;
     Ok(())
 }
-fn picker_identity(w: &tauri::WebviewWindow) -> Result<desktop::Window, String> {
-    #[cfg(windows)]
-    {
-        let hwnd = w.hwnd().map_err(|e| e.to_string())?;
-        Ok(desktop::Window {
-            token: format!("{}:{}", hwnd.0 as usize, std::process::id()),
-            title: "窗口选择".into(),
-            process: "".into(),
-            path: std::env::current_exe()
-                .map_err(|e| e.to_string())?
-                .to_string_lossy()
-                .into_owned(),
-        })
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = w;
-        Err("此平台的窗口选择尚未适配".into())
-    }
-}
 #[tauri::command]
 fn picker_confirm(window: tauri::WebviewWindow, state: State<Native>) -> Result<(), String> {
-    if window.label() != "picker" || desktop::current_token() != picker_identity(&window)?.token {
+    if window.label() != "picker"
+        || desktop::current_token() != platform::shell::picker_identity(&window)?.token
+    {
         return Err("选择器没有取得前台焦点".into());
     }
     state.picker.lock().map_err(|e| e.to_string())?.confirmed = true;
@@ -202,7 +180,7 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
                 }
                 std::thread::sleep(Duration::from_millis(15));
             }
-            let identity = picker_identity(&w)?;
+            let identity = platform::shell::picker_identity(&w)?;
             let current = desktop::current_token();
             if current != origin && current != identity.token {
                 return Err("前台窗口已变化，已取消打开选择器".into());
@@ -246,6 +224,7 @@ struct Native {
     picker_opening: AtomicBool,
     port: Mutex<Option<Box<dyn serialport::SerialPort>>>,
     background: AtomicBool,
+    updating: AtomicBool,
 }
 #[derive(Serialize)]
 struct Port {
@@ -420,20 +399,7 @@ fn run_action(kind: String, target: String) -> Result<(), String> {
             if activate::existing(&target)? {
                 return Ok(());
             }
-            #[cfg(target_os = "macos")]
-            {
-                std::process::Command::new("open")
-                    .arg("-a")
-                    .arg(p)
-                    .spawn()
-                    .map_err(|e| e.to_string())?;
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                std::process::Command::new(p)
-                    .spawn()
-                    .map_err(|e| e.to_string())?;
-            }
+            platform::shell::launch_path(p)?;
             Ok(())
         }
         _ => Err("不支持的动作".into()),
@@ -441,20 +407,44 @@ fn run_action(kind: String, target: String) -> Result<(), String> {
 }
 #[tauri::command]
 fn quit(app: tauri::AppHandle, state: State<Native>) {
+    if state.updating.load(Ordering::Relaxed) {
+        return;
+    }
     let _ = serial_close(state);
     app.exit(0);
+}
+#[tauri::command]
+fn firmware_package() -> Result<Option<serde_json::Value>, String> {
+    let manifest: serde_json::Value =
+        serde_json::from_slice(include_bytes!(concat!(env!("OUT_DIR"), "/manifest.json")))
+            .map_err(|e| e.to_string())?;
+    if manifest.is_null() {
+        return Ok(None);
+    }
+    let image = include_bytes!(concat!(env!("OUT_DIR"), "/receiver.bin"));
+    if image.len() > 2 * 1024 * 1024 {
+        return Err("固件包过大".into());
+    }
+    Ok(Some(
+        serde_json::json!({"manifest":manifest,"image":image.as_slice()}),
+    ))
+}
+#[tauri::command]
+fn firmware_lock(enabled: bool, state: State<Native>) {
+    state.updating.store(enabled, Ordering::Relaxed);
 }
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
+            show_main(app);
         }))
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .manage(Native::default())
         .invoke_handler(tauri::generate_handler![
+            models::remote_model_resources,
+            models::save_remote_model,
+            firmware_package,
+            firmware_lock,
             ports,
             serial_open,
             serial_close,
@@ -468,6 +458,7 @@ fn main() {
             import_config,
             run_action,
             desktop_available,
+            desktop_platform,
             desktop_focus_token,
             installed_applications,
             launch_installed_application,
@@ -485,11 +476,22 @@ fn main() {
         .setup(|app| {
             use tauri::{
                 menu::{Menu, MenuItem},
-                tray::TrayIconBuilder,
+                tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
             };
             // Tauri's ICO decoder takes the first frame, not the largest frame.
             // Explicit large RGBA also protects against future ICO reordering.
             if let Some(window) = app.get_webview_window("main") {
+                if let Some(monitor) = window.current_monitor()? {
+                    let available = monitor
+                        .work_area()
+                        .size
+                        .to_logical::<f64>(monitor.scale_factor());
+                    window.set_size(tauri::LogicalSize::new(
+                        880.0_f64.min((available.width - 32.0).max(400.0)),
+                        720.0_f64.min((available.height - 64.0).max(420.0)),
+                    ))?;
+                    window.center()?;
+                }
                 window.set_icon(tauri::image::Image::from_bytes(include_bytes!(
                     "../icons/128x128@2x.png"
                 ))?)?;
@@ -502,16 +504,28 @@ fn main() {
                 .icon(tray_image()?)
                 .tooltip("Vibe Remote Buddy")
                 .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "show" => {
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
+                .show_menu_on_left_click(platform::TRAY_MENU_ON_LEFT_CLICK)
+                .on_tray_icon_event(|tray, event| {
+                    if !platform::TRAY_MENU_ON_LEFT_CLICK
+                        && matches!(
+                            event,
+                            TrayIconEvent::Click {
+                                button: MouseButton::Left,
+                                button_state: MouseButtonState::Up,
+                                ..
+                            }
+                        )
+                    {
+                        show_main(tray.app_handle());
                     }
+                })
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => show_main(app),
                     "exit" => {
-                        let _ = serial_close(app.state());
-                        app.exit(0)
+                        if !app.state::<Native>().updating.load(Ordering::Relaxed) {
+                            let _ = serial_close(app.state());
+                            app.exit(0);
+                        }
                     }
                     _ => (),
                 })
@@ -528,6 +542,10 @@ fn main() {
                 return;
             }
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if w.state::<Native>().updating.load(Ordering::Relaxed) {
+                    api.prevent_close();
+                    return;
+                }
                 if w.state::<Native>().background.load(Ordering::Relaxed) {
                     api.prevent_close();
                     let _ = w.hide();

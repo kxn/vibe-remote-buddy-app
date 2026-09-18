@@ -17,8 +17,8 @@ with sync_playwright() as p:
    if count>1:assert rects[0]['y']==rects[1]['y']
    if count>2:assert rects[2]['y']>rects[0]['y']
   page.screenshot(path=str(out/f'four-{dpi}.png'),full_page=True)
-  page.locator('.configure').first.click();page.locator('.handset button').nth(12).wait_for()
-  page.locator('.handset button[aria-label="语音"]').click()
+  page.locator('.configure').first.click();page.locator('.model-full button').nth(12).wait_for()
+  page.locator('.model-full button[aria-label="语音"]').click()
   page.get_by_role('combobox',name='语音输入',exact=True).select_option('custom')
   page.get_by_label('左 Alt',exact=True).check()
   page.get_by_role('button',name='保存',exact=True).click()
@@ -30,7 +30,7 @@ with sync_playwright() as p:
   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
   rects=page.locator('.device').evaluate_all('(es)=>es.map(e=>e.getBoundingClientRect().y)')
   assert rects[1]>rects[0]
-  assert not errors,errors
+  assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors
   context.close()
  browser.close()
 print('PASS: 1–4 cards, DPI 100/125/150/200%, page zoom 200%, mapping save; no real hardware used.')

@@ -30,31 +30,6 @@ export const labels: Record<number, string> = {
   33: "*",
   34: "#",
 };
-export const layouts: Record<string, (number | null)[][]> = {
-  "xiaomi.rc003": [
-    [1, null, 2],
-    [null, 3, null],
-    [5, 7, 6],
-    [null, 4, null],
-    [8, null, 12],
-    [9, null, 13],
-    [10, null, 11],
-  ],
-  "unicom.hid_ico.v1": [
-    [null, null, 1],
-    [14, null, 19],
-    [null, 3, null],
-    [5, 7, 6],
-    [null, 4, null],
-    [9, 20, 8],
-    [12, 2, 21],
-    [13, null, 22],
-    [24, 25, 26],
-    [27, 28, 29],
-    [30, 31, 32],
-    [33, 23, 34],
-  ],
-};
 export const modifiers = [
   "左 Ctrl",
   "左 Shift",

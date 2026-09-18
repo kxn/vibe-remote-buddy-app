@@ -35,10 +35,10 @@ npm run tauri -- dev
 构建优化版独立可执行文件：
 
 ```powershell
-npm run tauri -- build --no-bundle
+npm run release
 ```
 
-Windows 输出为 src-tauri/target/release/vibe-remote-buddy.exe。目前不生成安装包，也未做代码签名。开发构建可加 --debug。
+Windows 完整便携包固定输出到 `out/latest/`，启动其中的 `Vibe Remote Buddy.exe`。需要留档使用 `npm run release:archive`。每份包带 `build-info.json`，详见[构建产物规范](docs/build-artifacts.md)。目前不生成安装包，也未做代码签名。
 
 ## 测试
 
@@ -64,9 +64,19 @@ UI 测试注入模拟接口，不连接真实接收器。原生窗口测试会�
 - src/action-runner.ts：应用动作编排。
 - src-tauri/src：串口、文件、托盘及原生平台操作。
 - [客户端协议](docs/protocol.md)
+- [固件更新与发布打包](docs/firmware-update.md)
 - [应用动作与输入法行为](docs/actions.md)
+- [平台接口与适配范围](docs/platforms.md)
 - [第三方声明](THIRD_PARTY_NOTICES.md)
 
 添加列表仅显示支持型号或已绑定身份，并要求 RSSI ≥ -65 dBm、5 秒内收到广播。窗口打开时持续搜索；信号门槛是近距离筛选，不是精确测距。配对前先停止扫描，防止旧候选编号被复用。
 
 用户配置包含本机应用路径和自定义动作，请勿直接上传配置备份或诊断日志。导入配置不会自动获得执行权限，需要重新保存对应软件动作。
+
+## 型号资源
+
+型号识别、按钮默认功能、布局和外观位于 `resources/remotes`。同协议变种可以编辑资源后安装到接收器，无需重编译；发布时必须同时提供 exe 和资源目录。详见 [型号资源说明](docs/remote-models.md)。
+
+适配同协议的新遥控器，可使用[遥控器适配工具](docs/remote-probe.md)采集身份、按键与布局资源。
+
+正式构建统一使用 `npm run release`，会编译前端并启用 `custom-protocol`，将页面嵌入 EXE。不要用普通 `cargo build --release` 打发布包；构建检查会拒绝缺少生产资源特性的 release。便携包必须同时包含 EXE 和旁边的 `resources` 目录。验收时停止 Vite（1420 端口），再启动打包后的 EXE。

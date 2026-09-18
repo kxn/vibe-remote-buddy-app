@@ -1,12 +1,4 @@
-use serde::{Deserialize, Serialize};
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct InstalledApp {
-    pub name: String,
-    #[serde(rename = "AppID")]
-    pub app_id: String,
-}
-#[cfg(windows)]
+pub use crate::platform::types::InstalledApp;
 pub fn list() -> Result<Vec<InstalledApp>, String> {
     use std::{
         os::windows::process::CommandExt,
@@ -49,7 +41,6 @@ pub fn list() -> Result<Vec<InstalledApp>, String> {
     }
     serde_json::from_str(&json).map_err(|e| format!("应用目录格式错误：{e}"))
 }
-#[cfg(windows)]
 pub fn launch(app_id: &str) -> Result<(), String> {
     if !list()?.iter().any(|a| a.app_id == app_id) {
         return Err("应用已卸载或启动入口已变化".into());
@@ -60,12 +51,4 @@ pub fn launch(app_id: &str) -> Result<(), String> {
         .spawn()
         .map_err(|e| e.to_string())?;
     Ok(())
-}
-#[cfg(not(windows))]
-pub fn list() -> Result<Vec<InstalledApp>, String> {
-    Err("此平台的应用启动适配尚未实现".into())
-}
-#[cfg(not(windows))]
-pub fn launch(_: &str) -> Result<(), String> {
-    Err("此平台的应用启动适配尚未实现".into())
 }

@@ -1,0 +1,949 @@
+import React, { useEffect, useRef, useState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { BuddyService } from "./core/service";
+import { remoteModels, validateModel, type RemoteModel } from "./core/models";
+import {
+  ProbeClient,
+  decodeKey,
+  makeVariant,
+  familyEvidence,
+  sdkError,
+  probeStages,
+  readProbeAudio,
+  type ProbeCandidate,
+  type ProbeAttribute,
+  type ProbeReport,
+  type ProbeStatus,
+  type ProbeVoiceStatus,
+} from "./core/probe";
+import { verifiedModel, removeKey, type KeyProof } from "./core/probe-layout";
+import { ProbeLayout } from "./ProbeLayout";
+import { OP, sleep, DeviceError } from "./core/session";
+import { call, native } from "./native";
+type Capture = {
+  key: number;
+  proof?: KeyProof;
+  phase: "key" | "voice";
+  listened: boolean;
+  accepted: boolean;
+};
+const steps = ["发现设备", "连接与识别", "按键与布局", "保存型号"];
+export function ProbeWorkbench({
+  service,
+  close,
+}: {
+  service: BuddyService;
+  close: () => void;
+}) {
+  const client = useRef<ProbeClient | undefined>(undefined),
+    alive = useRef(true),
+    locked = useRef(false),
+    ended = useRef(false),
+    after = useRef(0),
+    baseline = useRef(0),
+    pending = useRef<
+      { handle: number; report: number; usage: number } | undefined
+    >(undefined),
+    captureRef = useRef<Capture | undefined>(undefined),
+    attrsRef = useRef<ProbeAttribute[]>([]),
+    modelRef = useRef<RemoteModel | undefined>(undefined),
+    voicePrepared = useRef(false),
+    audioFetching = useRef(false),
+    urlRef = useRef(""),
+    lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
+    localSaved = useRef(""),
+    epoch = useRef(0),
+    dialogRef = useRef<HTMLElement>(null);
+  const [step, setStep] = useState(0),
+    [busy, setBusy] = useState(true),
+    [progress, setProgress] = useState("正在搜索"),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState(""),
+    [candidates, setCandidates] = useState<ProbeCandidate[]>([]),
+    [selected, setSelected] = useState<ProbeCandidate>(),
+    [protocol, setProtocol] = useState(0),
+    [status, setStatus] = useState<ProbeStatus>(),
+    [attrs, setAttrs] = useState<ProbeAttribute[]>([]),
+    [reports, setReports] = useState<ProbeReport[]>([]),
+    [model, setModel] = useState<RemoteModel>(),
+    [proofs, setProofs] = useState<Record<number, KeyProof>>({}),
+    [capture, setCapture] = useState<Capture>(),
+    [voice, setVoice] = useState<ProbeVoiceStatus>(),
+    [audio, setAudio] = useState(""),
+    [failures, setFailures] = useState<string[]>([]),
+    [saved, setSaved] = useState(false);
+  function update(m: RemoteModel) {
+    modelRef.current = m;
+    setModel(m);
+    setProofs((old) =>
+      Object.fromEntries(
+        Object.entries(old).filter(([id]) =>
+          m.keys.some((k) => k.id === Number(id)),
+        ),
+      ),
+    );
+  }
+  function capturing(c?: Capture) {
+    captureRef.current = c;
+    setCapture(c);
+  }
+  function clearAudio() {
+    if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+    urlRef.current = "";
+    setAudio("");
+    setVoice(undefined);
+  }
+  function fail(e: unknown) {
+    const message = service.report(e);
+    const detail =
+      e instanceof DeviceError
+        ? ` [opcode=0x${e.opcode.toString(16)} status=${e.status} ${JSON.stringify(e.detail)}]`
+        : "";
+    setError(message);
+    setFailures((old) => [...old, message + detail].slice(-64));
+  }
+  async function run(fn: () => Promise<void>) {
+    if (locked.current) return;
+    locked.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+    } catch (e) {
+      if (alive.current) fail(e);
+    } finally {
+      locked.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement;
+    const trap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const nested =
+        dialogRef.current?.querySelector<HTMLElement>(".probe-modal");
+      const root = nested ?? dialogRef.current;
+      if (!root) return;
+      const items = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          "button:not(:disabled),input:not(:disabled),select:not(:disabled),audio,summary",
+        ),
+      ).filter((e) => e.getClientRects().length);
+      const first = items[0],
+        last = items.at(-1);
+      if (!first) return;
+      if (
+        !root.contains(document.activeElement) ||
+        document.activeElement === root ||
+        (e.shiftKey && document.activeElement === first) ||
+        (!e.shiftKey && document.activeElement === last)
+      ) {
+        e.preventDefault();
+        (e.shiftKey ? last : first)?.focus();
+      }
+    };
+    document.addEventListener("keydown", trap, true);
+    return () => {
+      document.removeEventListener("keydown", trap, true);
+      previous?.focus();
+    };
+  }, []);
+  useEffect(() => {
+    alive.current = true;
+    dialogRef.current?.focus();
+    let started: ProbeClient | undefined;
+    void (async () => {
+      try {
+        started = new ProbeClient(await service.beginProbe());
+        client.current = started;
+        if (!alive.current) {
+          await started.end();
+          service.releaseProbe();
+          return;
+        }
+        setBusy(false);
+        while (alive.current) {
+          try {
+            if (!locked.current) {
+              const pollEpoch = epoch.current;
+              const s = await started.status();
+              if (!alive.current) break;
+              if (locked.current || pollEpoch !== epoch.current) {
+                await sleep(80);
+                continue;
+              }
+              setStatus(s);
+              if (!s.connected && captureRef.current) {
+                capturing(undefined);
+                clearAudio();
+                voicePrepared.current = false;
+                setError("连接已断开，请返回连接步骤重试");
+              }
+              if (s.active && !s.connected && !s.pending) {
+                const list = await started.candidates();
+                if (
+                  alive.current &&
+                  !locked.current &&
+                  pollEpoch === epoch.current
+                )
+                  setCandidates(list);
+              }
+              if (s.active && s.connected) {
+                const batch = await started.reports(after.current);
+                if (!alive.current) break;
+                if (pollEpoch !== epoch.current) continue;
+                for (const r of batch) {
+                  after.current = Math.max(after.current, r.sequence);
+                  const c = captureRef.current;
+                  if (
+                    locked.current ||
+                    !c ||
+                    c.phase !== "key" ||
+                    r.sequence <= baseline.current
+                  )
+                    continue;
+                  if (r.lost) {
+                    pending.current = undefined;
+                    capturing({ ...c, proof: undefined });
+                    baseline.current = r.sequence;
+                    setError("按键报告有遗漏，请重新按下并松开");
+                    continue;
+                  }
+                  const d = decodeKey(r, attrsRef.current);
+                  if (!d) continue;
+                  if (
+                    d.report === 248 &&
+                    (c.key !== 2 || modelRef.current?.family !== 2)
+                  )
+                    continue;
+                  if (d.usages.length === 1) {
+                    capturing({ ...c, proof: undefined });
+                    if (
+                      pending.current &&
+                      (pending.current.report !== d.report ||
+                        pending.current.usage !== d.usages[0])
+                    ) {
+                      pending.current = undefined;
+                      setError("请单独按下一个按键");
+                      continue;
+                    }
+                    pending.current = {
+                      handle: r.handle,
+                      report: d.report,
+                      usage: d.usages[0],
+                    };
+                  } else if (
+                    !d.usages.length &&
+                    pending.current?.handle === r.handle
+                  ) {
+                    const p = pending.current;
+                    pending.current = undefined;
+                    capturing({
+                      ...c,
+                      proof: { report: p.report, usage: p.usage },
+                    });
+                    setError("");
+                  } else if (d.usages.length > 1) {
+                    pending.current = undefined;
+                    capturing({ ...c, proof: undefined });
+                    setError("请单独按下一个按键");
+                  }
+                }
+                if (batch.length)
+                  setReports((old) => [...old, ...batch].slice(-256));
+                if (captureRef.current?.phase === "voice" && !locked.current) {
+                  const voiceEpoch = epoch.current;
+                  const v = await started.command<ProbeVoiceStatus>(
+                    OP.PROBE_VOICE_STATUS,
+                  );
+                  if (
+                    !alive.current ||
+                    locked.current ||
+                    voiceEpoch !== epoch.current ||
+                    captureRef.current?.phase !== "voice"
+                  )
+                    continue;
+                  lastVoice.current = v;
+                  setVoice(v);
+                  if (v.error)
+                    setError(
+                      `${voiceError(v.error)}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
+                    );
+                  if (
+                    !v.armed &&
+                    !v.recording &&
+                    v.released &&
+                    v.samples &&
+                    !v.error &&
+                    !v.decode_error &&
+                    !urlRef.current &&
+                    !audioFetching.current
+                  ) {
+                    audioFetching.current = true;
+                    const generation = epoch.current;
+                    void run(async () => {
+                      setProgress("读取测试录音");
+                      const wav = await readProbeAudio(
+                        started!,
+                        v,
+                        (n) =>
+                          setProgress(`读取测试录音 ${Math.round(n * 100)}%`),
+                        () => !alive.current || epoch.current !== generation,
+                      );
+                      if (!alive.current || epoch.current !== generation)
+                        return;
+                      urlRef.current = URL.createObjectURL(wav);
+                      setAudio(urlRef.current);
+                    });
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            if (alive.current && !locked.current) fail(e);
+          }
+          await sleep(150);
+        }
+      } catch (e) {
+        if (alive.current) {
+          fail(e);
+          setBusy(false);
+        }
+      }
+    })();
+    return () => {
+      alive.current = false;
+      epoch.current++;
+      if (urlRef.current) URL.revokeObjectURL(urlRef.current);
+      if (started && !ended.current) {
+        ended.current = true;
+        void started
+          .end()
+          .catch((e) => service.report(e))
+          .finally(() => service.releaseProbe());
+      }
+    };
+  }, [service]);
+  async function finish() {
+    await run(async () => {
+      epoch.current++;
+      if (!ended.current) await client.current?.end();
+      ended.current = true;
+      service.releaseProbe();
+      close();
+    });
+  }
+  async function backToScan() {
+    await run(async () => {
+      epoch.current++;
+      await client.current!.end();
+      await client.current!.command(OP.PROBE_BEGIN);
+      client.current!.resetCandidates();
+      voicePrepared.current = false;
+      ended.current = false;
+      epoch.current++;
+      attrsRef.current = [];
+      modelRef.current = undefined;
+      setModel(undefined);
+      setAttrs([]);
+      setReports([]);
+      setProofs({});
+      setCandidates([]);
+      setSelected(undefined);
+      setStatus(undefined);
+      setFailures([]);
+      after.current = 0;
+      capturing(undefined);
+      clearAudio();
+      setNotice("");
+      localSaved.current = "";
+      setSaved(false);
+      setStep(0);
+    });
+  }
+  async function connect() {
+    if (!selected) return;
+    await run(async () => {
+      const c = client.current!;
+      setNotice("");
+      setProgress("建立蓝牙连接");
+      let s = await c.status();
+      if (!s.connected) await c.connect(selected);
+      setProgress("配对并加密");
+      await c.security();
+      setProgress("读取服务与设备信息");
+      const a = await c.identity(await c.discover());
+      attrsRef.current = a;
+      setAttrs(a);
+      s = await c.status();
+      setStatus(s);
+      const family = familyEvidence(a);
+      if (!family) throw Error("未识别出受支持的语音协议，请保存诊断");
+      if (protocol && family !== protocol)
+        throw Error("设备协议特征与所选协议不一致");
+      await c.subscribe(a);
+      setNotice(`已发现${family === 1 ? "小米 ATVV" : "联通 HID/ICO"}特征`);
+    });
+  }
+  function beginLayout() {
+    try {
+      const family = familyEvidence(attrs);
+      if (!family || (protocol && protocol !== family))
+        throw Error("请先完成连接与协议识别");
+      const base = [...remoteModels.values()].find((m) => m.family === family);
+      if (!base || !selected) throw Error("缺少协议模板");
+      if (!model) {
+        const m = makeVariant(
+          base,
+          selected,
+          attrs,
+          `remote.${Date.now().toString(36)}`,
+          selected.name,
+        );
+        m.keys = [];
+        m.raw = [];
+        m.layout = {
+          width: 320,
+          height: 560,
+          thumbnailSymbols: true,
+          buttons: [],
+        };
+        delete m.image;
+        update(m);
+      }
+      setStep(2);
+      setError("");
+    } catch (e) {
+      fail(e);
+    }
+  }
+  async function verify(key: number) {
+    await run(async () => {
+      const s = await client.current!.status();
+      if (!s.connected) throw Error("遥控器已断开");
+      baseline.current = s.sequence;
+      after.current = Math.max(after.current, s.sequence);
+      pending.current = undefined;
+      clearAudio();
+      capturing({ key, phase: "key", listened: false, accepted: false });
+    });
+  }
+  function checkProof(c: Capture) {
+    if (!c.proof) throw Error("尚未收到完整按下和松开");
+    for (const [id, p] of Object.entries(proofs))
+      if (
+        Number(id) !== c.key &&
+        p.report === c.proof.report &&
+        p.usage === c.proof.usage
+      )
+        throw Error("这个键码已分配给其他按键");
+  }
+  async function testVoice() {
+    await run(async () => {
+      const c = captureRef.current!;
+      checkProof(c);
+      if (service.snapshot.info?.probe_voice_api !== 1)
+        throw Error("请更新接收器固件以支持语音验证");
+      epoch.current++;
+      audioFetching.current = false;
+      clearAudio();
+      setProgress("准备语音协议");
+      if (voicePrepared.current) {
+        await client.current!.command(OP.PROBE_VOICE_CANCEL);
+        let idle = false;
+        for (let i = 0; i < 30; i++) {
+          const v = await client.current!.command<ProbeVoiceStatus>(
+            OP.PROBE_VOICE_STATUS,
+          );
+          if (v.idle) {
+            idle = true;
+            break;
+          }
+          await sleep(100);
+        }
+        if (!idle) throw Error("上一段语音尚未结束，请松开语音键后重试");
+      }
+      await client.current!.command(OP.PROBE_VOICE_ARM, {
+        family: model!.family,
+        map_crc: model!.map_crc,
+        report: c.proof!.report,
+        usage: c.proof!.usage,
+      });
+      voicePrepared.current = true;
+      capturing({ ...c, phase: "voice", listened: false, accepted: false });
+    });
+  }
+  async function cancelCapture(remove = false) {
+    await run(async () => {
+      epoch.current++;
+      if (captureRef.current?.phase === "voice")
+        await client.current!.command(OP.PROBE_VOICE_CANCEL);
+      if (remove && model && captureRef.current)
+        update(removeKey(model, captureRef.current.key));
+      pending.current = undefined;
+      capturing(undefined);
+      clearAudio();
+    });
+  }
+  function confirmCapture() {
+    try {
+      const c = captureRef.current!;
+      checkProof(c);
+      if (
+        c.key === 2 &&
+        (!c.listened ||
+          !c.accepted ||
+          !audio ||
+          voice?.error ||
+          !voice?.released)
+      )
+        throw Error("请完成录音、试听并确认声音正常");
+      setProofs((old) => ({
+        ...old,
+        [c.key]: { ...c.proof!, ...(c.key === 2 ? { voice: true } : {}) },
+      }));
+      capturing(undefined);
+      clearAudio();
+      setError("");
+    } catch (e) {
+      fail(e);
+    }
+  }
+  function evidence() {
+    return {
+      schema: 2,
+      firmware: service.snapshot.info?.firmware,
+      protocol,
+      candidate: selected,
+      attributes: attrs,
+      reports,
+      failures,
+      status,
+      proofs,
+      voice: lastVoice.current,
+    };
+  }
+  async function save(install: boolean) {
+    await run(async () => {
+      const m = verifiedModel(model!, proofs);
+      if (remoteModels.has(m.id) && localSaved.current !== m.id)
+        throw Error("型号标识已存在");
+      setProgress("保存型号");
+      let result: string | null = localSaved.current;
+      if (!install || !result) {
+        result = await call<string | null>("save_remote_model", {
+          model: m,
+          image: null,
+          evidence: JSON.stringify(evidence()),
+          install,
+        });
+        if (!result) return;
+        if (install) localSaved.current = m.id;
+      }
+      if (install) {
+        if (!ended.current) {
+          await client.current!.end();
+          ended.current = true;
+        }
+        setProgress("同步型号到接收器");
+        await service.reloadModels();
+        setSaved(true);
+        setNotice("型号已保存并同步。关闭工具后可在“添加遥控器”中配对。");
+      } else setNotice(`已导出：${result}`);
+    });
+  }
+  const complete =
+    !!model?.keys.length &&
+    model.keys.every(
+      (k) => proofs[k.id] && (k.id !== 2 || proofs[k.id].voice),
+    ) &&
+    model.keys.some((k) => k.id === 2);
+  const modalBusy = busy || !!capture;
+  return (
+    <div
+      className="shade"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.stopPropagation();
+          if (!busy) void (capture ? cancelCapture() : finish());
+        }
+      }}
+    >
+      <section
+        ref={dialogRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-label="遥控器适配工具"
+        className="dialog probe-workbench"
+      >
+        <header>
+          <h2>适配新遥控器</h2>
+          <button disabled={busy || !!capture} onClick={() => void finish()}>
+            关闭
+          </button>
+        </header>
+        <nav className="probe-steps">
+          {steps.map((s, i) => (
+            <span key={s} className={step === i ? "active" : ""}>
+              {i < step ? "✓" : i + 1} {s}
+            </span>
+          ))}
+        </nav>
+        {busy && (
+          <p className="probe-status">
+            <LoaderCircle className="spin" size={16} />
+            {progress}
+          </p>
+        )}
+        {!capture && error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && <p role="status">{notice}</p>}
+        {step === 0 && (
+          <>
+            <div className="probe-actions">
+              <h3>附近的设备</h3>
+              <LoaderCircle className="spin" size={16} />
+              <span>正在搜索</span>
+            </div>
+            <p>将遥控器置于配对模式，并放在接收器旁。</p>
+            <div className="probe-devices">
+              {candidates.map((c) => (
+                <div
+                  key={`${c.address_type}:${c.address}`}
+                  className="probe-device"
+                >
+                  <div>
+                    <strong>{c.name || "未命名设备"}</strong>
+                    <small>
+                      {c.address} · {c.rssi} dBm
+                    </small>
+                  </div>
+                  <button
+                    disabled={busy || !c.connectable || c.bound_slot >= 0}
+                    onClick={() => {
+                      setSelected(c);
+                      setStep(1);
+                      setError("");
+                    }}
+                  >
+                    {c.bound_slot >= 0
+                      ? "已添加"
+                      : c.connectable
+                        ? "选择"
+                        : "不可连接"}
+                  </button>
+                </div>
+              ))}
+              {!candidates.length && <p className="muted">暂未发现附近设备</p>}
+            </div>
+          </>
+        )}
+        {step === 1 && (
+          <>
+            <h3>{selected?.name || selected?.address}</h3>
+            <label className="probe-form">
+              待适配协议
+              <select
+                value={protocol}
+                disabled={busy || !!model}
+                onChange={(e) => {
+                  setProtocol(Number(e.target.value));
+                  setNotice("");
+                }}
+              >
+                <option value={0}>自动识别</option>
+                <option value={1}>小米 · ATVV</option>
+                <option value={2}>联通 · HID/ICO</option>
+              </select>
+            </label>
+            <p>连接后读取设备信息，核对所选协议的特征。</p>
+            <div className="probe-actions">
+              <button
+                disabled={busy || voicePrepared.current}
+                onClick={() => void connect()}
+              >
+                {attrs.length ? "重新识别" : "连接并识别"}
+              </button>
+              <button
+                disabled={busy || !native}
+                onClick={() =>
+                  void run(async () => {
+                    await call("export_config", {
+                      text: JSON.stringify(evidence(), null, 2),
+                    });
+                  })
+                }
+              >
+                保存诊断
+              </button>
+            </div>
+            <details>
+              <summary>设备信息与诊断</summary>
+              <p>
+                {status?.encrypted ? "已加密" : "未加密"} ·{" "}
+                {probeStages[status?.phase ?? ""] ?? status?.phase}
+              </p>
+              <div className="probe-scroll">
+                <pre>
+                  {JSON.stringify(
+                    { attributes: attrs, status, failures },
+                    null,
+                    2,
+                  )}
+                </pre>
+              </div>
+            </details>
+            <div className="probe-footer">
+              <button disabled={busy} onClick={() => void backToScan()}>
+                返回
+              </button>
+              <button
+                disabled={
+                  busy ||
+                  !status?.connected ||
+                  !familyEvidence(attrs) ||
+                  (!!protocol && familyEvidence(attrs) !== protocol)
+                }
+                onClick={beginLayout}
+              >
+                配置按键
+              </button>
+            </div>
+          </>
+        )}
+        {step === 2 && model && (
+          <>
+            <div className="probe-name-fields">
+              <label>
+                型号名称
+                <input
+                  value={model.title}
+                  disabled={modalBusy}
+                  onChange={(e) => update({ ...model, title: e.target.value })}
+                />
+              </label>
+              <label>
+                型号标识
+                <input
+                  value={model.id}
+                  disabled={modalBusy}
+                  onChange={(e) => update({ ...model, id: e.target.value })}
+                />
+              </label>
+            </div>
+            <ProbeLayout
+              model={model}
+              proofs={proofs}
+              change={update}
+              verify={(key) => void verify(key)}
+              disabled={modalBusy}
+            />
+            <div className="probe-footer">
+              <button disabled={modalBusy} onClick={() => setStep(1)}>
+                返回
+              </button>
+              <div className="probe-actions">
+                <small>
+                  已验证{" "}
+                  {
+                    model.keys.filter(
+                      (k) => proofs[k.id] && (k.id !== 2 || proofs[k.id].voice),
+                    ).length
+                  }{" "}
+                  / {model.keys.length}
+                  {!model.keys.some((k) => k.id === 2) ? " · 需要语音键" : ""}
+                </small>
+                <button
+                  disabled={modalBusy || !complete}
+                  onClick={() => {
+                    try {
+                      verifiedModel(model, proofs);
+                      setStep(3);
+                      setError("");
+                    } catch (e) {
+                      fail(e);
+                    }
+                  }}
+                >
+                  下一步
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        {step === 3 && model && (
+          <>
+            <h3>{model.title}</h3>
+            <p>{model.keys.length} 个按键已验证 · 语音已试听确认</p>
+            <p>保存型号信息、布局、按键功能和实际键码，并同步到接收器。</p>
+            <div className="probe-footer">
+              <button
+                disabled={busy || saved || !!localSaved.current}
+                onClick={() => setStep(2)}
+              >
+                返回
+              </button>
+              <div className="probe-actions">
+                <button
+                  disabled={busy || saved}
+                  onClick={() => void save(false)}
+                >
+                  导出型号
+                </button>
+                <button
+                  disabled={busy || saved}
+                  onClick={() => void save(true)}
+                >
+                  {saved
+                    ? "已保存"
+                    : localSaved.current
+                      ? "重试同步"
+                      : "保存并使用"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        {capture && (
+          <div
+            className="probe-modal-layer"
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape" && !busy) void cancelCapture();
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-label="验证按键"
+              className="probe-modal"
+            >
+              <h3>
+                验证按键 ·{" "}
+                {model?.keys.find((k) => k.id === capture.key)?.label}
+              </h3>
+              {capture.phase === "key" ? (
+                <>
+                  <p>请在遥控器上按下并松开对应按键。</p>
+                  <p role="status">
+                    {capture.proof
+                      ? `已收到按下和松开 · 报告 ${capture.proof.report} / 0x${capture.proof.usage.toString(16)}`
+                      : "等待按键…"}
+                  </p>
+                  {capture.key === 2 && <p>键码确认后，继续测试语音。</p>}
+                </>
+              ) : (
+                <>
+                  <p>
+                    {voice?.ready
+                      ? "请再按住语音键说话约 3 秒，然后松开。"
+                      : "正在准备语音协议…"}
+                  </p>
+                  <div className="probe-voice-state">
+                    <meter
+                      min={0}
+                      max={32768}
+                      value={voice?.peak ?? 0}
+                      aria-label="音量"
+                    />
+                    <span>{((voice?.samples ?? 0) / 16000).toFixed(1)} 秒</span>
+                  </div>
+                  <p role="status">
+                    {voice?.recording
+                      ? "正在接收并解码音频"
+                      : audio
+                        ? "录音已就绪"
+                        : voice?.released
+                          ? "正在处理录音"
+                          : "等待语音"}
+                  </p>
+                  {audio && (
+                    <audio
+                      controls
+                      src={audio}
+                      onEnded={() =>
+                        capturing({ ...captureRef.current!, listened: true })
+                      }
+                    />
+                  )}
+                  <label>
+                    <input
+                      type="checkbox"
+                      disabled={!capture.listened || busy}
+                      checked={capture.accepted}
+                      onChange={(e) =>
+                        capturing({ ...capture, accepted: e.target.checked })
+                      }
+                    />{" "}
+                    声音正常
+                  </label>
+                  <button
+                    disabled={busy || !!voice?.recording}
+                    onClick={() => void testVoice()}
+                  >
+                    重新录音
+                  </button>
+                </>
+              )}
+              {error && (
+                <p role="alert" className="error">
+                  {error}
+                </p>
+              )}
+              {busy && <p role="status">{progress}</p>}
+              <div className="probe-actions">
+                <button
+                  disabled={busy}
+                  onClick={() => void cancelCapture(true)}
+                >
+                  移除按键
+                </button>
+                <button disabled={busy} onClick={() => void cancelCapture()}>
+                  取消
+                </button>
+                {capture.key === 2 && capture.phase === "key" ? (
+                  <button
+                    disabled={busy || !capture.proof}
+                    onClick={() => void testVoice()}
+                  >
+                    测试语音
+                  </button>
+                ) : (
+                  <button
+                    disabled={
+                      busy ||
+                      !capture.proof ||
+                      (capture.key === 2 &&
+                        (!capture.listened || !capture.accepted))
+                    }
+                    onClick={confirmCapture}
+                  >
+                    确认
+                  </button>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+function voiceError(s: string) {
+  const messages: Record<string, string> = {
+    "voice initialization timeout": "语音协议准备超时，请返回重新连接",
+    "no audio stream": "没有收到语音数据",
+    "audio stalled": "语音数据中断",
+    "audio decode failed": "音频解码失败",
+    "unsupported audio format": "音频格式不支持",
+    "recording exceeds 10 seconds": "测试录音超过 10 秒，请缩短后重试",
+    "no decoded audio": "没有可试听的音频",
+    "voice protocol fault": "语音协议报错",
+    "voice ended abnormally": "语音异常结束",
+  };
+  return messages[s] ?? s;
+}
