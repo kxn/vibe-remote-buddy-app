@@ -357,6 +357,7 @@ it("does not connect after a selected-target search is cancelled", async () => {
 
 it("collects bounded fragment metadata after failure without recording PCM reads", async () => {
   const c = new ProbeClient((async (_op: number, q: any) => {
+    if (q.transport) return { high_water: 640, backpressure: 0 };
     if (q.diagnostic === undefined) return { hex: "private audio" };
     if (q.diagnostic === 2) throw new DeviceError(6, OP.PROBE_VOICE_READ, {});
     return {
@@ -366,10 +367,11 @@ it("collects bounded fragment metadata after failure without recording PCM reads
     };
   }) as ProbeCommand);
   await c.voiceDiagnostics();
-  expect(c.trace).toHaveLength(3);
-  expect(c.trace[0].result).toHaveProperty("fragment");
+  expect(c.trace).toHaveLength(4);
+  expect(c.trace[0].result).toEqual({ high_water: 640, backpressure: 0 });
+  expect(c.trace[1].result).toHaveProperty("fragment");
   await c.command(OP.PROBE_VOICE_READ, { offset: 0 });
-  expect(c.trace[3].result).toEqual({ offset: 0 });
+  expect(c.trace[4].result).toEqual({ offset: 0 });
 });
 
 it("assembles streamed audio without download requests and isolates captures", async () => {

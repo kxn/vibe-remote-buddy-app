@@ -187,3 +187,6 @@ family=1 为 ATVV，family=2 为 HID/ICO。普通键 report=1/3；联通专用�
 录音为 16kHz mono s16，边录边发送到电脑，电脑收齐后封装 WAV；默认测试上限为电脑端 10 分钟。板子仅分配固定 16 KB 发送环，满时明确结束本轮并报 host audio buffer overrun。音频事件为管理队列保留四个控制消息位置；不会因接收不及时扩容或覆盖旧音频。
 
 事件由 RBP/3 会话序号及 capture/offset 隔离和校验；客户端不得跨 capture 拼接，不得接受重复、跳号、奇数字节或超长块。正常结束、物理松开且接收字节数等于 samples×2 后才可试听通过。尾部未到齐最多等待两秒。取消清理发送环，断线清理会话。测试音频不输出 USB HID/UAC，不触发输入法；旧整段录音下载接口已删除，无兼容分支。
+
+
+固件 0.8.5 增加 `PROBE_VOICE_READ {transport:true}`，返回 `capture,samples,sent,buffered,high_water,backpressure`；样本计数单位均为 16-bit mono 样本，backpressure 为管理音频队列拒绝入队的次数。采集中也可读取，命令不返回音频，不改变录音状态；与 diagnostic 二选一。

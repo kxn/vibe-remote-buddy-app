@@ -293,7 +293,7 @@ export class ProbeClient {
         const result = await command<T>(op, body);
         // Audio content does not belong in diagnostic logs.
         record(
-          op === OP.PROBE_VOICE_READ && body?.diagnostic === undefined
+          op === OP.PROBE_VOICE_READ && body?.diagnostic === undefined && !body?.transport
             ? { offset: body?.offset }
             : result,
         );
@@ -323,6 +323,10 @@ export class ProbeClient {
     throw Error("上一段录音尚未结束，请松开语音键后重试");
   }
   async voiceDiagnostics(cancelled: () => boolean = () => false) {
+    if (!cancelled()) {
+      try { await this.command(OP.PROBE_VOICE_READ, { transport: true }); }
+      catch { /* Optional counters must not replace the original failure. */ }
+    }
     for (let diagnostic = 0; diagnostic < 64 && !cancelled(); diagnostic++) {
       try {
         await this.command(OP.PROBE_VOICE_READ, { diagnostic });
