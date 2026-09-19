@@ -671,6 +671,18 @@ main {
   box-shadow: 3px 5px 9px #41382b20;
   overflow: hidden;
 }
+/* The resource owns its silhouette. A second CSS shell causes end caps and
+   clips artwork to a different radius, especially in small thumbnails. */
+.model-remote.has-artwork {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.model-remote.has-artwork .model-artwork {
+  filter: drop-shadow(3px 5px 5px #41382b20);
+}
 .model-full {
   width: 176px;
   max-width: 100%;

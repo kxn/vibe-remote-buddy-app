@@ -908,7 +908,7 @@ function ModelRemote({
     : undefined;
   return (
     <div
-      className={`model-remote ${mini ? "model-mini" : "model-full"}`}
+      className={`model-remote ${mini ? "model-mini" : "model-full"} ${image ? "has-artwork" : ""}`}
       aria-hidden={mini || undefined}
       style={{
         aspectRatio: `${layout.width}/${layout.height}`,
