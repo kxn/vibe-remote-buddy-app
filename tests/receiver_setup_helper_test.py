@@ -59,6 +59,12 @@ class InstallerTests(unittest.TestCase):
             with patch.dict(sys.modules,{'esptool':fake}),patch.object(sys,'argv',['helper','install','--package',str(self.folder),'--port','TEST','--expected-mac',mac]):
                 with self.assertRaises(ValueError):helper.main()
             cmds.write_flash.assert_not_called();e.run_stub.assert_not_called()
+    def test_rejected_check_restores_original_program(self):
+        e=self.esp(cap=2);cmds=MagicMock();cmds.detect_chip.return_value=e
+        with patch.dict(sys.modules,{'esptool':SimpleNamespace(cmds=cmds)}),patch.object(sys,'argv',['helper','check','--package',str(self.folder),'--port','TEST']):
+            with self.assertRaisesRegex(ValueError,'2 MB'):helper.main()
+        e.hard_reset.assert_called_once();e._port.close.assert_called_once()
+        cmds.write_flash.assert_not_called();e.run_stub.assert_not_called()
     def test_install_verifies_and_disables_reconnect(self):
         e=self.esp(cap=0);stub=MagicMock();e.run_stub.return_value=stub;cmds=MagicMock();cmds.detect_chip.return_value=e
         with patch.dict(sys.modules,{'esptool':SimpleNamespace(cmds=cmds)}),patch.object(sys,'argv',['helper','install','--package',str(self.folder),'--port','TEST','--expected-mac','112233445566','--confirm-board']):helper.main()

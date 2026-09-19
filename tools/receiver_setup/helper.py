@@ -64,7 +64,8 @@ def inspect(esp):
         raise ValueError(f'此安装包要求 16 MB Flash，检测 ID=0x{flash_id:06x}')
     cap = esp.get_psram_cap()
     if cap not in (0, 1):
-        raise ValueError(f'不支持的内置 PSRAM 规格，efuse capacity={cap}')
+        capacity = {2: '2 MB', 3: '16 MB', 4: '4 MB'}.get(cap, '未知容量')
+        raise ValueError(f'此安装包要求 8 MB Octal PSRAM，检测到内置 {capacity}（efuse capacity={cap}）')
     return dict(chip=esp.CHIP_NAME, mac=bytes(esp.read_mac()).hex().upper(),
                 flash_bytes=1 << size_id, psram_known=cap == 1,
                 description=esp.get_chip_description())
@@ -120,6 +121,15 @@ def main():
         event(phase='restarting')
         esp.hard_reset()
         event(phase='written', info={**info, 'version': manifest['version']})
+    except Exception:
+        # A rejected check must return the untouched board to its original program.
+        # Do not reboot an interrupted install or a device with a mismatched identity.
+        if esp and a.operation == 'check':
+            try:
+                esp.hard_reset()
+            except Exception as reset_error:
+                print(f'恢复原程序失败，请按 RESET：{reset_error}', flush=True)
+        raise
     finally:
         if esp:
             esp._port.close()
