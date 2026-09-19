@@ -5,8 +5,10 @@ import { usages, media, modifiers } from "./core/layout";
 export function ModelEditor({
   model,
   update,
+  existing = false,
 }: {
   model: RemoteModel;
+  existing?: boolean;
   update: (m: RemoteModel) => void;
 }) {
   const [key, setKey] = useState(2),
@@ -19,6 +21,7 @@ export function ModelEditor({
     const m = structuredClone(draft);
     fn(m);
     setDraft(m);
+    if (existing) update(m);
   }
   function apply(m = draft) {
     try {
@@ -106,6 +109,7 @@ export function ModelEditor({
           >
             <option value={1}>豆包输入法</option>
             <option value={2}>微信输入法</option>
+            <option value={3}>视频会议</option>
           </select>
         </label>
       )}
@@ -218,44 +222,48 @@ export function ModelEditor({
       </div>
       {error && <Feedback error>{error}</Feedback>}
       <div className="probe-actions">
-        <button onClick={() => apply()}>保存按钮</button>
-        <button
-          onClick={() => {
-            const m = structuredClone(draft);
-            let id = 35;
-            while (id <= 63 && m.keys.some((k) => k.id === id)) id++;
-            if (id > 63) {
-              setError("没有可用的按钮编号");
-              return;
-            }
-            m.keys.push({ id, label: `按钮 ${id}`, default: [0, 0, 0] });
-            m.layout.buttons.push({
-              key: id,
-              x: 50,
-              y: 90,
-              width: 18,
-              height: 6,
-              radius: 20,
-            });
-            apply(m);
-            setKey(id);
-          }}
-        >
-          新增按钮
-        </button>
-        <button
-          disabled={k.id === 2}
-          onClick={() => {
-            const m = structuredClone(draft);
-            m.keys = m.keys.filter((x) => x.id !== k.id);
-            m.raw = m.raw.filter((x) => x.key !== k.id);
-            m.layout.buttons = m.layout.buttons.filter((x) => x.key !== k.id);
-            apply(m);
-            setKey(2);
-          }}
-        >
-          删除按钮
-        </button>
+        {!existing && <button onClick={() => apply()}>保存按钮</button>}
+        {!existing && (
+          <button
+            onClick={() => {
+              const m = structuredClone(draft);
+              let id = 35;
+              while (id <= 63 && m.keys.some((k) => k.id === id)) id++;
+              if (id > 63) {
+                setError("没有可用的按钮编号");
+                return;
+              }
+              m.keys.push({ id, label: `按钮 ${id}`, default: [0, 0, 0] });
+              m.layout.buttons.push({
+                key: id,
+                x: 50,
+                y: 90,
+                width: 18,
+                height: 6,
+                radius: 20,
+              });
+              apply(m);
+              setKey(id);
+            }}
+          >
+            新增按钮
+          </button>
+        )}
+        {!existing && (
+          <button
+            disabled={k.id === 2}
+            onClick={() => {
+              const m = structuredClone(draft);
+              m.keys = m.keys.filter((x) => x.id !== k.id);
+              m.raw = m.raw.filter((x) => x.key !== k.id);
+              m.layout.buttons = m.layout.buttons.filter((x) => x.key !== k.id);
+              apply(m);
+              setKey(2);
+            }}
+          >
+            删除按钮
+          </button>
+        )}
       </div>
     </div>
   );

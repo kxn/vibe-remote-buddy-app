@@ -1,3 +1,4 @@
+import { labels } from "./layout";
 import type { RemoteModel } from "./models";
 
 const escape = (s: string) =>
@@ -76,7 +77,10 @@ export function renderRemoteArtwork(model: RemoteModel): string {
         bw = (b.width * w) / 100,
         bh = (b.height * h) / 100;
       const label = escape(
-        b.symbol ||
+        (model.keys.find((k) => k.id === b.key)?.label !== labels[b.key]
+          ? model.keys.find((k) => k.id === b.key)?.label
+          : undefined) ||
+          b.symbol ||
           symbols[b.key] ||
           model.keys.find((k) => k.id === b.key)?.label ||
           "",

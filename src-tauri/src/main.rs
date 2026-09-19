@@ -473,6 +473,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             models::remote_model_resources,
             models::save_remote_model,
+            models::update_remote_model,
             receiver_setup::setup_candidates,
             receiver_setup::setup_package,
             receiver_setup::setup_check,

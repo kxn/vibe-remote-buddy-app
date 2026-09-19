@@ -55,7 +55,7 @@ pub fn remote_model_resources(app: tauri::AppHandle) -> Result<Vec<ModelSource>,
     let mut entries: Vec<_> = fs::read_dir(&root)
         .map_err(|e| format!("{}: {}", root.display(), e))?
         .filter_map(Result::ok)
-        .filter(|e| e.path().is_dir())
+        .filter(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
         .collect();
     entries.sort_by_key(|e| e.file_name());
     if entries.len() > 64 {
@@ -192,4 +192,54 @@ pub async fn save_remote_model(
         .ok_or("程序目录无效")?
         .join("resources/remotes");
     write_model_package(&root, model, image, &evidence).map(Some)
+}
+
+#[tauri::command]
+pub async fn update_remote_model(model: Value, image: String) -> Result<String, String> {
+    let root = std::env::current_exe().map_err(|e|e.to_string())?.parent().ok_or("程序目录无效")?.join("resources/remotes");
+    replace_model_package(&root, model, image)
+}
+fn replace_model_package(root: &Path, model: Value, image: String) -> Result<String, String> {
+    let id = model["id"].as_str().ok_or("缺少型号标识")?;
+    if id.is_empty() || !id.bytes().all(|c|c.is_ascii_lowercase() || c.is_ascii_digit() || b"._-".contains(&c)) || id.starts_with('.') { return Err("型号标识无效".into()); }
+    let dir=root.join(id);
+    let (old, _) = read_package(&dir)?;
+    for key in ["id", "schema", "family", "matches", "raw", "map_crc"] {
+        if old[key] != model[key] { return Err("编辑已有型号不能改变协议或键码".into()); }
+    }
+    let ids=|v:&Value| v["keys"].as_array().map(|a|a.iter().map(|k|k["id"].clone()).collect::<Vec<_>>());
+    if ids(&old)!=ids(&model) {return Err("编辑已有型号不能增删按键".into());}
+    let stamp=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
+    let staging=root.join(format!(".edit-{}",stamp));
+    let evidence=fs::read_to_string(dir.join("probe-evidence.json")).unwrap_or_default();
+    let staged=PathBuf::from(write_model_package(&staging,model.clone(),Some(image),&evidence)?);
+    fs::write(staged.join("user-edited"), b"1").map_err(|e|e.to_string())?;
+    let backup=root.join(format!(".backup-{}-{}",id,stamp));
+    fs::rename(&dir,&backup).map_err(|e|e.to_string())?;
+    if let Err(e)=fs::rename(&staged,&dir) {
+        let restore=fs::rename(&backup,&dir);
+        return Err(format!("保存失败: {}; 恢复结果: {:?}",e,restore));
+    }
+    let _=fs::remove_dir(&staging);
+    Ok(dir.display().to_string())
+}
+
+#[cfg(test)]
+mod edit_tests {
+ use super::*;
+ #[test]
+ fn edits_keep_identity_and_backup_the_original() {
+  let root=std::env::temp_dir().join(format!("buddy-edit-{}",std::process::id()));
+  fs::create_dir_all(&root).unwrap();
+  let (mut m,image)=read_package(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/remotes/xiaomi.rc003")).unwrap();
+  write_model_package(&root,m.clone(),image.clone(),"evidence").unwrap();
+  m["keys"][0]["label"]=Value::String("Changed".into());
+  replace_model_package(&root,m.clone(),image.clone().unwrap()).unwrap();
+  assert_eq!(read_package(&root.join("xiaomi.rc003")).unwrap().0["keys"][0]["label"],"Changed");
+  assert!(root.join("xiaomi.rc003/user-edited").exists());
+  assert!(fs::read_dir(&root).unwrap().filter_map(Result::ok).any(|e|e.file_name().to_string_lossy().starts_with(".backup-")));
+  m["family"]=Value::from(2);
+  assert!(replace_model_package(&root,m,image.unwrap()).is_err());
+  fs::remove_dir_all(root).unwrap();
+ }
 }

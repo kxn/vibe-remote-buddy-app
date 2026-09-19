@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { type RemoteModel } from "./core/models";
 import {
   standardKeys,
+  gridColumns,
   cellOf,
   placeKey,
   removeKey,
@@ -50,9 +51,15 @@ export function ProbeLayout({
       </div>
       <div className="probe-designer">
         <section>
-          <div className="probe-grid" aria-label="遥控器布局">
+          <div
+            className="probe-grid"
+            style={{
+              gridTemplateColumns: `repeat(${gridColumns(model)}, minmax(0, 1fr))`,
+            }}
+            aria-label="遥控器布局"
+          >
             {Array.from(
-              { length: 5 * (model.layout.editorRows ?? 8) },
+              { length: gridColumns(model) * (model.layout.editorRows ?? 8) },
               (_, cell) => {
                 const k = model.keys.find((k) => cellOf(model, k.id) === cell);
                 return (

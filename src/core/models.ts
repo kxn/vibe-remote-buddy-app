@@ -12,9 +12,11 @@ export interface ModelLayout {
   thumbnailSymbols?: boolean;
   artworkButtons?: boolean;
   editorRows?: number;
+  editorColumns?: number;
   angle?: number;
   buttons: {
     key: number;
+    cell?: number;
     x: number;
     y: number;
     width: number;
@@ -153,6 +155,8 @@ export function validateModel(v: unknown): RemoteModel {
     (typeof l.angle === "number" &&
       Number.isFinite(l.angle) &&
       Math.abs(l.angle) <= 30), "缩略图角度无效");
+  require(l.editorColumns === undefined ||
+    integer(l.editorColumns, 5, 2), "编辑列数无效");
   require(l.editorRows === undefined ||
     integer(l.editorRows, 16, 8), "编辑网格无效");
   require(l.artworkButtons === undefined ||
@@ -160,7 +164,12 @@ export function validateModel(v: unknown): RemoteModel {
   require(l.thumbnailSymbols === undefined ||
     typeof l.thumbnailSymbols === "boolean", "缩略图设置无效");
   const placed = new Set<number>();
+  const cells = new Set<number>();
   for (const b of l.buttons) {
+    if (b.cell !== undefined) {
+      require(integer(b.cell, (l.editorColumns ?? 5) * (l.editorRows ?? 8) - 1, 0) && !cells.has(b.cell), "网格位置无效");
+      cells.add(b.cell);
+    }
     require(object(b) &&
       keys.has(b.key) &&
       !placed.has(b.key), "布局按键缺失或重复");
@@ -264,7 +273,10 @@ export async function syncModels(
   capacity: number,
 ) {
   require(integer(capacity, 64, 1), "接收器型号容量无效");
-  for(const model of remoteModels.values()){const conflict=conflictingModel(model);if(conflict)throw Error(`型号识别规则冲突：${model.id} / ${conflict.id}`);}
+  for (const model of remoteModels.values()) {
+    const conflict = conflictingModel(model);
+    if (conflict) throw Error(`型号识别规则冲突：${model.id} / ${conflict.id}`);
+  }
   const installed = new Map<string, number>();
   for (let index = 0; index < capacity; index++)
     try {
@@ -303,6 +315,19 @@ export async function syncModels(
 
 /** Equal-priority advertisement rules cannot be disambiguated by later GATT reads. */
 export function conflictingModel(model: RemoteModel): RemoteModel | undefined {
- return [...remoteModels.values()].find(other=>other.id!==model.id && model.matches.some(a=>other.matches.some(b=>
-  a.company===b.company && ((!!a.name&&a.name===b.name)|| (!!a.prefix&&!!b.prefix&&(a.prefix.startsWith(b.prefix)||b.prefix.startsWith(a.prefix)))))));
+  return [...remoteModels.values()].find(
+    (other) =>
+      other.id !== model.id &&
+      model.matches.some((a) =>
+        other.matches.some(
+          (b) =>
+            a.company === b.company &&
+            ((!!a.name && a.name === b.name) ||
+              (!!a.prefix &&
+                !!b.prefix &&
+                (a.prefix.startsWith(b.prefix) ||
+                  b.prefix.startsWith(a.prefix)))),
+        ),
+      ),
+  );
 }

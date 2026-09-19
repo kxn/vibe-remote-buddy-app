@@ -142,7 +142,7 @@ try {
   if (fs.existsSync(localModels)) {
     for (const entry of fs.readdirSync(localModels, { withFileTypes: true })) {
       const dest = path.join(stage, "resources/remotes", entry.name);
-      if (entry.isDirectory() && !fs.existsSync(dest))
+      if (entry.isDirectory() && !entry.name.startsWith(".") && (!fs.existsSync(dest) || fs.existsSync(path.join(localModels, entry.name, "user-edited"))))
         fs.cpSync(path.join(localModels, entry.name), dest, { recursive: true });
     }
   }

@@ -1,3 +1,4 @@
+import { ModelDefaults } from "./ModelDefaults";
 import { Feedback } from "./Feedback";
 import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
@@ -129,6 +130,7 @@ function App() {
     [wake, setWake] = useState<Slot>(),
     [modal, setModal] = useState<
       | "add"
+      | "model-defaults"
       | "more"
       | "rename"
       | "remove"
@@ -757,6 +759,15 @@ function App() {
           }}
         />
       )}
+      {modal === "model-defaults" &&
+        selected &&
+        remoteModels.has(selected.model) && (
+          <ModelDefaults
+            model={remoteModels.get(selected.model)!}
+            service={service}
+            close={() => setModal(null)}
+          />
+        )}
       {modal === "more" && selected && (
         <Dialog title={service.name(selected)} close={() => setModal(null)}>
           <div className="setting">
@@ -768,6 +779,17 @@ function App() {
               }}
             >
               修改
+            </button>
+          </div>
+          <div className="setting">
+            <span>型号默认配置</span>
+            <button
+              disabled={
+                busy || !!recording || !remoteModels.has(selected.model)
+              }
+              onClick={() => setModal("model-defaults")}
+            >
+              编辑
             </button>
           </div>
           <div className="setting">
@@ -1005,7 +1027,10 @@ function ModelRemote({
                 : undefined,
             },
           };
-          const symbol = b.symbol ? (
+          const renamed = definition.label !== labels[b.key];
+          const symbol = renamed ? (
+            <span>{definition.label}</span>
+          ) : b.symbol ? (
             <span>{b.symbol}</span>
           ) : b.key === 11 ? (
             <span>TV</span>

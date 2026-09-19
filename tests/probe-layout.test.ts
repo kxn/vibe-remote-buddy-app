@@ -1,3 +1,5 @@
+import unicom from "../resources/remotes/unicom.hid_ico.v1/model.json";
+import { renderRemoteArtwork } from "../src/core/remote-artwork";
 import tauriConfig from "../src-tauri/tauri.conf.json";
 import { it, expect } from "vitest";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
@@ -213,4 +215,15 @@ it("copies layout without borrowing device identity or verified key codes",()=>{
  expect(new Set(copy.keys.map(k=>cellOf(copy,k.id))).size).toBe(copy.keys.length);
  copy.keys[0].label="changed";expect(source.keys[0].label).not.toBe("changed");
  expect(()=>verifiedModel(copy,{})).toThrow("验证");
+});
+
+it("preserves three-column preset geometry and renamed symbols",()=>{
+ const source=validateModel(unicom);
+ const copy=copyLayoutPreset(source,source);
+ expect(copy.layout.editorColumns).toBe(3);
+ expect(copy.layout.buttons.map(({cell,...b})=>b)).toEqual(source.layout.buttons);
+ copy.keys.find(k=>k.id===20)!.label="M";
+ expect(renderRemoteArtwork(copy)).toContain(">M</text>");
+ expect(renderRemoteArtwork(copy)).not.toContain(">本地</text>");
+ expect(new Set(copy.keys.map(k=>cellOf(copy,k.id))).size).toBe(copy.keys.length);
 });

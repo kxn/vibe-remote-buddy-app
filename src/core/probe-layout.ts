@@ -41,15 +41,28 @@ export interface KeyProof {
   usage: number;
   voice?: boolean;
 }
+export function gridColumns(m: RemoteModel): number {
+  return (
+    m.layout.editorColumns ??
+    Math.max(
+      2,
+      Math.min(
+        5,
+        new Set(m.layout.buttons.map((b) => b.x.toFixed(1))).size || 5,
+      ),
+    )
+  );
+}
 export function cellOf(m: RemoteModel, id: number) {
   const b = m.layout.buttons.find((b) => b.key === id);
+  if (b?.cell !== undefined) return b.cell;
   return b
     ? Math.min(
         (m.layout.editorRows ?? 8) - 1,
         Math.floor(b.y / (100 / (m.layout.editorRows ?? 8))),
       ) *
-        5 +
-        Math.floor(b.x / 20)
+        gridColumns(m) +
+        Math.min(gridColumns(m) - 1, Math.floor(b.x / (100 / gridColumns(m))))
     : -1;
 }
 export function placeKey(
@@ -61,7 +74,7 @@ export function placeKey(
   if (
     !Number.isInteger(cell) ||
     cell < 0 ||
-    cell >= 5 * (model.layout.editorRows ?? 8)
+    cell >= gridColumns(model) * (model.layout.editorRows ?? 8)
   )
     throw Error("布局位置无效");
   const m = structuredClone(model),
@@ -86,22 +99,28 @@ export function placeKey(
         : { id, label: name, default: [0, 0, 0] },
     );
   }
+  m.layout.editorColumns = gridColumns(model);
   const b = m.layout.buttons.find((b) => b.key === id),
-    x = 10 + (cell % 5) * 20,
-    y = ((0.5 + Math.floor(cell / 5)) * 100) / (model.layout.editorRows ?? 8);
+    x = ((0.5 + (cell % gridColumns(model))) * 100) / gridColumns(model),
+    y =
+      ((0.5 + Math.floor(cell / gridColumns(model))) * 100) /
+      (model.layout.editorRows ?? 8);
   if (b) {
     if (occupied && occupied !== b) {
+      occupied.cell = cellOf(m, id);
       occupied.x = b.x;
       occupied.y = b.y;
     }
+    b.cell = cell;
     b.x = x;
     b.y = y;
   } else
     m.layout.buttons.push({
       key: id,
+      cell,
       x,
       y,
-      width: 17,
+      width: 80 / gridColumns(model),
       height: 80 / (model.layout.editorRows ?? 8),
       radius: 8,
       fill: "#eee8de",
@@ -146,39 +165,32 @@ export function copyLayoutPreset(
   m.keys = structuredClone(preset.keys);
   m.raw = [];
   delete m.image;
-  const rows = Math.max(
-    8,
-    Math.min(
-      16,
-      new Set(preset.layout.buttons.map((b) => b.y.toFixed(2))).size,
-    ),
-  );
-  m.layout = {
-    width: 320,
-    height: rows * 70,
-    editorRows: rows,
-    thumbnailSymbols: true,
-    buttons: [],
-  };
-  const free = new Set(Array.from({ length: rows * 5 }, (_, i) => i));
-  for (const b of [...preset.layout.buttons].sort(
-    (a, b) => a.y - b.y || a.x - b.x,
-  )) {
+  m.layout = structuredClone(preset.layout);
+  m.layout.editorColumns = gridColumns(preset);
+  m.layout.editorRows =
+    preset.layout.editorRows ??
+    Math.max(
+      8,
+      Math.min(
+        16,
+        new Set(preset.layout.buttons.map((b) => b.y.toFixed(2))).size,
+      ),
+    );
+  const cols = gridColumns(m),
+    rows = m.layout.editorRows!;
+  const free = new Set(Array.from({ length: cols * rows }, (_, i) => i));
+  for (const b of m.layout.buttons) {
     const cell = [...free].sort((a, c) => {
-      const distance = (i: number) =>
-        Math.pow(((i % 5) + 0.5) * 20 - b.x, 2) +
-        Math.pow(((Math.floor(i / 5) + 0.5) * 100) / rows - b.y, 2);
-      return distance(a) - distance(c);
+      const d = (i: number) =>
+        Math.pow((((i % cols) + 0.5) * 100) / cols - b.x, 2) +
+        Math.pow(((Math.floor(i / cols) + 0.5) * 100) / rows - b.y, 2);
+      return d(a) - d(c);
     })[0];
     if (cell === undefined) throw Error("预设按键超出网格容量");
+    b.cell = cell;
     free.delete(cell);
-    m.layout.buttons.push({
-      ...b,
-      x: ((cell % 5) + 0.5) * 20,
-      y: ((Math.floor(cell / 5) + 0.5) * 100) / rows,
-      width: 17,
-      height: 80 / rows,
-    });
   }
+  delete m.layout.artwork;
+  m.layout.artworkButtons = true;
   return m;
 }
