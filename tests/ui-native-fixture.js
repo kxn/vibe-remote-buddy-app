@@ -50,7 +50,8 @@ window.__TAURI_INTERNALS__ = {
         status = 0;
       const slot = q.body.slot ?? 0,
         model = slot % 2 ? "unicom.hid_ico.v1" : "xiaomi.rc003";
-      if(q.opcode===0x440) f.probe={active:true,connected:false,pending:false,phase:"scanning",encrypted:false,sdk_error:0,cleanup_error:0,attributes:6,sequence:0};
+      if(q.opcode===f.failProbeOpcode) status=7;
+      else if(q.opcode===0x440) f.probe={active:true,connected:false,pending:false,phase:"scanning",encrypted:false,sdk_error:0,cleanup_error:0,attributes:6,sequence:0};
       else if(q.opcode===0x441) f.probe={...f.probe,active:false,connected:false,phase:"idle"};
       else if(q.opcode===0x442) body=f.probe;
       else if(q.opcode===0x443) f.probe={...f.probe,connected:true,phase:"connected"};

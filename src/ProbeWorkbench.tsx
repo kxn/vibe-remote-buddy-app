@@ -173,6 +173,7 @@ export function ProbeWorkbench({
                 continue;
               }
               setStatus(s);
+              if (!s.connected) setIdentified(false);
               if (!s.connected && captureRef.current) {
                 capturing(undefined);
                 clearAudio();
@@ -350,6 +351,7 @@ export function ProbeWorkbench({
       setProofs({});
       setCandidates([]);
       setSelected(undefined);
+      setIdentified(false);
       setStatus(undefined);
       setFailures([]);
       after.current = 0;
@@ -361,11 +363,13 @@ export function ProbeWorkbench({
       setStep(0);
     });
   }
+  const [identified, setIdentified] = useState(false);
   async function connect() {
     if (!selected) return;
     await run(async () => {
       const c = client.current!;
       setNotice("");
+      setIdentified(false);
       setProgress("建立蓝牙连接");
       let s = await c.status();
       if (!s.connected) await c.connect(selected);
@@ -382,13 +386,19 @@ export function ProbeWorkbench({
       if (protocol && family !== protocol)
         throw Error("设备协议特征与所选协议不一致");
       await c.subscribe(a);
-      setNotice(`已发现${family === 1 ? "小米 ATVV" : "联通 HID/ICO"}特征`);
+      setIdentified(true);
+      setNotice("连接与识别成功");
     });
   }
   function beginLayout() {
     try {
       const family = familyEvidence(attrs);
-      if (!family || (protocol && protocol !== family))
+      if (
+        !identified ||
+        !status?.connected ||
+        !family ||
+        (protocol && protocol !== family)
+      )
         throw Error("请先完成连接与协议识别");
       const base = [...remoteModels.values()].find((m) => m.family === family);
       if (!base || !selected) throw Error("缺少协议模板");
@@ -412,6 +422,7 @@ export function ProbeWorkbench({
         update(m);
       }
       setStep(2);
+      setNotice("");
       setError("");
     } catch (e) {
       fail(e);
@@ -601,7 +612,12 @@ export function ProbeWorkbench({
             {error}
           </p>
         )}
-        {notice && <p role="status">{notice}</p>}
+        {notice && (step !== 1 || status?.connected) && (
+          <p className="probe-success" role="status">
+            {step === 1 ? "✓ " : ""}
+            {notice}
+          </p>
+        )}
         {step === 0 && (
           <>
             <div className="probe-actions">
@@ -652,6 +668,7 @@ export function ProbeWorkbench({
                 disabled={busy || !!model}
                 onChange={(e) => {
                   setProtocol(Number(e.target.value));
+                  setIdentified(false);
                   setNotice("");
                 }}
               >
@@ -666,7 +683,7 @@ export function ProbeWorkbench({
                 disabled={busy || voicePrepared.current}
                 onClick={() => void connect()}
               >
-                {attrs.length ? "重新识别" : "连接并识别"}
+                {identified && status?.connected ? "重新识别" : "连接并识别"}
               </button>
               <button
                 disabled={busy || !native}
@@ -704,10 +721,12 @@ export function ProbeWorkbench({
               <button
                 disabled={
                   busy ||
+                  !identified ||
                   !status?.connected ||
                   !familyEvidence(attrs) ||
                   (!!protocol && familyEvidence(attrs) !== protocol)
                 }
+                className="primary"
                 onClick={beginLayout}
               >
                 配置按键

@@ -1,5 +1,5 @@
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 root=Path(__file__).resolve().parents[1];out=root/'build/host-ui';out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  b=p.chromium.launch(channel='msedge',headless=True)
@@ -11,13 +11,33 @@ with sync_playwright() as p:
   page.locator('.setting').filter(has_text='遥控器适配工具').get_by_role('button').click()
   d=page.get_by_role('dialog',name='遥控器适配工具')
   d.get_by_role('button',name='选择',exact=True).click();d.get_by_label('待适配协议').select_option('1')
-  d.get_by_role('button',name='连接并识别',exact=True).click();d.get_by_role('button',name='配置按键',exact=True).click()
+  assert d.get_by_role('button',name='配置按键',exact=True).is_disabled()
+  page.evaluate('window.fixture.failProbeOpcode=0x448')
+  d.get_by_role('button',name='连接并识别',exact=True).click()
+  d.get_by_role('alert').wait_for()
+  assert d.get_by_role('button',name='配置按键',exact=True).is_disabled()
+  page.evaluate('window.fixture.failProbeOpcode=0')
+  d.get_by_role('button',name='连接并识别',exact=True).click();d.get_by_text('✓ 连接与识别成功',exact=True).wait_for();d.get_by_role('button',name='配置按键',exact=True).click()
   d.get_by_label('型号标识').fill('example.test');d.get_by_label('型号名称').fill('测试变种')
   # Drag standard Up; add voice through the empty-cell picker.
   if width>650:d.locator('.probe-palette').get_by_role('button',name='上',exact=True).drag_to(d.locator('.probe-cell').nth(2))
   else:
-   d.get_by_role('button',name='空格 3',exact=True).dblclick();add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('3');add.get_by_role('button',name='添加',exact=True).click()
-  d.get_by_role('button',name='空格 8',exact=True).dblclick();add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('2');add.get_by_role('button',name='添加',exact=True).click()
+   d.get_by_role('button',name='空格 3',exact=True).click();add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('3');add.get_by_role('button',name='添加',exact=True).click()
+  d.get_by_role('button',name='空格 8',exact=True).click();add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('2');add.get_by_role('button',name='添加',exact=True).click()
+  # Repeat add/cancel and move/remove without losing the editor to a modal.
+  for cell in [10,11,12]:
+   d.get_by_role('button',name=f'空格 {cell}',exact=True).click()
+   page.get_by_role('dialog',name='添加按键').get_by_role('button',name='取消',exact=True).click()
+  d.get_by_role('button',name='空格 10',exact=True).click()
+  add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('custom');add.get_by_label('名称',exact=True).fill('Netflix');add.get_by_role('button',name='添加',exact=True).click()
+  d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).drag_to(d.locator('.probe-cell').nth(10))
+  assert d.locator('.probe-cell').nth(10).get_by_role('button',name='Netflix',exact=True).count()==1
+  if width>650:
+   d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).drag_to(d.locator('.probe-trash'))
+  else:
+   d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).click()
+   page.get_by_role('dialog',name='验证按键').get_by_role('button',name='移除按键',exact=True).click()
+  expect(d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True)).to_have_count(0)
   page.screenshot(path=str(out/f'probe-grid-debug-{width}.png'),full_page=True)
   assert d.get_by_role('button',name='下一步',exact=True).is_disabled()
   for key,usage in [('上',82),('语音',62)]:

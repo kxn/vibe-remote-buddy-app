@@ -45,7 +45,7 @@ export function ProbeLayout({
     <>
       <div className="probe-layout-tip">
         <strong>将右侧常用按键拖入网格</strong>
-        <span>已有按键优先使用常用类型；特殊按键可双击空格添加。</span>
+        <span>已有按键优先使用常用类型；也可单击空格选择按键。</span>
       </div>
       <div className="probe-designer">
         <section>
@@ -70,6 +70,7 @@ export function ProbeLayout({
                 >
                   {k ? (
                     <button
+                      key={`key-${k.id}`}
                       disabled={disabled}
                       className={
                         proofs[k.id] && (k.id !== 2 || proofs[k.id].voice)
@@ -92,10 +93,11 @@ export function ProbeLayout({
                     </button>
                   ) : (
                     <button
+                      key={`empty-${cell}`}
                       disabled={disabled}
                       className="empty"
                       aria-label={`空格 ${cell + 1}`}
-                      onDoubleClick={() => open(cell)}
+                      onClick={() => open(cell)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
                           e.preventDefault();
@@ -108,7 +110,7 @@ export function ProbeLayout({
               );
             })}
           </div>
-          <small>单击验证 · 双击空格新增 · 拖动调整位置</small>
+          <small>单击空格添加 · 单击按键验证 · 拖动调整位置</small>
         </section>
         <aside>
           <strong>常用按键</strong>
@@ -117,7 +119,7 @@ export function ProbeLayout({
               <button
                 key={k.id}
                 disabled={disabled || model.keys.some((x) => x.id === k.id)}
-                draggable
+                draggable={!disabled && !model.keys.some((x) => x.id === k.id)}
                 onDragStart={(e) =>
                   e.dataTransfer.setData("application/buddy-key", String(k.id))
                 }

@@ -1148,3 +1148,8 @@ main {
   color: white;
   border-color: #ad443a;
 }
+
+.probe-success {
+  color: #42613b;
+  font-weight: 600;
+}

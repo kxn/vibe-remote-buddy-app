@@ -13,6 +13,7 @@
     "windows": [
       {
         "label": "main",
+        "dragDropEnabled": false,
         "title": "Vibe Remote Buddy",
         "width": 880,
         "height": 720,

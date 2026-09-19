@@ -1,3 +1,4 @@
+import tauriConfig from "../src-tauri/tauri.conf.json";
 import { it, expect } from "vitest";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
 import { validateModel } from "../src/core/models";
@@ -142,4 +143,10 @@ it("audio read rejects stale epochs, incomplete release and cancellation", async
       () => false,
     ),
   ).rejects.toThrow("未完成");
+});
+
+it("Windows main webview allows the layout editor HTML drag and drop", () => {
+  expect(
+    tauriConfig.app.windows.find((w) => w.label === "main")?.dragDropEnabled,
+  ).toBe(false);
 });
