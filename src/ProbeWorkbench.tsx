@@ -360,7 +360,7 @@ export function ProbeWorkbench({
                     )
                       continue;
                     fail(
-                      `${voiceError(v.error || "audio decode failed")}${v.adapter_error ? " · " + v.adapter_error : ""}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
+                      `${voiceError(v.error || "audio decode failed")}${v.adapter_error && v.adapter_error !== v.error ? " · " + v.adapter_error : ""}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
                     );
                   }
                   if (
