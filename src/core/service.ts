@@ -14,6 +14,7 @@ import {
 import { validateSettings } from "./settings";
 import {
   validAction,
+  builtinActions,
   inputMethodForVoice,
   type VoiceInputMethod,
 } from "./actions";
@@ -500,6 +501,9 @@ export class BuddyService {
       throw Error("遥控器连接已变化，请重新打开按键设置");
     return map;
   }
+  resolveAction(id: number): Action | undefined {
+    return this.boardConfig().actions[id] ?? builtinActions[id];
+  }
   async saveMap(slot: Slot, desired: Mapping, action?: Action) {
     if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
       throw Error("请先更新接收器固件，再使用自动语音预设");
@@ -522,8 +526,8 @@ export class BuddyService {
       const conf = this.boardConfig();
       if (action) {
         let actionId = 1;
-        while (conf.actions[actionId] && actionId < 65535) actionId++;
-        if (actionId === 65535 && conf.actions[actionId])
+        while (conf.actions[actionId] && actionId < 65534) actionId++;
+        if (actionId >= 65534)
           throw Error("软件动作已满");
         desired = { ...desired, kind: 4, modifiers: 0, value: actionId };
         conf.actions[actionId] = action;
@@ -577,10 +581,10 @@ export class BuddyService {
         return;
       const conf = this.boardConfig(),
         id = Number(event.action);
-      if (
-        conf.authorizations[`${slot.peer_id}:${event.key}`] !== id ||
-        !conf.actions[id]
-      ) {
+      const configured = conf.actions[id];
+      const action = configured ?? builtinActions[id];
+      if (!action || (configured &&
+        conf.authorizations[`${slot.peer_id}:${event.key}`] !== id)) {
         this.log(`未配置的软件动作 #${id}`);
         return;
       }
@@ -598,7 +602,6 @@ export class BuddyService {
         map.value !== id
       )
         return;
-      const action = conf.actions[id];
       let inputMethod: VoiceInputMethod | undefined;
       if (
         action.kind === "input" ||

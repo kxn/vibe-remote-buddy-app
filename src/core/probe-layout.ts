@@ -13,15 +13,15 @@ export const standardKeys: ModelKey[] = Object.entries({
 }));
 function defaultBinding(id: number): [number, number, number] {
   if (id === 2) return [5, 0, 1];
+  if (id === 9) return [4, 0, 65534];
+  if (id === 10) return [4, 0, 65535];
   const usage: Record<number, number> = {
     3: 82,
     4: 81,
     5: 80,
     6: 79,
     7: 40,
-    8: 41,
-    9: 74,
-    10: 101,
+    8: 42,
   };
   if (usage[id]) return [1, 0, usage[id]];
   const media: Record<number, number> = {

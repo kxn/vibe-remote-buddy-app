@@ -41,3 +41,22 @@ it("does not execute after receiver loss while reading the voice mapping", async
   expect(h.run).not.toHaveBeenCalled();
   expect(h.service.snapshot.error).toContain("接收器已变化");
 });
+
+it.each([65534, 65535])("executes built-in default %s only when the live mapping matches", async id => {
+  const h = harness();
+  const event = {slot: 0, peer_id: 101, generation: 3, key: 10, action: id};
+  await h.internal.action(event);
+  expect(h.run).not.toHaveBeenCalled();
+  const original = h.command.getMockImplementation()!;
+  h.command.mockImplementation(async (op, q) => op === OP.MAP_GET
+    ? {key: q.key, kind: 4, value: id} : original(op, q));
+  await h.internal.action(event);
+  expect(h.run).toHaveBeenCalledWith(h.service.resolveAction(id), undefined);
+});
+it("keeps legacy personal actions at reserved IDs protected by authorization", async () => {
+  const h = harness();
+  h.service.boardConfig().actions[65535] = h.action;
+  expect(h.service.resolveAction(65535)).toBe(h.action);
+  await h.internal.action({slot: 0, peer_id: 101, generation: 3, key: 10, action: 65535});
+  expect(h.run).not.toHaveBeenCalled();
+});

@@ -304,9 +304,7 @@ function App() {
                   ? "微信输入法"
                   : chord(m.modifiers, m.value)
             : m.kind === 4
-              ? (service.settings.boards[snap.board?.serial ?? ""]?.actions[
-                  m.value
-                ]?.label ?? `未配置的功能 #${m.value}`)
+              ? (service.resolveAction(m.value)?.label ?? `未配置的功能 #${m.value}`)
               : chord(m.modifiers, m.value);
   const openMore = (s: Slot) => {
     setPeer(s.peer_id);
@@ -370,7 +368,7 @@ function App() {
           </Feedback>
         )}
         {snap.ports.length > 1 && !connected && (
-          <Feedback>
+          <Feedback persistent>
             <label className="field">
               接收器
               <select
@@ -616,7 +614,7 @@ function App() {
               <p className="muted">此接收器需要首次安装新版固件</p>
             )}
             {snap.firmwareProgress && (
-              <Feedback>
+              <Feedback persistent={snap.firmwareProgress.active}>
                 <div role="status" aria-live="polite">
                   <span>{snap.firmwareProgress.phase}</span>
                   {snap.firmwareProgress.active && (
@@ -893,7 +891,7 @@ function App() {
           entry={edit}
           initialAction={
             edit.map.kind === 4
-              ? service.boardConfig().actions[edit.map.value]
+              ? service.resolveAction(edit.map.value)
               : undefined
           }
           disabled={busy || !!recording || !connected}

@@ -1,3 +1,4 @@
+import { builtinActions } from "./core/actions";
 import { Feedback } from "./Feedback";
 import React, { useEffect, useState } from "react";
 import { validateModel, type RemoteModel } from "./core/models";
@@ -71,7 +72,7 @@ export function ModelEditor({
                       : v === 3
                         ? [3, 64, 0]
                         : v === 4
-                          ? [4, 0, 1]
+                          ? [4, 0, 65535]
                           : [5, 0, 1];
             })
           }
@@ -175,20 +176,16 @@ export function ModelEditor({
       )}
       {k.default[0] === 4 && (
         <label>
-          事件编号
-          <input
-            type="number"
-            min={1}
-            max={65535}
+          功能
+          <select
             value={k.default[2]}
-            onChange={(e) =>
-              change((m) => {
-                m.keys.find((x) => x.id === k.id)!.default[2] = Number(
-                  e.target.value,
-                );
-              })
-            }
-          />
+            onChange={e => change(m => {
+              m.keys.find(x => x.id === k.id)!.default[2] = Number(e.target.value);
+            })}
+          >
+            {!builtinActions[k.default[2]] && <option value={k.default[2]}>自定义事件 #{k.default[2]}</option>}
+            {Object.entries(builtinActions).map(([id, action]) => <option key={id} value={id}>{action.label}</option>)}
+          </select>
         </label>
       )}
       <div className="probe-coordinates">

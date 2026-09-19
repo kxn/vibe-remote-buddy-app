@@ -72,3 +72,9 @@ export function inputMethodForVoice(
   const preset = voicePreset(map.modifiers, map.value);
   return preset === "doubao" || preset === "wechat" ? preset : undefined;
 }
+
+// Stable model defaults; user actions are allocated below this range.
+export const builtinActions: Readonly<Record<number, Action>> = {
+  65534: { kind: "command", target: "task_view", label: "任务视图" },
+  65535: { kind: "command", target: "window_picker", label: "窗口选择器" },
+};

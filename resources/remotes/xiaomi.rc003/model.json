@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "xiaomi.rc003",
   "title": "小米 Remote 2 Pro",
-  "revision": 1,
+  "revision": 2,
   "family": 1,
   "matches": [
     {
@@ -76,25 +76,25 @@
       "default": [
         1,
         0,
-        41
+        42
       ]
     },
     {
       "id": 9,
       "label": "主页",
       "default": [
-        1,
+        4,
         0,
-        74
+        65534
       ]
     },
     {
       "id": 10,
       "label": "菜单",
       "default": [
-        1,
+        4,
         0,
-        101
+        65535
       ]
     },
     {
