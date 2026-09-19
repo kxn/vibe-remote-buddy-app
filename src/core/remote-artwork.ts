@@ -13,6 +13,47 @@ const escape = (s: string) =>
         "'": "&apos;",
       })[c]!,
   );
+/** Trim only empty outer grid columns; preserve gaps and the editable canvas. */
+export function artworkModel(model: RemoteModel): RemoteModel {
+  const { layout } = model;
+  const cols = layout.editorColumns;
+  if (
+    !cols ||
+    !layout.buttons.length ||
+    (model.image && !layout.artworkButtons)
+  )
+    return model;
+  const left = Math.max(
+    0,
+    Math.floor(
+      (Math.min(...layout.buttons.map((b) => b.x - b.width / 2)) * cols) / 100 +
+        1e-8,
+    ),
+  );
+  const right = Math.min(
+    cols,
+    Math.ceil(
+      (Math.max(...layout.buttons.map((b) => b.x + b.width / 2)) * cols) / 100 -
+        1e-8,
+    ),
+  );
+  const used = right - left;
+  if (used <= 0 || used === cols) return model;
+  return {
+    ...model,
+    layout: {
+      ...layout,
+      // Remove grid metadata from this display-only projection so it is idempotent.
+      editorColumns: undefined,
+      width: (layout.width * used) / cols,
+      buttons: layout.buttons.map((b) => ({
+        ...b,
+        x: ((b.x - (left * 100) / cols) * cols) / used,
+        width: (b.width * cols) / used,
+      })),
+    },
+  };
+}
 /** Keep complete button boxes inside the rounded shell, with a visible gutter. */
 export function artworkPlacement(model: RemoteModel) {
   const { width: w, height: h, buttons } = model.layout;
@@ -52,6 +93,7 @@ export function artworkPlacement(model: RemoteModel) {
 }
 /** Deterministic, self-contained artwork; coordinates match the editable layout. */
 export function renderRemoteArtwork(model: RemoteModel): string {
+  model = artworkModel(model);
   const { width: w, height: h, buttons } = model.layout;
   const { tx, ty, sx, sy } = artworkPlacement(model);
   const symbols: Record<number, string> = {

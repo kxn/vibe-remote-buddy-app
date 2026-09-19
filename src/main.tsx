@@ -1,6 +1,6 @@
 import { ModelDefaults } from "./ModelDefaults";
 import { Feedback } from "./Feedback";
-import { renderRemoteArtwork } from "./core/remote-artwork";
+import { artworkModel, renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
 import { remoteModels, loadModels } from "./core/models";
@@ -961,7 +961,7 @@ function ModelRemote({
         {mini ? <Radio size={32} /> : "此型号使用按键列表"}
       </div>
     );
-  const layout = resource.layout;
+  const layout = artworkModel(resource).layout;
   const drawnKeys = resource.keys.filter((k) => !keys || keys.includes(k.id));
   const buttons = layout.buttons.filter((b) =>
     drawnKeys.some((k) => k.id === b.key),

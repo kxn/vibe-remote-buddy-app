@@ -2,6 +2,7 @@ import { it, expect } from "vitest";
 import {
   renderRemoteArtwork,
   artworkPlacement,
+  artworkModel,
 } from "../src/core/remote-artwork";
 import { validateModel } from "../src/core/models";
 import model from "../resources/remotes/xiaomi.rc003/model.json";
@@ -52,4 +53,26 @@ it("keeps the entire corner button boxes inside rounded shells", () => {
           ).toBeLessThanOrEqual(r - margin + 0.0001);
         }
   }
+});
+
+it("crops centered three-column layouts without altering the editor or internal gaps", () => {
+  const m = validateModel(structuredClone(model));
+  delete m.image;
+  m.layout.editorColumns = 5;
+  m.layout.width = 320;
+  m.layout.buttons = m.layout.buttons
+    .slice(0, 3)
+    .map((b, i) => ({ ...b, x: 30 + i * 20, width: 16 }));
+  const shown = artworkModel(m);
+  expect(shown.layout.width).toBe(192);
+  expect(shown.layout.buttons.map((b) => b.x)).toEqual([100 / 6, 50, 250 / 3]);
+  expect(m.layout.editorColumns).toBe(5);
+  expect(m.layout.buttons[0].x).toBe(30);
+  expect(artworkModel(shown)).toBe(shown);
+  expect(renderRemoteArtwork(m)).toContain('viewBox="0 0 192 ');
+  // An empty middle column is intentional spacing, not something to collapse.
+  m.layout.buttons.splice(1, 1);
+  expect(artworkModel(m).layout.width).toBe(192);
+  m.layout.buttons[0].width = 60;
+  expect(artworkModel(m).layout.width).toBe(256);
 });
