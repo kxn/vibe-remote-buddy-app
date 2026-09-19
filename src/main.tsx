@@ -1156,6 +1156,7 @@ function PairDialog({
 }) {
   const [items, setItems] = useState<Candidate[]>([]),
     [choice, setChoice] = useState<number>(),
+    [modelId, setModelId] = useState(""),
     [scanning, setScanning] = useState(true),
     [pairing, setPairing] = useState(false),
     [error, setError] = useState(""),
@@ -1225,6 +1226,12 @@ function PairDialog({
               ? "搜索完成"
               : "未发现遥控器"}
       </div>
+      <label className="field">型号
+        <select value={modelId} disabled={pairing} onChange={e=>setModelId(e.target.value)}>
+          <option value="">自动识别</option>
+          {[...remoteModels.values()].map(m=><option key={m.id} value={m.id}>{m.title}</option>)}
+        </select>
+      </label>
       {items.map((c) => (
         <button
           className={`candidate ${choice === c.candidate_id ? "selected" : ""}`}
@@ -1280,6 +1287,7 @@ function PairDialog({
                       .catch((e) => setError(service.report(e)));
                 },
                 expectedPeer,
+                modelId || undefined,
               );
               done();
             })()

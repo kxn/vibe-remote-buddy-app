@@ -358,6 +358,7 @@ export class BuddyService {
     c: Candidate,
     onOperation: (id: number) => void,
     expectedPeer?: number,
+    modelId?: string,
   ) {
     this.ensureMutable();
     if (c.age_ms + performance.now() - c.seen >= 15000)
@@ -366,7 +367,7 @@ export class BuddyService {
     try {
       const { operation_id } = await this.require().command<{
         operation_id: number;
-      }>(OP.PAIR, { candidate_id: c.candidate_id, scan_epoch: c.scan_epoch });
+      }>(OP.PAIR, { candidate_id: c.candidate_id, scan_epoch: c.scan_epoch, ...(modelId ? {model_id:modelId} : {}) });
       onOperation(operation_id);
       const op = await this.waitOperation(operation_id);
       await this.refresh();
@@ -416,6 +417,14 @@ export class BuddyService {
       if (!op.pending) {
         this.log(`操作 ${id}：${JSON.stringify(op)}`);
         if (op.uncertain) throw Error("操作结果不确定，请核对设备状态");
+        if (op.result && op.model_error) {
+          const messages: Record<number,string> = {
+            1: "尚未适配此型号，请先适配遥控器",
+            2: "有多个匹配型号，请选择型号后重试",
+            3: "遥控器与所选型号不符，请重新选择",
+          };
+          throw Error(messages[op.model_error] || "型号识别失败");
+        }
         if (op.result) throw new DeviceError(op.result, OP.OPERATION, op);
         return op;
       }

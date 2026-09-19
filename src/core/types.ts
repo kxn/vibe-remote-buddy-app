@@ -74,6 +74,7 @@ export interface Candidate {
   seen: number;
 }
 export interface Operation {
+  model_error?: number;
   operation_id: number;
   kind: number;
   pending: boolean;
