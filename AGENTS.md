@@ -13,3 +13,5 @@ Commit code proactively at meaningful checkpoints (a coherent feature, fix, or r
 Build outputs MUST follow [docs/build-artifacts.md](docs/build-artifacts.md). Use fixed latest paths; never invent per-task delivery directories. Preserve build provenance and package resources with binaries.
 
 During development the user authorizes terminating this application's old process to replace and restart a buggy build; do not repeatedly request permission to exit. Verify the running executable is the updated out/latest build before reporting delivery.
+
+Remote lifecycle changes must follow [docs/device-lifecycle.md](docs/device-lifecycle.md). Share discovery and operation handling across adding and adaptation. Review failure, cancellation and retry paths again after implementation; do not duplicate a connection flow to fix one screen.

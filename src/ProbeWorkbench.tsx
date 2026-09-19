@@ -204,12 +204,12 @@ export function ProbeWorkbench({
           return;
         }
         setBusy(false);
-        while (alive.current && !sessionLost.current) {
+        while (alive.current && !sessionLost.current && !ended.current) {
           try {
             if (!locked.current) {
               const pollEpoch = epoch.current;
               const s = await started.status();
-              if (!alive.current) break;
+              if (!alive.current || ended.current) break;
               if (locked.current || pollEpoch !== epoch.current) {
                 await sleep(80);
                 continue;
@@ -240,7 +240,7 @@ export function ProbeWorkbench({
                   captureRef.current?.phase === "voice"
                     ? []
                     : await started.reports(after.current);
-                if (!alive.current) break;
+                if (!alive.current || ended.current) break;
                 if (pollEpoch !== epoch.current) continue;
                 for (const r of batch) {
                   after.current = Math.max(after.current, r.sequence);
