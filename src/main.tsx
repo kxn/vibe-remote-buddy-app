@@ -935,6 +935,8 @@ function ModelRemote({
               background: b.fill,
               color: b.color,
               borderColor: b.border,
+              fontSize: mini ? Math.min(6, Math.min(66, 170*layout.width/layout.height)*b.width/100 /
+                (Math.max(1, [...(b.symbol || labels[b.key] || definition.label)].length)*1.2)) : undefined,
             },
           };
           const symbol = b.symbol ? (

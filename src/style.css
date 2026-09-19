@@ -726,7 +726,7 @@ main {
   white-space: nowrap;
 }
 .model-mini .model-button span {
-  font-size: 6px;
+  font-size: inherit;
 }
 .model-button:focus-visible {
   outline: 3px solid var(--accent);
