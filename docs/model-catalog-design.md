@@ -95,3 +95,11 @@ PR模板附去标识化的服务清单、设备信息、Report Map摘要、按�
 3. 板端分离profile缓存与绑定variant，增加按需安装和引用锁定；沿用现有事务与失败恢复机制。
 4. 分离profile识别与variant选择；覆盖同名不同协议、同CRC不同键码、同profile不同外观、字段缺失等歧义回归。
 5. 最后接入Git发布索引和同步UI。新增驱动仍需更新固件，单纯变体通过资源即可支持。
+
+## 配置格式落地（2026-09-19）
+
+独立仓库：https://github.com/kxn/vibe-remote-buddy-models ，初始tag v0.1.0。
+format_version=1；各资源revision=1；voice/key/model/fingerprint显式引用固定修订。
+已转换四款，15份资源；schema、引用、Report Map摘要、目录摘要由CI校验。
+RC003完整Map待补，保留已确认CRC与长度并标记不完整；不声称可强指纹自动确认。
+应用下载器与板端按需缓存尚未实现，新库不是旧resources/remotes的直接替代品。
