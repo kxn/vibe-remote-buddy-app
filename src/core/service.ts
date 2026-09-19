@@ -502,7 +502,7 @@ export class BuddyService {
     return map;
   }
   resolveAction(id: number): Action | undefined {
-    return this.boardConfig().actions[id] ?? builtinActions[id];
+    return this.settings.boards[this.snapshot.board?.serial ?? ""]?.actions[id] ?? builtinActions[id];
   }
   async saveMap(slot: Slot, desired: Mapping, action?: Action) {
     if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
