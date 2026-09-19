@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService } from "./core/service";
-import { remoteModels, validateModel, type RemoteModel } from "./core/models";
+import { remoteModels, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
   decodeKey,
@@ -26,15 +26,16 @@ type Capture = {
   phase: "key" | "voice";
   down?: boolean;
   listened: boolean;
-  accepted: boolean;
 };
-const steps = ["发现设备", "连接与识别", "按键与布局", "保存型号"];
+const steps = ["发现设备", "连接与识别", "按键与布局", "完成"];
 export function ProbeWorkbench({
   service,
   close,
+  addRemote,
 }: {
   service: BuddyService;
   close: () => void;
+  addRemote: () => void;
 }) {
   const client = useRef<ProbeClient | undefined>(undefined),
     alive = useRef(true),
@@ -72,7 +73,6 @@ export function ProbeWorkbench({
     [voice, setVoice] = useState<ProbeVoiceStatus>(),
     [audio, setAudio] = useState(""),
     [failures, setFailures] = useState<string[]>([]),
-    [saved, setSaved] = useState(false),
     [identified, setIdentified] = useState(false);
   function update(m: RemoteModel) {
     modelRef.current = m;
@@ -370,7 +370,6 @@ export function ProbeWorkbench({
       clearAudio();
       setNotice("");
       localSaved.current = "";
-      setSaved(false);
       setStep(0);
     });
   }
@@ -402,13 +401,13 @@ export function ProbeWorkbench({
       setStatus(s);
       if (!s.connected) throw Error("连接已断开，请重新连接");
       setIdentified(true);
-      setNotice("连接与识别成功");
+      beginLayout(a);
     });
   }
-  function beginLayout() {
+  function beginLayout(attributes: ProbeAttribute[]) {
     try {
-      const family = familyEvidence(attrs);
-      if (!identified || !family || (protocol && protocol !== family))
+      const family = familyEvidence(attributes);
+      if (!family || (protocol && protocol !== family))
         throw Error("请先完成连接与协议识别");
       const base = [...remoteModels.values()].find((m) => m.family === family);
       if (!base || !selected) throw Error("缺少协议模板");
@@ -416,7 +415,7 @@ export function ProbeWorkbench({
         const m = makeVariant(
           base,
           selected,
-          attrs,
+          attributes,
           `remote.${Date.now().toString(36)}`,
           selected.name,
         );
@@ -448,7 +447,7 @@ export function ProbeWorkbench({
       after.current = Math.max(after.current, s.sequence);
       pending.current = undefined;
       clearAudio();
-      capturing({ key, phase: "key", listened: false, accepted: false });
+      capturing({ key, phase: "key", listened: false });
     });
   }
   function checkProof(c: Capture) {
@@ -493,7 +492,7 @@ export function ProbeWorkbench({
         usage: c.proof!.usage,
       });
       voicePrepared.current = true;
-      capturing({ ...c, phase: "voice", listened: false, accepted: false });
+      capturing({ ...c, phase: "voice", listened: false });
     });
   }
   async function cancelCapture(remove = false) {
@@ -514,11 +513,7 @@ export function ProbeWorkbench({
       checkProof(c);
       if (
         c.key === 2 &&
-        (!c.listened ||
-          !c.accepted ||
-          !audio ||
-          voice?.error ||
-          !voice?.released)
+        (!c.listened || !audio || voice?.error || !voice?.released)
       )
         throw Error("请完成录音、试听并确认声音正常");
       setProofs((old) => ({
@@ -532,6 +527,21 @@ export function ProbeWorkbench({
       fail(e);
     }
   }
+  useEffect(() => {
+    if (!capture?.proof || capture.phase !== "key" || busy || error) return;
+    const timer = window.setTimeout(() => {
+      if (captureRef.current !== capture || locked.current) return;
+      try {
+        checkProof(capture);
+      } catch (e) {
+        fail(e);
+        return;
+      }
+      if (capture.key === 2) void testVoice();
+      else confirmCapture();
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [capture, busy, error]);
   function evidence() {
     return {
       schema: 2,
@@ -570,8 +580,8 @@ export function ProbeWorkbench({
         }
         setProgress("同步型号到接收器");
         await service.reloadModels();
-        setSaved(true);
-        setNotice("型号已保存并同步。关闭工具后可在“添加遥控器”中配对。");
+        setStep(3);
+        setNotice("型号已保存");
       } else setNotice(`已导出：${result}`);
     });
   }
@@ -581,7 +591,7 @@ export function ProbeWorkbench({
       (k) => proofs[k.id] && (k.id !== 2 || proofs[k.id].voice),
     ) &&
     model.keys.some((k) => k.id === 2);
-  const modalBusy = busy || !!capture;
+  const modalBusy = busy || !!capture || !!localSaved.current;
   return (
     <div
       className="shade"
@@ -690,62 +700,53 @@ export function ProbeWorkbench({
         {step === 1 && (
           <>
             <h3>{selected?.name || selected?.address}</h3>
-            <label className="probe-form">
-              待适配协议
-              <select
-                value={protocol}
-                disabled={busy || !!model}
-                onChange={(e) => {
-                  setProtocol(Number(e.target.value));
-                  setIdentified(false);
-                  setNotice("");
-                }}
-              >
-                <option value={0}>自动识别</option>
-                <option value={1}>小米 · ATVV</option>
-                <option value={2}>联通 · HID/ICO</option>
-              </select>
-            </label>
-            <p>连接后读取设备信息，核对所选协议的特征。</p>
-            <div className="probe-actions">
-              <button
-                disabled={busy || voicePrepared.current}
-                onClick={() => void connect()}
-              >
-                {identified && status?.connected ? "重新识别" : "连接并识别"}
-              </button>
-            </div>
-            <details>
-              <summary>设备信息与诊断</summary>
-              <p>
-                {status?.encrypted ? "已加密" : "未加密"} ·{" "}
-                {probeStages[status?.phase ?? ""] ?? status?.phase}
-              </p>
-              <div className="probe-scroll">
-                <pre>
-                  {JSON.stringify(
-                    { attributes: attrs, status, failures },
-                    null,
-                    2,
-                  )}
-                </pre>
-              </div>
+            <details open={error ? true : undefined}>
+              <summary>指定协议</summary>
+              <label className="probe-form">
+                协议类型
+                <select
+                  value={protocol}
+                  disabled={busy || !!model}
+                  onChange={(e) => {
+                    setProtocol(Number(e.target.value));
+                    setIdentified(false);
+                    setNotice("");
+                  }}
+                >
+                  <option value={0}>自动识别</option>
+                  <option value={1}>ATVV（小米等）</option>
+                  <option value={2}>HID/ICO（联通、移动等）</option>
+                </select>
+              </label>
             </details>
+            {error && (
+              <details>
+                <summary>设备信息与诊断</summary>
+                <p>
+                  {status?.encrypted ? "已加密" : "未加密"} ·{" "}
+                  {probeStages[status?.phase ?? ""] ?? status?.phase}
+                </p>
+                <div className="probe-scroll">
+                  <pre>
+                    {JSON.stringify(
+                      { attributes: attrs, status, failures },
+                      null,
+                      2,
+                    )}
+                  </pre>
+                </div>
+              </details>
+            )}
             <div className="probe-footer">
               <button disabled={busy} onClick={() => void backToScan()}>
                 返回
               </button>
               <button
-                disabled={
-                  busy ||
-                  !identified ||
-                  !familyEvidence(attrs) ||
-                  (!!protocol && familyEvidence(attrs) !== protocol)
-                }
+                disabled={busy || voicePrepared.current}
                 className="primary"
-                onClick={beginLayout}
+                onClick={() => void connect()}
               >
-                配置按键
+                {error ? "重试识别" : "识别"}
               </button>
             </div>
           </>
@@ -761,14 +762,17 @@ export function ProbeWorkbench({
                   onChange={(e) => update({ ...model, title: e.target.value })}
                 />
               </label>
-              <label>
-                型号标识
-                <input
-                  value={model.id}
-                  disabled={modalBusy}
-                  onChange={(e) => update({ ...model, id: e.target.value })}
-                />
-              </label>
+              <details>
+                <summary>高级信息</summary>
+                <label>
+                  型号标识
+                  <input
+                    value={model.id}
+                    disabled={modalBusy}
+                    onChange={(e) => update({ ...model, id: e.target.value })}
+                  />
+                </label>
+              </details>
             </div>
             <ProbeLayout
               model={model}
@@ -793,18 +797,11 @@ export function ProbeWorkbench({
                   {!model.keys.some((k) => k.id === 2) ? " · 需要语音键" : ""}
                 </small>
                 <button
-                  disabled={modalBusy || !complete}
-                  onClick={() => {
-                    try {
-                      verifiedModel(model, proofs);
-                      setStep(3);
-                      setError("");
-                    } catch (e) {
-                      fail(e);
-                    }
-                  }}
+                  className="primary"
+                  disabled={busy || !!capture || !complete}
+                  onClick={() => void save(true)}
                 >
-                  下一步
+                  {localSaved.current ? "重试同步" : "保存并使用"}
                 </button>
               </div>
             </div>
@@ -813,33 +810,23 @@ export function ProbeWorkbench({
         {step === 3 && model && (
           <>
             <h3>{model.title}</h3>
-            <p>{model.keys.length} 个按键已验证 · 语音已试听确认</p>
-            <p>保存型号信息、布局、按键功能和实际键码，并同步到接收器。</p>
+            <p>{model.keys.length} 个按键 · 语音已验证</p>
             <div className="probe-footer">
-              <button
-                disabled={busy || saved || !!localSaved.current}
-                onClick={() => setStep(2)}
-              >
-                返回
+              <button disabled={busy} onClick={() => void save(false)}>
+                导出型号
               </button>
-              <div className="probe-actions">
-                <button
-                  disabled={busy || saved}
-                  onClick={() => void save(false)}
-                >
-                  导出型号
-                </button>
-                <button
-                  disabled={busy || saved}
-                  onClick={() => void save(true)}
-                >
-                  {saved
-                    ? "已保存"
-                    : localSaved.current
-                      ? "重试同步"
-                      : "保存并使用"}
-                </button>
-              </div>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    service.releaseProbe();
+                    addRemote();
+                  })
+                }
+              >
+                添加这只遥控器
+              </button>
             </div>
           </>
         )}
@@ -871,13 +858,19 @@ export function ProbeWorkbench({
                     {model?.keys.find((k) => k.id === capture.key)?.label}」键：
                   </p>
                   <div className="probe-key-gesture">
-                    <strong>按下</strong>
+                    <strong
+                      className={capture.down || capture.proof ? "done" : ""}
+                    >
+                      按下{(capture.down || capture.proof) && " ✓"}
+                    </strong>
                     <span>→</span>
-                    <strong>松开</strong>
+                    <strong className={capture.proof ? "done" : ""}>
+                      松开{capture.proof && " ✓"}
+                    </strong>
                   </div>
                   <p role="status">
                     {capture.proof
-                      ? `已收到按下和松开 · 报告 ${capture.proof.report} / 0x${capture.proof.usage.toString(16)}`
+                      ? "验证通过"
                       : capture.down
                         ? "已按下，请松开"
                         : "等待按键…"}
@@ -929,19 +922,6 @@ export function ProbeWorkbench({
                       }
                     />
                   )}
-                  {audio && (
-                    <label>
-                      <input
-                        type="checkbox"
-                        disabled={!capture.listened || busy}
-                        checked={capture.accepted}
-                        onChange={(e) =>
-                          capturing({ ...capture, accepted: e.target.checked })
-                        }
-                      />{" "}
-                      声音正常
-                    </label>
-                  )}
                   {(audio || error) && (
                     <button disabled={busy} onClick={() => void testVoice()}>
                       重新录音
@@ -967,28 +947,25 @@ export function ProbeWorkbench({
                 <button disabled={busy} onClick={() => void cancelCapture()}>
                   取消
                 </button>
-                {capture.key === 2 && capture.phase === "key" ? (
+                {capture.phase === "voice" && audio && (
                   <button
-                    disabled={busy || !capture.proof}
-                    onClick={() => void testVoice()}
-                  >
-                    下一步：试录
-                  </button>
-                ) : (
-                  <button
+                    className="primary"
                     disabled={
-                      busy ||
-                      !!error ||
-                      !!voice?.error ||
-                      !capture.proof ||
-                      (capture.key === 2 &&
-                        (!capture.listened || !capture.accepted))
+                      busy || !!error || !!voice?.error || !capture.listened
                     }
                     onClick={confirmCapture}
                   >
-                    确认
+                    声音正常
                   </button>
                 )}
+                {capture.phase === "key" &&
+                  capture.key === 2 &&
+                  capture.proof &&
+                  error && (
+                    <button disabled={busy} onClick={() => void testVoice()}>
+                      重试试录
+                    </button>
+                  )}
               </div>
             </section>
           </div>

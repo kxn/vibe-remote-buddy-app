@@ -666,7 +666,15 @@ function App() {
         />
       )}
       {modal === "probe" && (
-        <ProbeWorkbench service={service} close={() => setModal(null)} />
+        <ProbeWorkbench
+          service={service}
+          close={() => setModal(null)}
+          addRemote={() => {
+            setRepairPeer(undefined);
+            setPage("home");
+            setModal("add");
+          }}
+        />
       )}
       {modal === "about" && (
         <Dialog title="关于" close={() => setModal(null)}>
