@@ -3,7 +3,7 @@ import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
-import { remoteModels, type RemoteModel } from "./core/models";
+import { remoteModels, conflictingModel, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
   decodeProbeKey,
@@ -678,6 +678,8 @@ export function ProbeWorkbench({
     await run(async () => {
       const m = verifiedModel(model!, proofs);
       m.layout.artworkButtons = true;
+      const conflict=conflictingModel(m);
+      if(conflict)throw Error(`此遥控器已有型号「${conflict.title}」（${conflict.id}），请使用已有型号，不能重复添加相同识别规则`);
       if (remoteModels.has(m.id) && localSaved.current !== m.id)
         throw Error("型号标识已存在");
       setProgress("保存型号");

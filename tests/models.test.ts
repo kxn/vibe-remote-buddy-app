@@ -5,6 +5,7 @@ import {
   validateModel,
   modelBytes,
   syncModels,
+  conflictingModel,
 } from "../src/core/models";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
 import unicom from "../resources/remotes/unicom.hid_ico.v1/model.json";
@@ -103,4 +104,14 @@ describe("external model packages", () => {
     ).rejects.toThrow("未安装");
     expect(calls).toEqual([0x430, 0x431, 0x432, 0x434]);
   });
+});
+
+it("rejects identical scan fingerprints before any receiver write",async()=>{
+ loadModels([source(xiaomi)]);
+ const variant=validateModel({...xiaomi,id:"duplicate",map_crc:123});
+ expect(conflictingModel(variant)?.id).toBe(xiaomi.id);
+ remoteModels.set(variant.id,variant);
+ let requests=0;
+ await expect(syncModels(async()=>{requests++;return {};},16)).rejects.toThrow("识别规则冲突");
+ expect(requests).toBe(0);
 });

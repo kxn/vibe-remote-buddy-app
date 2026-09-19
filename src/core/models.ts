@@ -264,6 +264,7 @@ export async function syncModels(
   capacity: number,
 ) {
   require(integer(capacity, 64, 1), "接收器型号容量无效");
+  for(const model of remoteModels.values()){const conflict=conflictingModel(model);if(conflict)throw Error(`型号识别规则冲突：${model.id} / ${conflict.id}`);}
   const installed = new Map<string, number>();
   for (let index = 0; index < capacity; index++)
     try {
@@ -298,4 +299,10 @@ export async function syncModels(
       throw Error(`${model.id}: 型号配置未安装，${String(e)}`);
     }
   }
+}
+
+/** Equal-priority advertisement rules cannot be disambiguated by later GATT reads. */
+export function conflictingModel(model: RemoteModel): RemoteModel | undefined {
+ return [...remoteModels.values()].find(other=>other.id!==model.id && model.matches.some(a=>other.matches.some(b=>
+  a.company===b.company && ((!!a.name&&a.name===b.name)|| (!!a.prefix&&!!b.prefix&&(a.prefix.startsWith(b.prefix)||b.prefix.startsWith(a.prefix)))))));
 }
