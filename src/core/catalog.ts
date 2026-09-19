@@ -444,3 +444,31 @@ export async function uploadCatalog(
     throw error;
   }
 }
+
+/** Reuse shipped structural artwork only when the public geometry is identical.
+ * A changed layout must generate new art instead of overlaying stale shapes. */
+export function matchingArtwork(
+  model: RemoteModel,
+  source?: { model: unknown; image?: string },
+): string | undefined {
+  if (!source?.image) return undefined;
+  const old = source.model as RemoteModel;
+  if (
+    old.id !== model.id ||
+    !old.layout ||
+    old.layout.artworkButtons ||
+    old.layout.width !== model.layout.width ||
+    old.layout.height !== model.layout.height ||
+    old.layout.buttons.length !== model.layout.buttons.length
+  )
+    return undefined;
+  const fields = ["x", "y", "width", "height", "radius"] as const;
+  if (
+    !model.layout.buttons.every((b) => {
+      const prior = old.layout.buttons.find((p) => p.key === b.key);
+      return prior && fields.every((k) => prior[k] === b[k]);
+    })
+  )
+    return undefined;
+  return source.image;
+}

@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import {
   compileCatalog,
+  matchingArtwork,
   resolveCatalog,
   packModel,
   type CatalogModel,
@@ -73,4 +74,17 @@ describe("board catalog", () => {
     expect(() => compileCatalog(Array(4097).fill(m), 1)).toThrow("条目");
     expect(() => compileCatalog([m], 0)).toThrow("代次");
   });
+});
+
+it("preserves shipped artwork only for unchanged public geometry", () => {
+  const model = fixture().find((m) => m.model.id === "xiaomi.rc003")!.model;
+  const original = JSON.parse(
+    readFileSync("resources/remotes/xiaomi.rc003/model.json", "utf8"),
+  );
+  expect(matchingArtwork(model, { model: original, image: "svg" })).toBe("svg");
+  const changed = structuredClone(model);
+  changed.layout.buttons[0].x++;
+  expect(
+    matchingArtwork(changed, { model: original, image: "svg" }),
+  ).toBeUndefined();
 });

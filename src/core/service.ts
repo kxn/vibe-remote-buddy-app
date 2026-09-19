@@ -1,6 +1,7 @@
 import { candidateStream } from "./candidates";
 import {
   resolveCatalog,
+  matchingArtwork,
   compileCatalog,
   uploadCatalog,
   type CatalogModel,
@@ -366,7 +367,14 @@ export class BuddyService {
       (s) => !defaults.has((s.model as any)?.id) || s.edited,
     );
     const errors = loadModels([
-      ...resolved.map((m) => ({ source: "catalog", model: m.model })),
+      ...resolved.map((m) => ({
+        source: "catalog",
+        model: m.model,
+        image: matchingArtwork(
+          m.model,
+          sources.find((s) => (s.model as any)?.id === m.model.id),
+        ),
+      })),
       ...local.filter((s) => !defaults.has((s.model as any)?.id)),
     ]);
     if (errors.length) throw Error(errors.join("\n"));
