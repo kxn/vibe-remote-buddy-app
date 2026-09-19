@@ -78,7 +78,7 @@ pub fn setup_candidates() -> Result<Vec<Candidate>, String> {
 #[tauri::command]
 pub fn setup_package() -> Result<Option<Value>, String> {
     helper()?;
-    let p = folder()?.join("install.json");
+    let p = folder()?.join("catalog.json");
     if !p.is_file() {
         return Ok(None);
     }
@@ -102,6 +102,7 @@ fn command(
     candidate: &Candidate,
     expected: Option<&str>,
     confirm: bool,
+    variant: Option<&str>,
 ) -> Result<Command, String> {
     let mut cmd = Command::new(helper()?);
     cmd.arg(operation)
@@ -111,6 +112,9 @@ fn command(
         .arg(folder()?);
     if let Some(mac) = expected {
         cmd.arg("--expected-mac").arg(mac);
+    }
+    if let Some(v) = variant {
+        cmd.arg("--variant").arg(v);
     }
     if confirm {
         cmd.arg("--confirm-board");
@@ -204,6 +208,7 @@ fn launch(
         &candidate,
         info.as_ref().and_then(|v| v["mac"].as_str()),
         confirm,
+        info.as_ref().and_then(|v| v["variant"].as_str()),
     )?;
     lock_native(&app)?;
     let operation = operation.to_string();
@@ -287,11 +292,12 @@ pub fn setup_install(
     app: tauri::AppHandle,
     confirmed: bool,
     board_confirmed: bool,
+    variant: String,
 ) -> Result<(), String> {
     if !confirmed {
         return Err("需要明确确认清除设备".into());
     }
-    let ticket = app
+    let mut ticket = app
         .state::<Setup>()
         .ticket
         .lock()
@@ -304,6 +310,13 @@ pub fn setup_install(
     if ticket.info["psram_known"] != true && !board_confirmed {
         return Err("请核对板型规格".into());
     }
+    if !["q2", "o8"].contains(&variant.as_str()) {
+        return Err("请选择内存规格".into());
+    }
+    if ticket.info["psram_known"] == true && ticket.info["variant"] != variant {
+        return Err("固件类型与设备不匹配".into());
+    }
+    ticket.info["variant"] = Value::String(variant);
     launch(
         app,
         ticket.candidate,
@@ -326,7 +339,7 @@ pub async fn setup_release(app: tauri::AppHandle) -> Result<(), String> {
         if !setup_candidates()?.contains(&t.candidate) {
             return Ok(());
         }
-        let cmd = command("reset", &t.candidate, t.info["mac"].as_str(), false)?;
+        let cmd = command("reset", &t.candidate, t.info["mac"].as_str(), false, None)?;
         lock_native(&app)?;
         let result = tauri::async_runtime::spawn_blocking(move || {
             execute(cmd, Duration::from_secs(20), |_| {})

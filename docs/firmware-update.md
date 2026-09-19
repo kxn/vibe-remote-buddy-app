@@ -4,11 +4,11 @@
 
 正常更新通过原有 USB 管理接口，不需要网络、驱动安装或 BOOT 按钮。传输时可以取消；开始激活后等待设备重启。程序核对同一 USB 序列号、实际版本、应用槽和首次启动确认结果后才显示成功。无法确认不代表成功，需重新连接检查版本。
 
-首个支持目标为 `s3-16m-8m-ab1`（ESP32-S3、16 MiB Flash、至少 8 MiB PSRAM、双应用/双数据布局）。C6、其他分区布局及早期开发固件不能直接更新。早期固件需另行完成一次完整安装。其他平台仍需实测。
+支持目标为 `s3-q2-ab1`（2 MB Quad PSRAM）和 `s3-o8-ab1`（8 MB Octal PSRAM），均支持 8/16 MB Quad Flash、双应用/双数据布局。0.8.0 的旧 target 需重新完整初始化，测试阶段不提供跨 target 迁移。C6、其他分区布局及早期开发固件不能直接更新。早期固件需另行完成一次完整安装。其他平台仍需实测。
 
 ## 发布时附带固件
 
-公开仓库不保存固件源码或二进制。由固件发布方提供独立目录，包含 `receiver.bin` 和 `manifest.json`。构建时设置：
+公开仓库不保存固件源码或二进制。由固件发布方提供独立目录，包含 `catalog.json` 和 `q2/`、`o8/` 两个目录，各目录内含 `receiver.bin` 和 `manifest.json`。构建时设置：
 
 ```powershell
 $env:BUDDY_FIRMWARE_DIR='C:/release/receiver-package'

@@ -13,6 +13,9 @@ export interface SetupCandidate {
 }
 interface Device {
   chip: string;
+  variant: string;
+  target: string;
+  flash_bytes: number;
   mac: string;
   version: string;
   psram_known: boolean;
@@ -56,6 +59,7 @@ export function ReceiverSetup({
   const [error, setError] = useState(""),
     [logs, setLogs] = useState<string[]>([]),
     [phase, setPhase] = useState("");
+  const [variant, setVariant] = useState("");
   const [closing, setClosing] = useState(false);
   const busy = ["loading", "checking", "writing"].includes(step) || closing;
   const dialog = useRef<HTMLDialogElement>(null),
@@ -95,6 +99,7 @@ export function ReceiverSetup({
     setSelected(candidate);
     setConsent(false);
     setBoardConfirmed(false);
+    setVariant("");
     setError("");
     setLogs([]);
     setStep("checking");
@@ -145,7 +150,10 @@ export function ReceiverSetup({
           if (cancel) return;
           setPhase(status.phase);
           setLogs(status.logs);
-          if (status.info) setDevice(status.info);
+          if (status.info) {
+            setDevice(status.info);
+            if (status.info.variant) setVariant(status.info.variant);
+          }
           if (status.phase === "checked") {
             setStep("confirm");
           } else if (status.phase === "written") {
@@ -183,9 +191,10 @@ export function ReceiverSetup({
               if (
                 info?.confirmed &&
                 info.firmware === `buddy-${device.version}` &&
-                info.target === "s3-16m-8m-ab1" &&
-                info.flash_bytes === 16777216 &&
-                (info.psram_bytes ?? 0) >= 8388608
+                info.target === device.target &&
+                [8388608, 16777216].includes(info.flash_bytes ?? 0) &&
+                (info.psram_bytes ?? 0) >=
+                  (device.variant === "q2" ? 2097152 : 8388608)
               ) {
                 if (!cancel) setStep("done");
               } else if (Date.now() - waitingSince.current > 45000) {
@@ -235,12 +244,22 @@ export function ReceiverSetup({
     }
   }
   async function install() {
-    if (!consent || !device || (!device.psram_known && !boardConfirmed)) return;
+    if (
+      !variant ||
+      !consent ||
+      !device ||
+      (!device.psram_known && !boardConfirmed)
+    )
+      return;
     polling.current = true;
     setError("");
     setStep("writing");
     try {
-      await call("setup_install", { confirmed: consent, boardConfirmed });
+      await call("setup_install", {
+        confirmed: consent,
+        boardConfirmed,
+        variant,
+      });
     } catch (e) {
       setError(String(e));
       setConsent(false);
@@ -400,21 +419,38 @@ export function ReceiverSetup({
               <p>
                 {device.description}
                 <br />
-                16 MB Flash · 固件 {device.version}
+                {device.flash_bytes / 1048576} MB Flash · 固件 {device.version}
               </p>
             </details>
             {!device.psram_known && (
-              <label className="setup-consent">
-                <input
-                  type="checkbox"
-                  checked={boardConfirmed}
-                  onChange={(e) => setBoardConfirmed(e.target.checked)}
-                />
-                <span>
-                  已核对板子标注：8 MB Octal PSRAM
-                  <small>无法自动识别外置内存，请核对型号或商品规格。</small>
-                </span>
-              </label>
+              <>
+                <label>
+                  板子内存规格
+                  <select
+                    aria-label="板子内存规格"
+                    value={variant}
+                    onChange={(e) => {
+                      setVariant(e.target.value);
+                      setBoardConfirmed(false);
+                    }}
+                  >
+                    <option value="">请选择</option>
+                    <option value="q2">2 MB Quad PSRAM</option>
+                    <option value="o8">8 MB Octal PSRAM</option>
+                  </select>
+                </label>
+                <label className="setup-consent">
+                  <input
+                    type="checkbox"
+                    checked={boardConfirmed}
+                    onChange={(e) => setBoardConfirmed(e.target.checked)}
+                  />
+                  <span>
+                    已核对板子标注与所选内存规格一致
+                    <small>无法自动识别外置内存，请核对型号或商品规格。</small>
+                  </span>
+                </label>
+              </>
             )}
             <div className="setup-warning">
               <strong>将清除这块开发板的全部内容。</strong>
@@ -504,7 +540,9 @@ export function ReceiverSetup({
                 <button
                   className="danger"
                   disabled={
-                    !consent || (!device?.psram_known && !boardConfirmed)
+                    !variant ||
+                    !consent ||
+                    (!device?.psram_known && !boardConfirmed)
                   }
                   onClick={() => void install()}
                 >

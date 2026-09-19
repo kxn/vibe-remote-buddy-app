@@ -11,6 +11,9 @@ import struct
 import sys
 from types import SimpleNamespace
 
+PROFILES = {'q2': ('s3-q2-ab1', 'buddy_s3_q2_ab1', 2),
+            'o8': ('s3-o8-ab1', 'buddy_s3_o8_ab1', 8)}
+
 EXPECTED = {0: ('bootloader.bin', 0x8000), 0x8000: ('partition-table.bin', 0x1000),
             0xf000: ('ota_data_initial.bin', 0x2000), 0x20000: ('receiver.bin', 0x200000)}
 
@@ -22,7 +25,7 @@ def event(**value):
 def load_package(folder):
     folder = Path(folder)
     manifest = json.loads((folder / 'install.json').read_text(encoding='utf-8'))
-    if manifest.get('format') != 1 or manifest.get('target') != 's3-16m-8m-ab1':
+    if manifest.get('format') != 1 or manifest.get('target') not in [v[0] for v in PROFILES.values()]:
         raise ValueError('不支持的安装包目标')
     if len(manifest.get('files', [])) != len(EXPECTED):
         raise ValueError('安装包缺少镜像')
@@ -42,11 +45,13 @@ def load_package(folder):
         if name in ('receiver.bin', 'bootloader.bin'):
             if len(data) < 24 or data[0] != 0xe9 or struct.unpack_from('<H', data, 12)[0] != 9:
                 raise ValueError('不是 ESP32-S3 镜像: ' + name)
+            if data[3] >> 4 != 3:
+                raise ValueError('镜像不是 8 MB Flash 布局: ' + name)
         if name == 'receiver.bin':
             if len(data) < 288 or struct.unpack_from('<I', data, 32)[0] != 0xabcd5432:
                 raise ValueError('缺少应用描述符')
             text = lambda off: data[off:off+32].split(b'\0')[0].decode()
-            if text(80) != 'buddy_s3_ab1' or text(48) != manifest['version']:
+            if text(80) != next(v[1] for v in PROFILES.values() if v[0] == manifest['target']) or text(48) != manifest['version']:
                 raise ValueError('固件版本或分区 ABI 不匹配')
         images.append((addr, folder / name))
     return manifest, sorted(images)
@@ -60,14 +65,16 @@ def inspect(esp):
     esp.flash_spi_attach(0)
     flash_id = esp.flash_id()
     size_id = (flash_id >> 16) & 0xff
-    if size_id != 24:
-        raise ValueError(f'此安装包要求 16 MB Flash，检测 ID=0x{flash_id:06x}')
+    if size_id not in (23, 24):
+        raise ValueError(f'仅支持 8 / 16 MB Flash，检测 ID=0x{flash_id:06x}')
+    if esp.flash_type() != 0:
+        raise ValueError('不支持 Octal Flash')
     cap = esp.get_psram_cap()
-    if cap not in (0, 1):
+    if cap not in (0, 1, 2):
         capacity = {2: '2 MB', 3: '16 MB', 4: '4 MB'}.get(cap, '未知容量')
-        raise ValueError(f'此安装包要求 8 MB Octal PSRAM，检测到内置 {capacity}（efuse capacity={cap}）')
+        raise ValueError(f'仅支持 2 MB Quad / 8 MB Octal PSRAM，检测到内置 {capacity}（efuse capacity={cap}）')
     return dict(chip=esp.CHIP_NAME, mac=bytes(esp.read_mac()).hex().upper(),
-                flash_bytes=1 << size_id, psram_known=cap == 1,
+                flash_bytes=1 << size_id, psram_known=cap != 0, variant={1: 'o8', 2: 'q2'}.get(cap, ''),
                 description=esp.get_chip_description())
 
 
@@ -78,10 +85,20 @@ def main():
     p.add_argument('--package', required=True)
     p.add_argument('--expected-mac')
     p.add_argument('--confirm-board', action='store_true')
+    p.add_argument('--variant', choices=list(PROFILES))
     a = p.parse_args()
-    manifest, images = load_package(a.package)  # Validate before touching any device.
+    folder = Path(a.package)
+    catalog = json.loads((folder / 'catalog.json').read_text(encoding='utf-8'))
+    if catalog != {'format': 1, 'variants': ['q2', 'o8']}:
+        raise ValueError('不支持的安装包目录')
+    packages = {v: load_package(folder / v) for v in PROFILES}
+    for v, (m, _) in packages.items():
+        if m['target'] != PROFILES[v][0]: raise ValueError('安装包类型不匹配')
+    versions = {m['version'] for m, _ in packages.values()}
+    if len(versions) != 1: raise ValueError('安装包版本不一致')
+    version = versions.pop()
     if a.operation == 'validate':
-        event(phase='validated', version=manifest['version'])
+        event(phase='validated', version=version)
         return
     import esptool
     from esptool import cmds
@@ -97,19 +114,23 @@ def main():
             event(phase='reset')
             return
         if a.operation == 'check':
-            event(phase='checked', info={**info, 'version': manifest['version']})
+            event(phase='checked', info={**info, 'version': version, 'target': PROFILES[info['variant']][0] if info['variant'] else ''})
             return
         if not a.expected_mac or (not info['psram_known'] and not a.confirm_board):
             raise ValueError('缺少设备身份或板型确认')
+        if not a.variant or (info['variant'] and info['variant'] != a.variant):
+            raise ValueError('固件类型与设备不匹配')
+        manifest, images = packages[a.variant]
+        info.update(target=manifest['target'], variant=a.variant)
         # Same live connection from identity/security inspection through erase/write.
         esp = esp.run_stub()
         esp.WRITE_FLASH_ATTEMPTS = 1
-        esp.flash_set_parameters(16 * 1024 * 1024)
+        esp.flash_set_parameters(info['flash_bytes'])
         with ExitStack() as stack:
             args = SimpleNamespace(
                 compress=True, no_compress=False, no_stub=False, force=False,
                 encrypt=False, encrypt_files=None, ignore_flash_encryption_efuse_setting=False,
-                flash_size='16MB', flash_mode='keep', flash_freq='keep', erase_all=True,
+                flash_size='keep', flash_mode='keep', flash_freq='keep', erase_all=True,
                 chip='esp32s3', addr_filename=[(off, stack.enter_context(path.open('rb'))) for off, path in images],
             )
             event(phase='writing')

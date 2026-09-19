@@ -422,20 +422,17 @@ fn quit(app: tauri::AppHandle, state: State<Native>) {
     app.exit(0);
 }
 #[tauri::command]
-fn firmware_package() -> Result<Option<serde_json::Value>, String> {
-    let manifest: serde_json::Value =
-        serde_json::from_slice(include_bytes!(concat!(env!("OUT_DIR"), "/manifest.json")))
-            .map_err(|e| e.to_string())?;
-    if manifest.is_null() {
+fn firmware_package(target: String) -> Result<Option<serde_json::Value>, String> {
+    let selected: Option<(&[u8], &[u8])> =
+        include!(concat!(env!("OUT_DIR"), "/firmware-select.rs"));
+    let Some((raw, image)) = selected else {
         return Ok(None);
+    };
+    let manifest: serde_json::Value = serde_json::from_slice(raw).map_err(|e| e.to_string())?;
+    if image.len() > 2 * 1024 * 1024 || manifest["target"] != target {
+        return Err("固件包类型不匹配".into());
     }
-    let image = include_bytes!(concat!(env!("OUT_DIR"), "/receiver.bin"));
-    if image.len() > 2 * 1024 * 1024 {
-        return Err("固件包过大".into());
-    }
-    Ok(Some(
-        serde_json::json!({"manifest":manifest,"image":image.as_slice()}),
-    ))
+    Ok(Some(serde_json::json!({"manifest":manifest,"image":image})))
 }
 #[tauri::command]
 fn firmware_lock(enabled: bool, state: State<Native>) -> Result<(), String> {

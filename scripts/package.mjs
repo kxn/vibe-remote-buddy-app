@@ -54,15 +54,25 @@ try {
       { recursive: true },
     );
     const factory = process.env.BUDDY_FIRMWARE_DIR;
-    if (factory && fs.existsSync(path.join(factory, "install.json"))) {
-      for (const f of [
-        "install.json",
-        "receiver.bin",
-        "bootloader.bin",
-        "partition-table.bin",
-        "ota_data_initial.bin",
-      ])
-        fs.copyFileSync(path.join(factory, f), path.join(installer, f));
+    if (factory && fs.existsSync(path.join(factory, "catalog.json"))) {
+      fs.copyFileSync(
+        path.join(factory, "catalog.json"),
+        path.join(installer, "catalog.json"),
+      );
+      for (const variant of ["q2", "o8"]) {
+        fs.mkdirSync(path.join(installer, variant));
+        for (const f of [
+          "install.json",
+          "receiver.bin",
+          "bootloader.bin",
+          "partition-table.bin",
+          "ota_data_initial.bin",
+        ])
+          fs.copyFileSync(
+            path.join(factory, variant, f),
+            path.join(installer, variant, f),
+          );
+      }
     }
 
     for (const name of ["LICENSE", "THIRD_PARTY_NOTICES.md"])

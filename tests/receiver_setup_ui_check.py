@@ -5,18 +5,18 @@ from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[1]
 out=root/'build/diagnostics'/(datetime.now().strftime('%Y%m%d-%H%M%S')+'-receiver-setup-ui')
 out.mkdir(parents=True)
-fixture=(root/'tests/ui-native-fixture.js').read_text(encoding='utf-8').replace('firmware: "ui-fixture",','firmware: "buddy-0.8.0", confirmed:true, target:"s3-16m-8m-ab1", flash_bytes:16777216, psram_bytes:8388608,')
+fixture=(root/'tests/ui-native-fixture.js').read_text(encoding='utf-8').replace('firmware: "ui-fixture",','firmware: "buddy-0.8.0", confirmed:true, target:"s3-o8-ab1", flash_bytes:16777216, psram_bytes:8388608,')
 extension='''
 const original=window.__TAURI_INTERNALS__.invoke;
 window.setupTest={calls:[],phase:'',online:false,fail:false,package:true,candidates:[{path:'COM99',name:'USB board',serial:'001122334455',vid:12346,pid:4097}]};
 window.__TAURI_INTERNALS__.invoke=async(cmd,args={})=>{
  const f=window.setupTest;f.calls.push(cmd);
- const info={chip:'ESP32-S3',mac:'001122334455',version:'0.8.0',psram_known:false,description:'test chip'};
+ const info={chip:'ESP32-S3',mac:'001122334455',version:'0.8.0',psram_known:false,variant:'',target:'s3-o8-ab1',flash_bytes:16777216,description:'test chip'};
  if(cmd==='ports')return f.online?[{path:'COM100',serial:info.mac,name:'Vibe Remote Buddy'}]:[];
  if(cmd==='setup_package')return f.package?{version:'0.8.0'}:null;
  if(cmd==='setup_candidates')return f.candidates;
  if(cmd==='setup_check'){f.phase='checked';return;}
- if(cmd==='setup_status')return {phase:f.phase,info,error:f.fail?'device disconnected':'',logs:[]};
+ if(cmd==='setup_status')return {phase:f.phase,info:{...info,variant:f.phase==='written'?'o8':''},error:f.fail?'device disconnected':'',logs:[]};
  if(cmd==='setup_release')return;
  if(cmd==='setup_install'){
    if(!args.confirmed||!args.boardConfirmed)throw Error('Missing confirmation');
@@ -38,7 +38,7 @@ with sync_playwright() as p:
   confirm=d.get_by_role('button',name='清除并安装')
   confirm.wait_for();assert confirm.is_disabled()
   d.get_by_label('确认清除以上设备并安装').check();assert confirm.is_disabled()
-  d.get_by_label('已核对板子标注：8 MB Octal PSRAM',exact=False).check();assert confirm.is_enabled()
+  d.get_by_label('板子内存规格',exact=True).select_option('o8');d.get_by_label('已核对板子标注与所选内存规格一致',exact=False).check();assert confirm.is_enabled()
   page.screenshot(path=str(out/f'confirm-{width}.png'))
   confirm.click();assert d.get_by_role('button',name='关闭',exact=True).is_disabled()
   page.keyboard.press('Escape');assert d.is_visible()

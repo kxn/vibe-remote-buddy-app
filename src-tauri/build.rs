@@ -7,17 +7,24 @@ fn main() {
     }
     println!("cargo:rerun-if-env-changed=BUDDY_FIRMWARE_DIR");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    let mut arms = String::new();
     if let Some(dir) = env::var_os("BUDDY_FIRMWARE_DIR") {
         let dir = PathBuf::from(dir);
-        for file in ["manifest.json", "receiver.bin"] {
-            let path = dir.join(file);
-            println!("cargo:rerun-if-changed={}", path.display());
-            fs::copy(path, out.join(file)).expect("firmware package missing");
+        for variant in ["q2", "o8"] {
+            for file in ["manifest.json", "receiver.bin"] {
+                let path = dir.join(variant).join(file);
+                println!("cargo:rerun-if-changed={}", path.display());
+                fs::copy(path, out.join(format!("{variant}-{file}")))
+                    .expect("firmware variant missing");
+            }
+            arms.push_str(&format!(r#""s3-{variant}-ab1" => Some((include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-manifest.json")).as_slice(), include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-receiver.bin")).as_slice())),"#));
         }
-    } else {
-        fs::write(out.join("manifest.json"), "null").unwrap();
-        fs::write(out.join("receiver.bin"), []).unwrap();
     }
+    fs::write(
+        out.join("firmware-select.rs"),
+        format!("match target.as_str() {{ {arms} _ => None }}"),
+    )
+    .unwrap();
     println!("cargo:rerun-if-changed=../resources");
     // Portable Windows distribution: executable plus editable resources directory.
     let target = out.ancestors().nth(3).unwrap().join("resources");

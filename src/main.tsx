@@ -118,13 +118,6 @@ function Spinner() {
 }
 function App() {
   const [firmware, setFirmware] = useState<FirmwarePackage | null>(null);
-  useEffect(() => {
-    if (native)
-      void call<FirmwarePackage | null>("firmware_package")
-        .then(setFirmware)
-        .catch((e) => service.report(e));
-  }, []);
-
   const snap = useSyncExternalStore(service.subscribe, service.getSnapshot),
     [page, setPage] = useState<"home" | "keys" | "settings">("home"),
     [peer, setPeer] = useState(0),
@@ -156,6 +149,21 @@ function App() {
     busy = snap.busy || localBusy,
     connected = snap.status === "connected",
     recording = connected && snap.info?.voice_owner !== 255;
+  useEffect(() => {
+    let cancelled = false;
+    setFirmware(null);
+    if (native && connected && snap.info?.target)
+      void call<FirmwarePackage | null>("firmware_package", {
+        target: snap.info.target,
+      })
+        .then((p) => {
+          if (!cancelled) setFirmware(p);
+        })
+        .catch((e) => service.report(e));
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, snap.info?.target]);
   useEffect(() => {
     if (native) {
       void call<string>("desktop_platform")
