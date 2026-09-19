@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { call } from "./native";
@@ -504,9 +505,9 @@ export function ReceiverSetup({
           </>
         )}
         {error && (
-          <div className="setup-warning" role="alert">
+          <Feedback error within={dialog.current}>
             {error}
-          </div>
+          </Feedback>
         )}
         {!!logs.length && (
           <details>

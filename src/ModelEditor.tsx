@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import React, { useEffect, useState } from "react";
 import { validateModel, type RemoteModel } from "./core/models";
 import { usages, media, modifiers } from "./core/layout";
@@ -215,11 +216,7 @@ export function ModelEditor({
           </label>
         ))}
       </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Feedback error>{error}</Feedback>}
       <div className="probe-actions">
         <button onClick={() => apply()}>保存按钮</button>
         <button

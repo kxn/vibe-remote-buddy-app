@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import { useState } from "react";
 import { call } from "./native";
 import type { Action } from "./core/types";
@@ -51,11 +52,7 @@ export function ActionFields({
         </label>
       )}
       <p className="muted">需要 Vibe Remote Buddy 在后台运行。</p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Feedback error>{error}</Feedback>}
     </fieldset>
   );
 }

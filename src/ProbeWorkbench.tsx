@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService } from "./core/service";
@@ -703,39 +704,39 @@ export function ProbeWorkbench({
             </span>
           ))}
         </nav>
-        {busy && (
-          <p className="probe-status">
-            <LoaderCircle className="spin" size={16} />
-            {progress}
-          </p>
-        )}
+        <div className="probe-progress-slot">
+          {busy && (
+            <p className="probe-status">
+              <LoaderCircle className="spin" size={16} />
+              {progress}
+            </p>
+          )}
+        </div>
         {!capture && error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {!capture && error && (
-          <button
-            disabled={busy || !native}
-            onClick={() =>
-              void run(async () => {
-                await call("export_config", {
-                  text: JSON.stringify(evidence(), null, 2),
-                });
-              })
-            }
-          >
-            保存诊断
-          </button>
+          <Feedback error>
+            <span>{error}</span>
+            <button
+              disabled={busy || !native}
+              onClick={() =>
+                void run(async () => {
+                  await call("export_config", {
+                    text: JSON.stringify(evidence(), null, 2),
+                  });
+                })
+              }
+            >
+              保存诊断
+            </button>
+          </Feedback>
         )}
         {notice && (
-          <p className="probe-success" role="status">
+          <Feedback>
             {step === 1 ? "✓ " : ""}
             {notice}
-          </p>
+          </Feedback>
         )}
         {identified && !status?.connected && !error && (
-          <p role="status">遥控器已断开，验证按键前请重新连接。</p>
+          <Feedback>遥控器已断开，验证按键前请重新连接。</Feedback>
         )}
         {step === 0 && (
           <>
@@ -969,7 +970,7 @@ export function ProbeWorkbench({
               role="dialog"
               aria-modal="true"
               aria-label="验证按键"
-              className="probe-modal"
+              className="probe-modal capture-modal"
             >
               <h3>
                 验证按键 ·{" "}
@@ -1044,54 +1045,54 @@ export function ProbeWorkbench({
                                 ? "请按住语音键说话约 3 秒，然后松开。"
                                 : "正在准备语音协议…"}
                   </p>
-                  {!audio && !error && (
-                    <div className="probe-voice-state">
-                      <meter
-                        min={0}
-                        max={32768}
-                        value={voice?.peak ?? 0}
-                        aria-label="音量"
+                  <div className="voice-media-slot">
+                    {!audio && !error && (
+                      <div className="probe-voice-state">
+                        <meter
+                          min={0}
+                          max={32768}
+                          value={voice?.peak ?? 0}
+                          aria-label="音量"
+                        />
+                        <span>
+                          {(
+                            (voice?.samples ?? 0) / (voice?.rate || 16000)
+                          ).toFixed(1)}{" "}
+                          秒
+                        </span>
+                      </div>
+                    )}
+                    {audio && (
+                      <audio
+                        controls
+                        src={audio}
+                        onEnded={() =>
+                          captureRef.current === capture &&
+                          capturing({ ...capture, listened: true })
+                        }
                       />
-                      <span>
-                        {(
-                          (voice?.samples ?? 0) / (voice?.rate || 16000)
-                        ).toFixed(1)}{" "}
-                        秒
-                      </span>
-                    </div>
-                  )}
-                  {audio && (
-                    <audio
-                      controls
-                      src={audio}
-                      onEnded={() =>
-                        captureRef.current === capture &&
-                        capturing({ ...capture, listened: true })
-                      }
-                    />
-                  )}
-                  {voice?.adapter_error && (
-                    <button
-                      disabled={busy}
-                      onClick={() => void reconnectVoice()}
-                    >
-                      重新连接
-                    </button>
-                  )}
-                  {(audio || error) && !voice?.adapter_error && (
-                    <button disabled={busy} onClick={() => void testVoice()}>
-                      重新录音
-                    </button>
-                  )}
+                    )}
+                  </div>
+                  <div className="voice-retry-slot">
+                    {voice?.adapter_error && (
+                      <button
+                        disabled={busy}
+                        onClick={() => void reconnectVoice()}
+                      >
+                        重新连接
+                      </button>
+                    )}
+                    {(audio || error) && !voice?.adapter_error && (
+                      <button disabled={busy} onClick={() => void testVoice()}>
+                        重新录音
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
-              {error && (
-                <p role="alert" className="error">
-                  {error}
-                </p>
-              )}
+              {error && <Feedback error>{error}</Feedback>}
               {busy && capture.phase === "key" && (
-                <p role="status">{progress}</p>
+                <Feedback>{progress}</Feedback>
               )}
               <div className="probe-actions">
                 {capture.key !== 2 && (
@@ -1102,7 +1103,11 @@ export function ProbeWorkbench({
                     移除按键
                   </button>
                 )}
-                <button disabled={busy} onClick={() => void cancelCapture()}>
+                <button
+                  className="capture-cancel"
+                  disabled={busy}
+                  onClick={() => void cancelCapture()}
+                >
                   取消
                 </button>
                 {capture.phase === "voice" && audio && (
@@ -1120,7 +1125,11 @@ export function ProbeWorkbench({
                   capture.key === 2 &&
                   capture.proof &&
                   error && (
-                    <button disabled={busy} onClick={() => void testVoice()}>
+                    <button
+                      className="capture-retry"
+                      disabled={busy}
+                      onClick={() => void testVoice()}
+                    >
                       重试试录
                     </button>
                   )}

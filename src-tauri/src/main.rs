@@ -286,8 +286,19 @@ fn serial_close(state: State<Native>) -> Result<(), String> {
     }
     Ok(())
 }
+fn serial_failure(app: &tauri::AppHandle, operation: &str, error: impl std::fmt::Display + std::fmt::Debug) -> String {
+    let message = format!("USB 串口{operation}失败：{error}");
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let dir = dir.join("diagnostics");
+        let _ = std::fs::create_dir_all(&dir);
+        let snapshot = serde_json::json!({"operation":operation,"error":message,"detail":format!("{error:?}"),
+            "time":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()});
+        let _ = std::fs::write(dir.join("transport-latest.json"), snapshot.to_string());
+    }
+    message
+}
 #[tauri::command]
-fn serial_write(data: Vec<u8>, state: State<Native>) -> Result<(), String> {
+fn serial_write(data: Vec<u8>, state: State<Native>, app: tauri::AppHandle) -> Result<(), String> {
     if data.len() > 552 {
         return Err("写入数据过长".into());
     }
@@ -298,13 +309,13 @@ fn serial_write(data: Vec<u8>, state: State<Native>) -> Result<(), String> {
         .as_mut()
         .ok_or("串口未连接")?
         .write_all(&data)
-        .map_err(|e| e.to_string())
+        .map_err(|e| serial_failure(&app, "写入", e))
 }
 #[tauri::command]
-fn serial_read(state: State<Native>) -> Result<Vec<u8>, String> {
+fn serial_read(state: State<Native>, app: tauri::AppHandle) -> Result<Vec<u8>, String> {
     let mut g = state.port.lock().map_err(|e| e.to_string())?;
     let p = g.as_mut().ok_or("串口未连接")?;
-    let count = p.bytes_to_read().map_err(|e| e.to_string())?;
+    let count = p.bytes_to_read().map_err(|e| serial_failure(&app, "查询接收缓冲", e))?;
     if count == 0 {
         return Ok(vec![]);
     }
@@ -315,7 +326,7 @@ fn serial_read(state: State<Native>) -> Result<Vec<u8>, String> {
             Ok(data)
         }
         Err(e) if e.kind() == std::io::ErrorKind::TimedOut => Ok(vec![]),
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(serial_failure(&app, "读取", e)),
     }
 }
 #[tauri::command]

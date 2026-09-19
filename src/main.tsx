@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
@@ -232,9 +233,10 @@ function App() {
     if (key === undefined) setEntries([]);
     setLoading(true);
     try {
-      const fresh = key === undefined ? await service.keys(s) : entries.map(e => e);
+      const fresh =
+        key === undefined ? await service.keys(s) : entries.map((e) => e);
       if (key !== undefined) {
-        const index = fresh.findIndex(e => e.catalog.key === key);
+        const index = fresh.findIndex((e) => e.catalog.key === key);
         if (index < 0) throw Error("按键已变化，请重新打开设置");
         fresh[index] = { ...fresh[index], map: await service.key(s, key) };
       }
@@ -358,32 +360,34 @@ function App() {
           <div className="note">浏览器预览 · 设备管理需要桌面应用</div>
         )}
         {snap.error && (
-          <div className="error" role="alert">
+          <Feedback error>
             <span>{snap.error}</span>
             <button className="quiet" onClick={() => service.clearError()}>
               关闭
             </button>
-          </div>
+          </Feedback>
         )}
         {snap.ports.length > 1 && !connected && (
-          <label className="field">
-            接收器
-            <select
-              disabled={snap.status === "connecting"}
-              value=""
-              onChange={(e) => {
-                const p = snap.ports.find((p) => p.path === e.target.value);
-                if (p) void service.connect(p);
-              }}
-            >
-              <option value="">选择接收器</option>
-              {snap.ports.map((p) => (
-                <option key={p.path} value={p.path}>
-                  {p.name} · {p.serial}
-                </option>
-              ))}
-            </select>
-          </label>
+          <Feedback>
+            <label className="field">
+              接收器
+              <select
+                disabled={snap.status === "connecting"}
+                value=""
+                onChange={(e) => {
+                  const p = snap.ports.find((p) => p.path === e.target.value);
+                  if (p) void service.connect(p);
+                }}
+              >
+                <option value="">选择接收器</option>
+                {snap.ports.map((p) => (
+                  <option key={p.path} value={p.path}>
+                    {p.name} · {p.serial}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </Feedback>
         )}
         {page === "home" && (
           <>
@@ -610,22 +614,24 @@ function App() {
               <p className="muted">此接收器需要首次安装新版固件</p>
             )}
             {snap.firmwareProgress && (
-              <div role="status" aria-live="polite">
-                <span>{snap.firmwareProgress.phase}</span>
-                {snap.firmwareProgress.active && (
-                  <progress
-                    style={{ width: "100%" }}
-                    max={100}
-                    value={snap.firmwareProgress.percent}
-                  />
-                )}
-                {snap.firmwareProgress.active &&
-                  snap.firmwareProgress.percent < 96 && (
-                    <button onClick={() => service.cancelFirmwareUpdate()}>
-                      取消更新
-                    </button>
+              <Feedback>
+                <div role="status" aria-live="polite">
+                  <span>{snap.firmwareProgress.phase}</span>
+                  {snap.firmwareProgress.active && (
+                    <progress
+                      style={{ width: "100%" }}
+                      max={100}
+                      value={snap.firmwareProgress.percent}
+                    />
                   )}
-              </div>
+                  {snap.firmwareProgress.active &&
+                    snap.firmwareProgress.percent < 96 && (
+                      <button onClick={() => service.cancelFirmwareUpdate()}>
+                        取消更新
+                      </button>
+                    )}
+                </div>
+              </Feedback>
             )}
             <details>
               <summary>高级</summary>
@@ -877,7 +883,11 @@ function App() {
           close={() => setModal(null)}
           save={async (m, a) => {
             const actual = await service.saveMap(selected, m, a);
-            setEntries(old => old.map(e => e.catalog.key === m.key ? {...e, map: actual} : e));
+            setEntries((old) =>
+              old.map((e) =>
+                e.catalog.key === m.key ? { ...e, map: actual } : e,
+              ),
+            );
             setModal(null);
             setNotice("已保存");
           }}
@@ -904,11 +914,7 @@ function App() {
           </footer>
         </Dialog>
       )}
-      {notice && (
-        <div className="toast" role="status">
-          {notice}
-        </div>
-      )}
+      {notice && <Feedback>{notice}</Feedback>}
     </div>
   );
 }
@@ -1211,15 +1217,12 @@ function PairDialog({
           </span>
         </button>
       ))}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Feedback error>{error}</Feedback>}
       <footer>
         <button onClick={() => void cancel()}>取消</button>
-        {!scanning && !pairing && (
+        {
           <button
+            disabled={scanning || pairing}
             onClick={() => {
               setError("");
               setRound((n) => n + 1);
@@ -1227,7 +1230,7 @@ function PairDialog({
           >
             重新搜索
           </button>
-        )}
+        }
         <button
           className="primary"
           disabled={pairing || !items.some((c) => c.candidate_id === choice)}
@@ -1566,9 +1569,13 @@ function Editor({
       <footer className="editor-footer">
         <div className="editor-status">
           {error ? (
-            <p className="error" role="alert">{error}</p>
+            <p className="error" role="alert">
+              {error}
+            </p>
           ) : disabled ? (
-            <p className="muted" role="status">连接可用且录音结束后可保存</p>
+            <p className="muted" role="status">
+              连接可用且录音结束后可保存
+            </p>
           ) : saving ? (
             <span role="status">保存中…</span>
           ) : null}
@@ -1576,7 +1583,9 @@ function Editor({
         <button
           className="primary editor-save"
           disabled={
-            disabled || saving || !dirty ||
+            disabled ||
+            saving ||
+            !dirty ||
             (map.kind === 4 && !validAction(action)) ||
             (map.kind === 1 && !map.value && !map.modifiers)
           }
@@ -1668,7 +1677,7 @@ function SharedDialog({
           />
         </label>
       ))}
-      {error && <p className="error">{error}</p>}
+      {error && <Feedback error>{error}</Feedback>}
       <footer>
         <button disabled={busy} onClick={close}>
           取消
@@ -1804,8 +1813,8 @@ function BackupDialog({
           </footer>
         </>
       )}
-      {error && <p className="error">{error}</p>}
-      {message && <p role="status">{message}</p>}
+      {error && <Feedback error>{error}</Feedback>}
+      {message && <Feedback>{message}</Feedback>}
     </Dialog>
   );
 }

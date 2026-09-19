@@ -12,17 +12,17 @@ with sync_playwright() as p:
   page.locator('.setting').filter(has_text='遥控器适配工具').get_by_role('button').click()
   d=page.get_by_role('dialog',name='遥控器适配工具')
   d.get_by_role('button',name='选择',exact=True).click()
-  assert d.get_by_role('button',name='保存诊断',exact=True).count()==0
+  assert page.get_by_role('button',name='保存诊断',exact=True).count()==0
   assert d.get_by_role('button',name='配置按键',exact=True).count()==0
   page.evaluate('window.fixture.failProbeOpcode=0x448')
   d.get_by_role('button',name='识别',exact=True).click()
-  d.get_by_role('alert').wait_for()
-  expect(d.get_by_role('button',name='保存诊断',exact=True)).to_be_visible()
+  page.get_by_role('alert').first.wait_for()
+  expect(page.get_by_role('button',name='保存诊断',exact=True)).to_be_visible()
   assert d.get_by_role('button',name='配置按键',exact=True).count()==0
   page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
   d.get_by_role('button',name='重试识别',exact=True).click()
   d.get_by_label('型号名称').wait_for()
-  assert d.get_by_role('button',name='保存诊断',exact=True).count()==0
+  assert page.get_by_role('button',name='保存诊断',exact=True).count()==0
   d.get_by_text('高级信息',exact=True).click()
   d.get_by_label('型号标识').fill('example.test');d.get_by_label('型号名称').fill('测试变种')
   # Preset copies require replacement confirmation and discard all borrowed proofs.
@@ -61,7 +61,7 @@ with sync_playwright() as p:
    expect(modal.locator('.probe-key-gesture strong')).to_have_text(['按下','松开'])
    if key=='语音' and family==1:
     page.evaluate("""()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000520000000000'},{sequence:seq+2,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'});window.fixture.probe.sequence=seq+2}""")
-    modal.get_by_text('这个键码已分配给其他按键',exact=True).wait_for()
+    page.get_by_text('这个键码已分配给其他按键',exact=True).wait_for()
     assert page.evaluate('window.fixture.voice===undefined')
 
    page.evaluate("""usage=>{const seq=(window.fixture.probeReports??[]).length;window.fixture.probeReports=[...(window.fixture.probeReports??[]),{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000'+usage.toString(16).padStart(2,'0')+'0000000000'}];window.fixture.probe.sequence=seq+1}""",usage)
@@ -78,13 +78,13 @@ with sync_playwright() as p:
      print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
     assert modal.get_by_role('button',name='重新录音',exact=True).count()==0
     page.evaluate("Object.assign(window.fixture.voice,{armed:false,recording:false,error:'no audio stream'})")
-    modal.get_by_text('没有收到语音数据',exact=True).wait_for()
+    page.get_by_text('没有收到语音数据',exact=True).wait_for()
     modal.get_by_role('button',name='重新录音',exact=True).click()
     try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
     except Exception:
      print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
     page.evaluate("window.fixture.audioGap=true;Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")
-    modal.get_by_role('alert').wait_for()
+    page.get_by_role('alert').first.wait_for()
     assert modal.get_by_role('button',name='声音正常',exact=True).count()==0
     page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
     modal.get_by_role('button',name='重新录音',exact=True).click()
@@ -99,7 +99,7 @@ with sync_playwright() as p:
     modal.get_by_role('button',name='声音正常',exact=True).click()
    modal.wait_for(state='hidden')
   d.get_by_role('button',name='保存并使用',exact=True).click()
-  d.get_by_text('型号已保存',exact=True).wait_for()
+  page.get_by_text('型号已保存',exact=True).wait_for()
   assert '<svg' in page.evaluate('window.fixture.exported.image')
   data=page.evaluate('window.fixture.exported.model');assert data['id']=='example.test';assert len(data['keys'])==2;assert data['raw']==([{'report':1,'usage':82,'key':3},{'report':1,'usage':62,'key':2}] if family==1 else [{'report':1,'usage':82,'key':3}])
   page.screenshot(path=str(out/f'probe-real-{width}.png'),full_page=True)

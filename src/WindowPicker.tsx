@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { call } from "./native";
@@ -148,11 +149,7 @@ export function WindowPicker() {
           ))}
         </div>
       )}
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      {error && <Feedback error>{error}</Feedback>}
     </main>
   );
 }

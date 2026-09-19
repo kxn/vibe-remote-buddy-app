@@ -1,3 +1,4 @@
+import { Feedback } from "./Feedback";
 import React, { useState } from "react";
 import { type RemoteModel } from "./core/models";
 import {
@@ -151,11 +152,7 @@ export function ProbeLayout({
           </div>
         </aside>
       </div>
-      {error && adding === undefined && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      {error && adding === undefined && <Feedback error>{error}</Feedback>}
       {adding !== undefined && (
         <div
           className="probe-modal-layer"
@@ -201,7 +198,7 @@ export function ProbeLayout({
                 />
               </label>
             )}
-            {error && <p role="alert">{error}</p>}
+            {error && <Feedback error>{error}</Feedback>}
             <div className="probe-actions">
               <button onClick={() => setAdding(undefined)}>取消</button>
               <button
