@@ -10,6 +10,7 @@ import {
 } from "../src/core/probe-layout";
 import {
   decodeKey,
+  decodeProbeKey,
   pcmWav,
   readProbeAudio,
   ProbeClient,
@@ -149,4 +150,55 @@ it("Windows main webview allows the layout editor HTML drag and drop", () => {
   expect(
     tauriConfig.app.windows.find((w) => w.label === "main")?.dragDropEnabled,
   ).toBe(false);
+});
+
+it("HID/ICO voice captures dedicated F8 edges, ignoring keyboard echoes in either order", () => {
+  const attrs = [1, 248].map((id, i) => ({
+    index: i,
+    kind: 3,
+    handle: 6 + i * 2,
+    parent: 5 + i * 2,
+    end: 0,
+    properties: 0,
+    uuid: "2908",
+    length: 2,
+    complete: true,
+    hex: id.toString(16).padStart(2, "0") + "01",
+  }));
+  const packet = (handle: number, hex: string) => ({
+    sequence: 1,
+    lost: 0,
+    time_ms: 0,
+    handle,
+    length: hex.length / 2,
+    hex,
+  });
+  const keyboardDown = packet(5, "0000ea0000000000"),
+    keyboardUp = packet(5, "0000000000000000");
+  const voiceDown = packet(7, "820301" + "00".repeat(17)),
+    voiceUp = packet(7, "820300" + "00".repeat(17));
+  for (const packets of [
+    [keyboardDown, voiceDown, voiceUp, keyboardUp],
+    [voiceDown, keyboardDown, keyboardUp, voiceUp],
+  ]) {
+    expect(
+      packets.map((p) => decodeProbeKey(p, attrs, 2, 2)).filter(Boolean),
+    ).toEqual([
+      { report: 248, usages: [1] },
+      { report: 248, usages: [] },
+    ]);
+  }
+  expect(decodeProbeKey(keyboardDown, attrs, 3, 2)).toEqual({
+    report: 1,
+    usages: [234],
+  });
+  expect(decodeProbeKey(voiceDown, attrs, 3, 2)).toBeUndefined();
+  expect(decodeProbeKey(keyboardDown, attrs, 2, 1)).toEqual({
+    report: 1,
+    usages: [234],
+  });
+  expect(decodeProbeKey(keyboardDown, attrs.slice(0, 1), 2, 2)).toEqual({
+    report: 1,
+    usages: [234],
+  });
 });

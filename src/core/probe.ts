@@ -100,6 +100,30 @@ export function decodeKey(
     return { report: id, usages: usage ? [usage] : [] };
   }
 }
+// HID/ICO exposes a dedicated voice edge channel alongside keyboard reports.
+// Match both edges on that channel; the keyboard echo is not another button.
+export function decodeProbeKey(
+  report: ProbeReport,
+  attrs: ProbeAttribute[],
+  key: number,
+  family: number,
+) {
+  const decoded = decodeKey(report, attrs);
+  if (!decoded) return;
+  const dedicatedVoice =
+    family === 2 &&
+    attrs.some(
+      (a) =>
+        a.kind === 3 &&
+        isUuid(a, 0x2908) &&
+        a.complete &&
+        a.hex.toLowerCase() === "f801",
+    );
+  if (key === 2 && dedicatedVoice)
+    return decoded.report === 248 ? decoded : undefined;
+  if (decoded.report === 248) return;
+  return decoded;
+}
 export const probeStages: Record<string, string> = {
   scanning: "搜索",
   connecting: "建立 BLE 连接",

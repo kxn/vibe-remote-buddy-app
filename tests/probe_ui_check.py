@@ -3,11 +3,12 @@ from playwright.sync_api import sync_playwright, expect
 root=Path(__file__).resolve().parents[1];out=root/'build/host-ui';out.mkdir(parents=True,exist_ok=True)
 with sync_playwright() as p:
  b=p.chromium.launch(channel='msedge',headless=True)
- for width,height in [(1000,900),(440,760)]:
+ for width,height,family in [(1000,900,1),(440,760,1),(1000,900,2)]:
   c=b.new_context(viewport={'width':width,'height':height},device_scale_factor=1.5);c.add_init_script(path=str(root/'tests/ui-native-fixture.js'))
   page=c.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
   page.goto('http://127.0.0.1:1420');page.locator('.device').nth(3).wait_for()
   page.get_by_role('button',name='设置',exact=True).click();page.get_by_text('高级',exact=True).click()
+  page.evaluate('family=>window.fixture.probeFamily=family',family)
   page.locator('.setting').filter(has_text='遥控器适配工具').get_by_role('button').click()
   d=page.get_by_role('dialog',name='遥控器适配工具')
   d.get_by_role('button',name='选择',exact=True).click()
@@ -49,14 +50,18 @@ with sync_playwright() as p:
    d.locator('.probe-grid').get_by_role('button',name=key,exact=True).click()
    modal=page.get_by_role('dialog',name='验证按键');modal.get_by_text('等待按键…',exact=True).wait_for()
    expect(modal.locator('.probe-key-gesture strong')).to_have_text(['按下','松开'])
-   if key=='语音':
+   if key=='语音' and family==1:
     page.evaluate("""()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000520000000000'},{sequence:seq+2,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'});window.fixture.probe.sequence=seq+2}""")
     modal.get_by_text('这个键码已分配给其他按键',exact=True).wait_for()
     assert page.evaluate('window.fixture.voice===undefined')
 
    page.evaluate("""usage=>{const seq=(window.fixture.probeReports??[]).length;window.fixture.probeReports=[...(window.fixture.probeReports??[]),{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000'+usage.toString(16).padStart(2,'0')+'0000000000'}];window.fixture.probe.sequence=seq+1}""",usage)
+   if key=='语音' and family==2:
+    page.evaluate('''()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:150,handle:10,length:20,hex:'820301'+'00'.repeat(17)});window.fixture.probe.sequence=seq+1}''')
    expect(modal.locator('.probe-key-gesture strong.done')).to_have_text(['按下 ✓'])
    page.evaluate("""()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'});window.fixture.probe.sequence=seq+1}""")
+   if key=='语音' and family==2:
+    page.evaluate('''()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:250,handle:10,length:20,hex:'820300'+'00'.repeat(17)});window.fixture.probe.sequence=seq+1}''')
    expect(modal.locator('.probe-key-gesture strong.done')).to_have_text(['按下 ✓','松开 ✓'])
    if key=='语音':
     modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
@@ -80,7 +85,7 @@ with sync_playwright() as p:
    modal.wait_for(state='hidden')
   d.get_by_role('button',name='保存并使用',exact=True).click();d.get_by_role('button',name='导出型号',exact=True).click()
   d.get_by_text('已导出：test/exported-model',exact=True).wait_for()
-  data=page.evaluate('window.fixture.exported.model');assert data['id']=='example.test';assert len(data['keys'])==2;assert data['raw']==[{'report':1,'usage':82,'key':3},{'report':1,'usage':62,'key':2}]
+  data=page.evaluate('window.fixture.exported.model');assert data['id']=='example.test';assert len(data['keys'])==2;assert data['raw']==([{'report':1,'usage':82,'key':3},{'report':1,'usage':62,'key':2}] if family==1 else [{'report':1,'usage':82,'key':3}])
   page.screenshot(path=str(out/f'probe-real-{width}.png'),full_page=True)
   assert d.evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
   d.get_by_role('button',name='添加这只遥控器',exact=True).click();d.wait_for(state='hidden');page.get_by_role('dialog',name='添加遥控器').wait_for();page.wait_for_timeout(200)

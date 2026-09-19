@@ -4,7 +4,7 @@ import { BuddyService } from "./core/service";
 import { remoteModels, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
-  decodeKey,
+  decodeProbeKey,
   makeVariant,
   familyEvidence,
   sdkError,
@@ -211,24 +211,27 @@ export function ProbeWorkbench({
                     setError("按键报告有遗漏，请重新按下并松开");
                     continue;
                   }
-                  const d = decodeKey(r, attrsRef.current);
+                  const d = decodeProbeKey(
+                    r,
+                    attrsRef.current,
+                    c.key,
+                    modelRef.current?.family ?? 0,
+                  );
                   if (!d) continue;
-                  if (
-                    d.report === 248 &&
-                    (c.key !== 2 || modelRef.current?.family !== 2)
-                  )
-                    continue;
                   if (d.usages.length === 1) {
-                    capturing({ ...c, proof: undefined, down: true });
                     if (
                       pending.current &&
-                      (pending.current.report !== d.report ||
+                      (pending.current.handle !== r.handle ||
+                        pending.current.report !== d.report ||
                         pending.current.usage !== d.usages[0])
                     ) {
                       pending.current = undefined;
+                      capturing({ ...c, proof: undefined, down: false });
                       setError("请单独按下一个按键");
                       continue;
                     }
+                    capturing({ ...c, proof: undefined, down: true });
+                    setError("");
                     pending.current = {
                       handle: r.handle,
                       report: d.report,
@@ -700,8 +703,7 @@ export function ProbeWorkbench({
         {step === 1 && (
           <>
             <h3>{selected?.name || selected?.address}</h3>
-            <details open={error ? true : undefined}>
-              <summary>指定协议</summary>
+            <div>
               <label className="probe-form">
                 协议类型
                 <select
@@ -718,7 +720,7 @@ export function ProbeWorkbench({
                   <option value={2}>HID/ICO（联通、移动等）</option>
                 </select>
               </label>
-            </details>
+            </div>
             {error && (
               <details>
                 <summary>设备信息与诊断</summary>
