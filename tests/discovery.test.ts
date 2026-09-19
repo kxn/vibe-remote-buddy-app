@@ -40,18 +40,18 @@ describe("discovery", () => {
   });
   it("renews scans beyond 30 seconds and stops without another renewal", async () => {
     vi.useFakeTimers();
-    let epoch = 0;
+    const epoch = 1;
     const port = {
-      scan: vi.fn(async () => ({ scan_epoch: ++epoch })),
+      scan: vi.fn(async () => ({ scan_epoch: epoch })),
       candidates: vi.fn(async (e: number) => [candidate({ scan_epoch: e })]),
       stopScan: vi.fn(async () => {}),
     };
     const update = vi.fn();
     const scan = new Discovery(port);
     const task = scan.start(update);
-    await vi.advanceTimersByTimeAsync(31000);
+    await vi.advanceTimersByTimeAsync(16000);
     expect(port.scan).toHaveBeenCalledTimes(2);
-    expect(update).toHaveBeenCalledWith([]);
+    expect(update.mock.calls.filter(([items]) => items.length === 0)).toHaveLength(1);
     const stop = scan.stop();
     await vi.advanceTimersByTimeAsync(500);
     await stop;
@@ -118,4 +118,9 @@ it("hides nonconnectable advertisements even with a strong signal", () => {
  const c=candidate({connectable:false,rssi:-25});
  expect(visibleCandidates([c])).toEqual([]);
  expect(new PairCandidates().update([c])).toEqual([]);
+});
+
+it("explicit model selection admits unknown nearby candidates without relaxing proximity",()=>{
+ const list=new PairCandidates(()=>true);
+ expect(list.update([candidate({known:false}),candidate({candidate_id:2,known:false,rssi:-70})]).map(c=>c.candidate_id)).toEqual([1]);
 });

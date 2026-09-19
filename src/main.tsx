@@ -715,11 +715,6 @@ function App() {
         <ProbeWorkbench
           service={service}
           close={() => setModal(null)}
-          addRemote={() => {
-            setRepairPeer(undefined);
-            setPage("home");
-            setModal("add");
-          }}
         />
       )}
       {modal === "about" && (
@@ -1163,11 +1158,12 @@ function PairDialog({
     [round, setRound] = useState(0),
     op = useRef(0),
     cancelled = useRef(false),
-    discovery = useRef<Discovery | null>(null);
+    discovery = useRef<Discovery | null>(null),
+    explicitModel = useRef("");
   useEffect(() => {
     let active = true;
     const previous = discovery.current;
-    const current = new Discovery(service);
+    const current = new Discovery(service, () => !!explicitModel.current);
     discovery.current = current;
     cancelled.current = false;
     void (async () => {
@@ -1227,7 +1223,7 @@ function PairDialog({
               : "未发现遥控器"}
       </div>
       <label className="field">型号
-        <select value={modelId} disabled={pairing} onChange={e=>setModelId(e.target.value)}>
+        <select value={modelId} disabled={pairing} onChange={e=>{explicitModel.current=e.target.value;setModelId(e.target.value);}}>
           <option value="">自动识别</option>
           {[...remoteModels.values()].map(m=><option key={m.id} value={m.id}>{m.title}</option>)}
         </select>
@@ -1241,7 +1237,7 @@ function PairDialog({
           aria-pressed={choice === c.candidate_id}
         >
           <span>
-            {c.name || "已配对的遥控器"}
+            {c.name || "附近设备"}
             {isBoundCandidate(c) ? " · 已添加" : ""}
           </span>
           <span className="muted">

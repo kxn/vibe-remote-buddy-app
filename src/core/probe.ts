@@ -1,4 +1,5 @@
-import { PAIR_MIN_RSSI } from "./discovery";
+import { candidateStream } from "./candidates";
+import { NearbyCandidates } from "./discovery";
 import { OP, DeviceError, sleep } from "./session";
 import { crc32c } from "./wire";
 import { validateModel, type RemoteModel } from "./models";
@@ -173,42 +174,8 @@ export function sdkError(code: number): string {
         : (host[code] ?? "蓝牙操作失败");
   return `${label} [SDK ${code} / 0x${code.toString(16)}]`;
 }
-/** Admit nearby candidates once; updating RSSI never changes row order. */
-export class ProbeCandidates {
-  private items = new Map<string, ProbeCandidate>();
-  private rank = new Map<string, number>();
-  update(list: ProbeCandidate[]) {
-    const fresh = new Map(
-      list
-        .filter(
-          (c) =>
-            c.connectable &&
-            Number.isFinite(c.rssi) &&
-            c.rssi <= 0 &&
-            c.age_ms < 5000,
-        )
-        .map((c) => [`${c.address_type}:${c.address || c.candidate_id}`, c]),
-    );
-    for (const [key] of this.items) {
-      const c = fresh.get(key);
-      if (!c || c.rssi < PAIR_MIN_RSSI - 5) {
-        this.items.delete(key);
-        this.rank.delete(key);
-      } else this.items.set(key, c);
-    }
-    for (const [key, c] of [...fresh].sort((a, b) => b[1].rssi - a[1].rssi))
-      if (!this.items.has(key) && c.rssi >= PAIR_MIN_RSSI) {
-        this.items.set(key, c);
-        this.rank.set(key, c.rssi);
-      }
-    return [...this.items.entries()]
-      .sort((a, b) => this.rank.get(b[0])! - this.rank.get(a[0])!)
-      .map(([, c]) => c);
-  }
-  clear() {
-    this.items.clear();
-    this.rank.clear();
-  }
+export class ProbeCandidates extends NearbyCandidates<ProbeCandidate> {
+  constructor() { super(c=>`${c.address_type}:${c.address || c.candidate_id}`); }
 }
 export class ProbeClient {
   private audio = new Map<
@@ -398,13 +365,7 @@ export class ProbeClient {
   }
   async candidates(cancelled: () => boolean = () => false) {
     const list: ProbeCandidate[] = [];
-    for (let index = 0; index < 24 && !cancelled(); index++) {
-      try {
-        list.push(await this.command<ProbeCandidate>(OP.CANDIDATE, { index }));
-      } catch (e) {
-        if (!(e instanceof DeviceError && e.status === 6)) throw e;
-      }
-    }
+    for await (const c of candidateStream<ProbeCandidate>((op, body) => this.command(op, body), cancelled)) list.push(c);
     return this.scanItems.update(list);
   }
   async connect(c: ProbeCandidate) {
@@ -440,15 +401,8 @@ export class ProbeClient {
     progress("等待遥控器，请进入配对模式");
     const deadline = performance.now() + 30000;
     while (performance.now() < deadline && !cancelled()) {
-      for (let index = 0; index < 24 && !cancelled(); index++) {
-        let c: ProbeCandidate;
+      for await (const c of candidateStream<ProbeCandidate>((op, body) => this.command(op, body), cancelled)) {
         const started = performance.now();
-        try {
-          c = await this.command<ProbeCandidate>(OP.CANDIDATE, { index });
-        } catch (e) {
-          if (e instanceof DeviceError && e.status === 6) continue;
-          throw e;
-        }
         // Match identity, never a name or an old candidate ID. Connect immediately
         // instead of finishing a full UI list poll while its advertisement ages.
         if (

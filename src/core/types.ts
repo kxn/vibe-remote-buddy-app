@@ -4,6 +4,7 @@ export interface Port {
   name: string;
 }
 export interface Info {
+  lifecycle_api?: number;
   probe_api?: number;
   probe_voice_api?: number;
   model_api?: number;

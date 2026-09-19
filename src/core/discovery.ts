@@ -18,42 +18,34 @@ export function visibleCandidates(items: Candidate[]): Candidate[] {
       c.age_ms < 5000,
   );
 }
-/** Rank by signal at admission, never by later RSSI fluctuations. */
-export class PairCandidates {
-  private items = new Map<number, Candidate>();
-  private rank = new Map<number, number>();
-  update(list: Candidate[]) {
-    const fresh = new Map(
-      list
-        .filter(
-          (c) =>
-            c.connectable &&
-            (c.known || isBoundCandidate(c)) &&
-            Number.isFinite(c.rssi) &&
-            c.rssi <= 0 &&
-            c.age_ms < 5000,
-        )
-        .map((c) => [c.candidate_id, c]),
-    );
+export interface NearbyCandidate { connectable: boolean; rssi: number; age_ms: number }
+/** Shared admission, hysteresis and stable ranking for both discovery screens. */
+export class NearbyCandidates<T extends NearbyCandidate> {
+  private items = new Map<string, T>();
+  private rank = new Map<string, number>();
+  constructor(private key: (row:T)=>string, private accept:(row:T)=>boolean = ()=>true) {}
+  update(list:T[]):T[] {
+    const fresh = new Map(list.filter(c => c.connectable && Number.isFinite(c.rssi) &&
+      c.rssi <= 0 && c.age_ms < 5000 && this.accept(c)).map(c=>[this.key(c),c]));
     for (const [id] of this.items) {
       const c = fresh.get(id);
-      if (!c || c.rssi < PAIR_MIN_RSSI - 5) {
-        this.items.delete(id);
-        this.rank.delete(id);
-      } else this.items.set(id, c);
+      if (!c || c.rssi < PAIR_MIN_RSSI-5) { this.items.delete(id); this.rank.delete(id); }
+      else this.items.set(id,c);
     }
-    for (const [id, c] of fresh)
-      if (!this.items.has(id) && c.rssi >= PAIR_MIN_RSSI) {
-        this.items.set(id, c);
-        this.rank.set(id, c.rssi);
-      }
-    return [...this.items.values()].sort(
-      (a, b) => this.rank.get(b.candidate_id)! - this.rank.get(a.candidate_id)!,
-    );
+    for(const [id,c] of fresh) if(!this.items.has(id) && c.rssi >= PAIR_MIN_RSSI) {
+      this.items.set(id,c); this.rank.set(id,c.rssi);
+    }
+    return [...this.items.entries()].sort((a,b)=>this.rank.get(b[0])!-this.rank.get(a[0])!).map(([,c])=>c);
+  }
+  clear() { this.items.clear(); this.rank.clear(); }
+}
+export class PairCandidates extends NearbyCandidates<Candidate> {
+  constructor(includeUnknown:()=>boolean=()=>false) {
+    super(c=>`${c.scan_epoch}:${c.candidate_id}`, c=>c.known || isBoundCandidate(c) || includeUnknown());
   }
 }
 interface DiscoveryPort {
-  scan(): Promise<{ scan_epoch: number }>;
+  scan(renew?: boolean): Promise<{ scan_epoch: number }>;
   candidates(epoch: number): Promise<Candidate[]>;
   stopScan(): Promise<void>;
 }
@@ -61,19 +53,26 @@ interface DiscoveryPort {
 export class Discovery {
   private stopped = false;
   private task?: Promise<void>;
-  constructor(private port: DiscoveryPort) {}
+  constructor(private port: DiscoveryPort, private includeUnknown:()=>boolean=()=>false) {}
   start(update: (items: Candidate[]) => void): Promise<void> {
     return (this.task ??= this.run(update));
   }
   private async run(update: (items: Candidate[]) => void) {
     let started = false;
     try {
+      update([]);
+      let epoch: number | undefined;
+      let stable = new PairCandidates(this.includeUnknown);
       while (!this.stopped) {
-        update([]); // New epochs invalidate candidate IDs and selection.
-        const { scan_epoch } = await this.port.scan();
+        const { scan_epoch } = await this.port.scan(started);
+        if (epoch !== undefined && epoch !== scan_epoch) {
+          stable = new PairCandidates(this.includeUnknown);
+          if (!this.stopped) update([]);
+        }
+        epoch = scan_epoch;
         started = true;
-        const stable = new PairCandidates();
-        const end = performance.now() + SCAN_DURATION_MS;
+        // Renew before expiration, preserving the device list and selection.
+        const end = performance.now() + SCAN_DURATION_MS / 2;
         while (!this.stopped && performance.now() < end) {
           const items = await this.port.candidates(scan_epoch);
           if (!this.stopped) update(stable.update(items));

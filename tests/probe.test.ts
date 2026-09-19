@@ -265,7 +265,7 @@ it("stops obsolete scanning requests when a connection starts", async () => {
   let count = 0;
   const c = new ProbeClient((async () => {
     count++;
-    throw new DeviceError(6, OP.CANDIDATE, {});
+    return { next: 24 };
   }) as ProbeCommand);
   await c.candidates(() => count === 1);
   expect(count).toBe(1);
@@ -299,8 +299,9 @@ it("restarts a failed live probe, ignores stale and unrelated advertisements, an
         scan_epoch: 4,
         connectable: true,
         name: "",
-        age_ms: body.index === 0 ? 8807 : 25,
-        address: body.index === 1 ? "other-device" : selected.address,
+        next: body.cursor + 1,
+        age_ms: body.cursor === 0 ? 8807 : 25,
+        address: body.cursor === 1 ? "other-device" : selected.address,
       };
     if (op === OP.PROBE_CONNECT) {
       expect(body).toEqual({ candidate_id: 41, scan_epoch: 4 });
@@ -340,6 +341,7 @@ it("does not connect after a selected-target search is cancelled", async () => {
     if (op !== OP.CANDIDATE) throw Error("unexpected connection");
     cancelled = true;
     return {
+      next: 24,
       address: "selected",
       address_type: 0,
       connectable: true,

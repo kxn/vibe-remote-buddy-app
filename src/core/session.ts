@@ -23,6 +23,8 @@ export const OP = {
   STATS: 0x40e,
   CANCEL: 0x40f,
   SCAN_STOP: 0x410,
+  RETRY: 0x411,
+  PROBE_ADOPT: 0x450,
   MODEL_GET: 0x430,
   MODEL_BEGIN: 0x431,
   MODEL_DATA: 0x432,

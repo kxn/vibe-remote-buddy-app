@@ -41,11 +41,9 @@ const steps = ["发现设备", "连接与识别", "按键与布局", "完成"];
 export function ProbeWorkbench({
   service,
   close,
-  addRemote,
 }: {
   service: BuddyService;
   close: () => void;
-  addRemote: () => void;
 }) {
   const client = useRef<ProbeClient | undefined>(undefined),
     alive = useRef(true),
@@ -736,12 +734,10 @@ export function ProbeWorkbench({
         localSaved.current = m.id;
       }
       {
-        if (!ended.current) {
-          await client.current!.end();
-          ended.current = true;
-        }
-        setProgress("同步型号到接收器");
+        setProgress("保存到接收器");
         await service.reloadModels();
+        await service.adoptProbe(m.id, () => { ended.current = true; });
+        ended.current = true;
         setStep(3);
         setNotice("型号已保存");
       }
@@ -1000,7 +996,7 @@ export function ProbeWorkbench({
                   disabled={busy || !!capture || !complete}
                   onClick={() => void save()}
                 >
-                  {localSaved.current ? "重试同步" : "保存并使用"}
+                  {localSaved.current ? (ended.current ? "重试绑定" : "重试保存") : "保存并使用"}
                 </button>
               </div>
             </div>
@@ -1017,11 +1013,11 @@ export function ProbeWorkbench({
                 onClick={() =>
                   void run(async () => {
                     service.releaseProbe();
-                    addRemote();
+                    close();
                   })
                 }
               >
-                添加这只遥控器
+                完成
               </button>
             </div>
           </>

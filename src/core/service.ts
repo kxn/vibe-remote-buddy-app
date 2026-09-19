@@ -1,3 +1,4 @@
+import { candidateStream } from "./candidates";
 import {
   loadModels,
   syncModels,
@@ -282,9 +283,11 @@ export class BuddyService {
       throw Error("遥控器已变化，请重新选择");
     return { slot: slot.slot, peer_id: slot.peer_id };
   }
+  private adoption?: { model: string; operation: number };
   async beginProbe(onAudio?: (body: Record<string, unknown>) => void) {
     this.ensureMutable();
     if (
+      this.snapshot.info?.lifecycle_api !== 2 ||
       this.snapshot.info?.probe_api !== 1 ||
       this.snapshot.info?.probe_voice_api !== 4
     )
@@ -293,6 +296,7 @@ export class BuddyService {
     const session = this.require();
     try {
       await session.command(OP.PROBE_BEGIN);
+      this.adoption = undefined;
       this.probeAudio = onAudio;
     } catch (e) {
       this.update({ busy: false });
@@ -324,9 +328,27 @@ export class BuddyService {
     }
     this.update();
   }
-  async scan() {
+  async adoptProbe(modelId: string, transferred: () => void) {
+    if (!this.adoption) {
+      const { operation_id } = await this.require().command<{ operation_id: number }>(OP.PROBE_ADOPT, { model_id: modelId });
+      this.adoption = { model: modelId, operation: operation_id };
+    }
+    if (this.adoption.model !== modelId) throw Error("绑定型号已变化");
+    transferred();
+    const state = await this.require().command<Operation>(OP.OPERATION);
+    if (state.operation_id === this.adoption.operation && !state.pending && state.result) {
+      const retry = await this.require().command<{ operation_id: number }>(OP.RETRY, { operation_id: state.operation_id });
+      this.adoption.operation = retry.operation_id;
+    }
+    const result = await this.waitOperation(this.adoption.operation);
+    await this.refresh();
+    if (!this.snapshot.slots.some(s => s.peer_id === result.peer_id && s.model === modelId))
+      throw Error("尚未确认设备绑定记录");
+  }
+  async scan(renew = false) {
     this.ensureMutable();
-    if (this.platform.models && this.snapshot.info?.model_api === 1) {
+    if (this.snapshot.info?.lifecycle_api !== 2) throw Error("请先更新接收器固件");
+    if (!renew && this.platform.models && this.snapshot.info?.model_api === 1) {
       const session = this.require();
       await syncModels(
         (op, body) => session.command(op, body),
@@ -343,14 +365,9 @@ export class BuddyService {
   async candidates(epoch: number) {
     const s = this.require(),
       items: Candidate[] = [];
-    for (let index = 0; index < 24; index++) {
-      try {
-        const c = await s.command<Candidate>(OP.CANDIDATE, { index });
-        if (c.scan_epoch === epoch && c.age_ms < 15000)
-          items.push({ ...c, seen: performance.now() });
-      } catch (e) {
-        if (!(e instanceof DeviceError && e.status === 6)) throw e;
-      }
+    for await (const c of candidateStream<Candidate>((op, body) => s.command(op, body))) {
+      if (c.scan_epoch === epoch && c.age_ms < 15000)
+        items.push({ ...c, seen: performance.now() });
     }
     return items;
   }
@@ -375,10 +392,10 @@ export class BuddyService {
         throw Error("配对结果属于另一台遥控器，请核对设备列表");
       if (
         !this.snapshot.slots.some(
-          (s) => s.peer_id === op.peer_id && s.state === 5,
+          (s) => s.peer_id === op.peer_id,
         )
       )
-        throw Error("配对已完成，遥控器尚未处于可用状态");
+        throw Error("尚未确认设备绑定记录");
     } finally {
       this.update({ busy: false });
     }
