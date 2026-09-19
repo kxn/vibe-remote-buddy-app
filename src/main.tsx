@@ -229,10 +229,15 @@ function App() {
       return;
     }
     setPeer(s.peer_id);
-    setEntries([]);
+    if (key === undefined) setEntries([]);
     setLoading(true);
     try {
-      const fresh = await service.keys(s);
+      const fresh = key === undefined ? await service.keys(s) : entries.map(e => e);
+      if (key !== undefined) {
+        const index = fresh.findIndex(e => e.catalog.key === key);
+        if (index < 0) throw Error("按键已变化，请重新打开设置");
+        fresh[index] = { ...fresh[index], map: await service.key(s, key) };
+      }
       setEntries(fresh);
       setPage("keys");
       if (key !== undefined) {
@@ -862,7 +867,6 @@ function App() {
       )}
       {modal === "edit" && edit && selected && (
         <Editor
-          autoSave
           entry={edit}
           initialAction={
             edit.map.kind === 4
@@ -872,10 +876,9 @@ function App() {
           disabled={busy || !!recording || !connected}
           close={() => setModal(null)}
           save={async (m, a) => {
-            await service.saveMap(selected, m, a);
-            const fresh = await service.keys(selected);
-            setEntries(fresh);
-            setEdit(fresh.find((e) => e.catalog.key === m.key));
+            const actual = await service.saveMap(selected, m, a);
+            setEntries(old => old.map(e => e.catalog.key === m.key ? {...e, map: actual} : e));
+            setModal(null);
             setNotice("已保存");
           }}
         />
@@ -1277,13 +1280,11 @@ function Editor({
   close,
   save,
   forceDirty = false,
-  autoSave = false,
   allowActions = true,
   initialAction,
 }: {
   initialAction?: Action;
   forceDirty?: boolean;
-  autoSave?: boolean;
   allowActions?: boolean;
   entry: KeyEntry;
   disabled: boolean;
@@ -1321,16 +1322,13 @@ function Editor({
             entry.map.value === 44
           ? "meeting"
           : "custom",
-    ),
-    [discard, setDiscard] = useState(false);
+    );
   const voice = entry.catalog.key === 2,
     dirty =
       forceDirty ||
       JSON.stringify(map) !== JSON.stringify(entry.map) ||
       (map.kind === 4 &&
         JSON.stringify(action) !== JSON.stringify(initialAction));
-  const saveRef = useRef(save);
-  saveRef.current = save;
   useEffect(() => {
     void call<boolean>("desktop_available")
       .then(setDesktop)
@@ -1344,42 +1342,10 @@ function Editor({
     entry.map.kind,
     entry.map.modifiers,
   ]);
-  useEffect(() => {
-    if (
-      !autoSave ||
-      !dirty ||
-      disabled ||
-      saving ||
-      error ||
-      (map.kind === 4 && !validAction(action)) ||
-      (map.kind === 1 && !map.value && !map.modifiers)
-    )
-      return;
-    const timer = setTimeout(() => {
-      setSaving(true);
-      void saveRef
-        .current(map, map.kind === 4 ? action : undefined)
-        .catch((e) => setError(service.report(e)))
-        .finally(() => setSaving(false));
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [autoSave, dirty, disabled, saving, error, map, action]);
   const requestClose = () => {
     if (saving) return;
-    if (dirty) setDiscard(true);
-    else close();
+    close();
   };
-  if (discard)
-    return (
-      <Dialog title="放弃修改？" close={() => setDiscard(false)}>
-        <footer>
-          <button onClick={() => setDiscard(false)}>继续修改</button>
-          <button className="danger" onClick={close}>
-            放弃
-          </button>
-        </footer>
-      </Dialog>
-    );
   const keyboard = (
     <>
       <label className="field">
@@ -1603,16 +1569,14 @@ function Editor({
             <p className="error" role="alert">{error}</p>
           ) : disabled ? (
             <p className="muted" role="status">连接可用且录音结束后可保存</p>
-          ) : autoSave ? (
-            <span role="status">{saving || dirty ? "保存中…" : "已保存到接收器"}</span>
+          ) : saving ? (
+            <span role="status">保存中…</span>
           ) : null}
         </div>
         <button
-          className={`primary editor-save${autoSave && !error ? " reserved" : ""}`}
-          aria-hidden={autoSave && !error ? true : undefined}
-          tabIndex={autoSave && !error ? -1 : undefined}
+          className="primary editor-save"
           disabled={
-            (autoSave && !error) || disabled || saving || !dirty ||
+            disabled || saving || !dirty ||
             (map.kind === 4 && !validAction(action)) ||
             (map.kind === 1 && !map.value && !map.modifiers)
           }
@@ -1624,10 +1588,10 @@ function Editor({
               .finally(() => setSaving(false));
           }}
         >
-          {saving ? "保存中…" : "保存"}
+          {saving ? "保存中…" : "确认保存"}
         </button>
         <button disabled={saving} onClick={requestClose}>
-          {autoSave ? "完成" : "取消"}
+          取消
         </button>
       </footer>
     </Dialog>

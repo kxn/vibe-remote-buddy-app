@@ -1224,3 +1224,12 @@ footer.editor-footer {
 .dialog .editor-status p { margin: 0; }
 .editor-footer > button { width: 5rem; padding-inline: .35rem; }
 .editor-save.reserved { visibility: hidden; }
+
+.app > header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 3px 10px var(--shadow);
+}

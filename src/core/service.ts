@@ -454,6 +454,17 @@ export class BuddyService {
       throw Error("遥控器连接已变化，请重新打开按键设置");
     return keys;
   }
+  async key(slot: Slot, key: number): Promise<Mapping> {
+    const id = this.identity(slot), s = this.require();
+    const before = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
+    if (before.peer_id !== slot.peer_id || before.state !== 5) throw Error("请先唤醒遥控器");
+    const map = await s.command<Mapping>(OP.MAP_GET, { ...id, key });
+    const after = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
+    this.identity(slot);
+    if (this.require() !== s || after.peer_id !== before.peer_id || after.generation !== before.generation || after.state !== 5)
+      throw Error("遥控器连接已变化，请重新打开按键设置");
+    return map;
+  }
   async saveMap(slot: Slot, desired: Mapping, action?: Action) {
     if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
       throw Error("请先更新接收器固件，再使用自动语音预设");

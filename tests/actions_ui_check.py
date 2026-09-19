@@ -18,16 +18,23 @@ with sync_playwright() as p:
  page.screenshot(path=str(root/'build/host-ui/xiaomi-photo-layout.png'),full_page=True)
  page.locator('.model-full button[aria-label="主页"]').click();page.get_by_label('功能',exact=True).select_option('input:chatgpt')
  assert page.get_by_label('正在运行的应用',exact=True).count()==0
- page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();page.get_by_role('button',name='完成',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
+ page.get_by_role('button',name='确认保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
  page.locator('.model-full button[aria-label="主页"]').click();assert page.get_by_label('功能',exact=True).input_value()=='input:chatgpt'
- page.get_by_label('功能',exact=True).select_option('command:next_app_window');page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();page.get_by_role('button',name='完成',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
+ page.get_by_label('功能',exact=True).select_option('command:next_app_window');page.get_by_role('button',name='确认保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden')
  page.locator('.model-full button[aria-label="语音"]').click();page.get_by_role('combobox',name='语音输入',exact=True).select_option('wechat');assert 'Windows 语音输入' not in page.locator('[role=dialog]').inner_text()
- page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();page.get_by_role('button',name='完成',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].kind')==5;assert page.evaluate('fixture.maps["0:2"].value')==2
+ page.get_by_role('button',name='确认保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].kind')==5;assert page.evaluate('fixture.maps["0:2"].value')==2
  page.locator('.model-full button[aria-label="语音"]').click();assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='wechat'
- page.get_by_role('combobox',name='语音输入',exact=True).select_option('meeting');page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();assert page.evaluate('fixture.maps["0:2"].value')==44;assert page.evaluate('fixture.maps["0:2"].kind')==3;assert page.evaluate('fixture.maps["0:2"].modifiers')==0;assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors
+ page.get_by_role('combobox',name='语音输入',exact=True).select_option('meeting');page.get_by_role('button',name='确认保存',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].value')==44;assert page.evaluate('fixture.maps["0:2"].kind')==3;assert page.evaluate('fixture.maps["0:2"].modifiers')==0;assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors
+ page.locator('.model-full button[aria-label="语音"]').click()
+ page.get_by_role('combobox',name='语音输入',exact=True).select_option('doubao')
+ page.wait_for_timeout(800)
+ assert page.evaluate('fixture.maps["0:2"].value')==44
+ page.get_by_role('button',name='取消',exact=True).click()
+ page.locator('.model-full button[aria-label="语音"]').click()
+ assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='meeting'
  for width in (1000,440):
   page.set_viewport_size({'width':width,'height':780})
-  done=page.get_by_role('button',name='完成',exact=True)
+  done=page.get_by_role('button',name='取消',exact=True)
   base=done.bounding_box()
   for text in ('保存中…','已保存到接收器','连接已断开，请恢复连接后重试。'*15):
    page.locator('.editor-status').evaluate('(e,t)=>{e.textContent=t}',text)
