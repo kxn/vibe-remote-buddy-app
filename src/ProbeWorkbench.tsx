@@ -24,6 +24,7 @@ type Capture = {
   key: number;
   proof?: KeyProof;
   phase: "key" | "voice";
+  down?: boolean;
   listened: boolean;
   accepted: boolean;
 };
@@ -71,7 +72,8 @@ export function ProbeWorkbench({
     [voice, setVoice] = useState<ProbeVoiceStatus>(),
     [audio, setAudio] = useState(""),
     [failures, setFailures] = useState<string[]>([]),
-    [saved, setSaved] = useState(false);
+    [saved, setSaved] = useState(false),
+    [identified, setIdentified] = useState(false);
   function update(m: RemoteModel) {
     modelRef.current = m;
     setModel(m);
@@ -173,7 +175,6 @@ export function ProbeWorkbench({
                 continue;
               }
               setStatus(s);
-              if (!s.connected) setIdentified(false);
               if (!s.connected && captureRef.current) {
                 capturing(undefined);
                 clearAudio();
@@ -205,7 +206,7 @@ export function ProbeWorkbench({
                     continue;
                   if (r.lost) {
                     pending.current = undefined;
-                    capturing({ ...c, proof: undefined });
+                    capturing({ ...c, proof: undefined, down: false });
                     baseline.current = r.sequence;
                     setError("按键报告有遗漏，请重新按下并松开");
                     continue;
@@ -218,7 +219,7 @@ export function ProbeWorkbench({
                   )
                     continue;
                   if (d.usages.length === 1) {
-                    capturing({ ...c, proof: undefined });
+                    capturing({ ...c, proof: undefined, down: true });
                     if (
                       pending.current &&
                       (pending.current.report !== d.report ||
@@ -242,11 +243,12 @@ export function ProbeWorkbench({
                     capturing({
                       ...c,
                       proof: { report: p.report, usage: p.usage },
+                      down: false,
                     });
                     setError("");
                   } else if (d.usages.length > 1) {
                     pending.current = undefined;
-                    capturing({ ...c, proof: undefined });
+                    capturing({ ...c, proof: undefined, down: false });
                     setError("请单独按下一个按键");
                   }
                 }
@@ -266,9 +268,9 @@ export function ProbeWorkbench({
                     continue;
                   lastVoice.current = v;
                   setVoice(v);
-                  if (v.error)
+                  if (v.error || v.decode_error)
                     setError(
-                      `${voiceError(v.error)}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
+                      `${voiceError(v.error || "audio decode failed")}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
                     );
                   if (
                     !v.armed &&
@@ -284,17 +286,26 @@ export function ProbeWorkbench({
                     const generation = epoch.current;
                     void run(async () => {
                       setProgress("读取测试录音");
-                      const wav = await readProbeAudio(
-                        started!,
-                        v,
-                        (n) =>
-                          setProgress(`读取测试录音 ${Math.round(n * 100)}%`),
-                        () => !alive.current || epoch.current !== generation,
-                      );
-                      if (!alive.current || epoch.current !== generation)
-                        return;
-                      urlRef.current = URL.createObjectURL(wav);
-                      setAudio(urlRef.current);
+                      try {
+                        const wav = await readProbeAudio(
+                          started!,
+                          v,
+                          (n) =>
+                            setProgress(`读取测试录音 ${Math.round(n * 100)}%`),
+                          () => !alive.current || epoch.current !== generation,
+                        );
+                        if (!alive.current || epoch.current !== generation)
+                          return;
+                        urlRef.current = URL.createObjectURL(wav);
+                        setAudio(urlRef.current);
+                      } catch (e) {
+                        setVoice((old) =>
+                          old
+                            ? { ...old, error: "读取录音失败，请重新录音" }
+                            : old,
+                        );
+                        throw e;
+                      }
                     });
                   }
                 }
@@ -363,11 +374,11 @@ export function ProbeWorkbench({
       setStep(0);
     });
   }
-  const [identified, setIdentified] = useState(false);
   async function connect() {
     if (!selected) return;
     await run(async () => {
       const c = client.current!;
+      epoch.current++;
       setNotice("");
       setIdentified(false);
       setProgress("建立蓝牙连接");
@@ -385,7 +396,11 @@ export function ProbeWorkbench({
       if (!family) throw Error("未识别出受支持的语音协议，请保存诊断");
       if (protocol && family !== protocol)
         throw Error("设备协议特征与所选协议不一致");
+      setProgress("订阅按键通道");
       await c.subscribe(a);
+      s = await c.status();
+      setStatus(s);
+      if (!s.connected) throw Error("连接已断开，请重新连接");
       setIdentified(true);
       setNotice("连接与识别成功");
     });
@@ -393,12 +408,7 @@ export function ProbeWorkbench({
   function beginLayout() {
     try {
       const family = familyEvidence(attrs);
-      if (
-        !identified ||
-        !status?.connected ||
-        !family ||
-        (protocol && protocol !== family)
-      )
+      if (!identified || !family || (protocol && protocol !== family))
         throw Error("请先完成连接与协议识别");
       const base = [...remoteModels.values()].find((m) => m.family === family);
       if (!base || !selected) throw Error("缺少协议模板");
@@ -430,6 +440,8 @@ export function ProbeWorkbench({
   }
   async function verify(key: number) {
     await run(async () => {
+      epoch.current++;
+      setProgress("准备按键验证");
       const s = await client.current!.status();
       if (!s.connected) throw Error("遥控器已断开");
       baseline.current = s.sequence;
@@ -612,11 +624,28 @@ export function ProbeWorkbench({
             {error}
           </p>
         )}
-        {notice && (step !== 1 || status?.connected) && (
+        {!capture && error && (
+          <button
+            disabled={busy || !native}
+            onClick={() =>
+              void run(async () => {
+                await call("export_config", {
+                  text: JSON.stringify(evidence(), null, 2),
+                });
+              })
+            }
+          >
+            保存诊断
+          </button>
+        )}
+        {notice && (
           <p className="probe-success" role="status">
             {step === 1 ? "✓ " : ""}
             {notice}
           </p>
+        )}
+        {identified && !status?.connected && !error && (
+          <p role="status">遥控器已断开，验证按键前请重新连接。</p>
         )}
         {step === 0 && (
           <>
@@ -685,18 +714,6 @@ export function ProbeWorkbench({
               >
                 {identified && status?.connected ? "重新识别" : "连接并识别"}
               </button>
-              <button
-                disabled={busy || !native}
-                onClick={() =>
-                  void run(async () => {
-                    await call("export_config", {
-                      text: JSON.stringify(evidence(), null, 2),
-                    });
-                  })
-                }
-              >
-                保存诊断
-              </button>
             </div>
             <details>
               <summary>设备信息与诊断</summary>
@@ -722,7 +739,6 @@ export function ProbeWorkbench({
                 disabled={
                   busy ||
                   !identified ||
-                  !status?.connected ||
                   !familyEvidence(attrs) ||
                   (!!protocol && familyEvidence(attrs) !== protocol)
                 }
@@ -847,65 +863,90 @@ export function ProbeWorkbench({
               </h3>
               {capture.phase === "key" ? (
                 <>
-                  <p>请在遥控器上按下并松开对应按键。</p>
+                  {capture.key === 2 && (
+                    <p className="probe-stage-title">1. 确认语音键</p>
+                  )}
+                  <p>
+                    请操作遥控器上的「
+                    {model?.keys.find((k) => k.id === capture.key)?.label}」键：
+                  </p>
+                  <div className="probe-key-gesture">
+                    <strong>按下</strong>
+                    <span>→</span>
+                    <strong>松开</strong>
+                  </div>
                   <p role="status">
                     {capture.proof
                       ? `已收到按下和松开 · 报告 ${capture.proof.report} / 0x${capture.proof.usage.toString(16)}`
-                      : "等待按键…"}
+                      : capture.down
+                        ? "已按下，请松开"
+                        : "等待按键…"}
                   </p>
-                  {capture.key === 2 && <p>键码确认后，继续测试语音。</p>}
                 </>
               ) : (
                 <>
-                  <p>
-                    {voice?.ready
-                      ? "请再按住语音键说话约 3 秒，然后松开。"
-                      : "正在准备语音协议…"}
+                  <p className="probe-stage-title">
+                    {audio ? "3. 试听确认" : "2. 测试录音"}
                   </p>
-                  <div className="probe-voice-state">
-                    <meter
-                      min={0}
-                      max={32768}
-                      value={voice?.peak ?? 0}
-                      aria-label="音量"
-                    />
-                    <span>{((voice?.samples ?? 0) / 16000).toFixed(1)} 秒</span>
-                  </div>
                   <p role="status">
-                    {voice?.recording
-                      ? "正在接收并解码音频"
-                      : audio
-                        ? "录音已就绪"
-                        : voice?.released
-                          ? "正在处理录音"
-                          : "等待语音"}
+                    {error || voice?.error
+                      ? "测试未完成"
+                      : busy
+                        ? progress
+                        : audio
+                          ? "录音已就绪，请试听"
+                          : voice?.recording
+                            ? "正在录音，说话约 3 秒后松开"
+                            : voice?.released
+                              ? "正在处理录音"
+                              : voice?.ready
+                                ? "请按住语音键说话约 3 秒，然后松开。"
+                                : "正在准备语音协议…"}
                   </p>
+                  {!audio && !error && (
+                    <div className="probe-voice-state">
+                      <meter
+                        min={0}
+                        max={32768}
+                        value={voice?.peak ?? 0}
+                        aria-label="音量"
+                      />
+                      <span>
+                        {(
+                          (voice?.samples ?? 0) / (voice?.rate || 16000)
+                        ).toFixed(1)}{" "}
+                        秒
+                      </span>
+                    </div>
+                  )}
                   {audio && (
                     <audio
                       controls
                       src={audio}
                       onEnded={() =>
-                        capturing({ ...captureRef.current!, listened: true })
+                        captureRef.current === capture &&
+                        capturing({ ...capture, listened: true })
                       }
                     />
                   )}
-                  <label>
-                    <input
-                      type="checkbox"
-                      disabled={!capture.listened || busy}
-                      checked={capture.accepted}
-                      onChange={(e) =>
-                        capturing({ ...capture, accepted: e.target.checked })
-                      }
-                    />{" "}
-                    声音正常
-                  </label>
-                  <button
-                    disabled={busy || !!voice?.recording}
-                    onClick={() => void testVoice()}
-                  >
-                    重新录音
-                  </button>
+                  {audio && (
+                    <label>
+                      <input
+                        type="checkbox"
+                        disabled={!capture.listened || busy}
+                        checked={capture.accepted}
+                        onChange={(e) =>
+                          capturing({ ...capture, accepted: e.target.checked })
+                        }
+                      />{" "}
+                      声音正常
+                    </label>
+                  )}
+                  {(audio || error) && (
+                    <button disabled={busy} onClick={() => void testVoice()}>
+                      重新录音
+                    </button>
+                  )}
                 </>
               )}
               {error && (
@@ -913,7 +954,9 @@ export function ProbeWorkbench({
                   {error}
                 </p>
               )}
-              {busy && <p role="status">{progress}</p>}
+              {busy && capture.phase === "key" && (
+                <p role="status">{progress}</p>
+              )}
               <div className="probe-actions">
                 <button
                   disabled={busy}
@@ -929,12 +972,14 @@ export function ProbeWorkbench({
                     disabled={busy || !capture.proof}
                     onClick={() => void testVoice()}
                   >
-                    测试语音
+                    下一步：试录
                   </button>
                 ) : (
                   <button
                     disabled={
                       busy ||
+                      !!error ||
+                      !!voice?.error ||
                       !capture.proof ||
                       (capture.key === 2 &&
                         (!capture.listened || !capture.accepted))

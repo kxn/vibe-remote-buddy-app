@@ -1153,3 +1153,19 @@ main {
   color: #42613b;
   font-weight: 600;
 }
+
+.probe-key-gesture {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.probe-key-gesture strong {
+  padding: 8px 18px;
+  background: #eee5d8;
+  border-radius: 8px;
+  font-size: 18px;
+}
+.probe-stage-title {
+  font-weight: 600;
+  color: var(--muted);
+}
