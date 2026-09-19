@@ -23,9 +23,7 @@ with sync_playwright() as p:
         page.get_by_role('button', name='打开', exact=True).click()
 
     def check_device():
-        assert page.locator('#inspect').is_disabled()
-        page.locator('input[name=device]').first.check()
-        page.locator('#inspect').click()
+        page.locator('#connect').click()
 
     # Header entry, check-before-erase and explicit destructive consent.
     page.get_by_role('button', name='初始化接收器', exact=True).click()
@@ -43,12 +41,12 @@ with sync_playwright() as p:
     assert page.get_by_text('接收器已连接', exact=True).is_visible()
     for mode in ['incompatible', 'unknown', 'protected', 'package']:
         open_scenario(mode)
-        check_device()
+        if mode != 'package': check_device()
         page.locator('[role=alert]').wait_for()
         assert page.locator('#install').count() == 0
     open_scenario('manual')
     check_device()
-    page.get_by_role('button', name='重新检查', exact=True).click()
+    page.locator('#simulateArrival').click()
     page.locator('#consent').wait_for()
     open_scenario('multiple')
     assert page.locator('input[name=device]').count() == 2
@@ -57,7 +55,7 @@ with sync_playwright() as p:
     check_device()
     page.locator('#consent').check()
     page.locator('#install').click()
-    page.get_by_role('heading', name='设备已断开').wait_for()
+    page.get_by_role('heading', name='开发板已断开').wait_for()
     for mode in ['failure', 'reboot']:
         open_scenario(mode)
         check_device()
@@ -65,14 +63,21 @@ with sync_playwright() as p:
         page.locator('#install').click()
         if mode == 'failure':
             page.get_by_role('heading', name='安装中断').wait_for()
-            page.get_by_role('button', name='重新检查设备').click()
+            page.get_by_role('button', name='继续恢复').click()
+            page.locator('#simulateArrival').click()
             page.locator('#consent').wait_for()
             assert not page.locator('#consent').is_checked()
             assert page.locator('#install').is_disabled()
         else:
-            page.get_by_role('heading', name='固件已写入，等待接收器上线').wait_for()
-            page.get_by_role('button', name='重新检测', exact=True).click()
+            page.get_by_role('heading', name='安装已写入，尚未连接').wait_for()
+            page.locator('#simulateOnline').click()
             page.locator('#wizard').get_by_role('heading', name='接收器已就绪').wait_for()
+    open_scenario('none')
+    assert page.locator('#connect').count() == 0
+    page.get_by_role('button', name='仍未找到？', exact=True).click()
+    page.locator('#simulateArrival').click()
+    check_device()
+    page.locator('#consent').wait_for()
     for width in [360, 640, 1000]:
         page.set_viewport_size({'width': width, 'height': 850})
         open_scenario('auto')
