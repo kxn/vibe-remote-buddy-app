@@ -1,3 +1,4 @@
+import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
 import { remoteModels, loadModels } from "./core/models";
@@ -885,8 +886,21 @@ function ModelRemote({
       </div>
     );
   const layout = resource.layout;
-  const image = resource.image
-    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(resource.image)}`
+  const drawnKeys = resource.keys.filter((k) => !keys || keys.includes(k.id));
+  const buttons = layout.buttons.filter((b) =>
+    drawnKeys.some((k) => k.id === b.key),
+  );
+  const artwork = mini
+    ? renderRemoteArtwork({
+        ...resource,
+        keys: drawnKeys,
+        layout: { ...layout, buttons },
+      })
+    : layout.artworkButtons
+      ? undefined
+      : resource.image;
+  const image = artwork
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(artwork)}`
     : undefined;
   return (
     <div
@@ -894,14 +908,17 @@ function ModelRemote({
       aria-hidden={mini || undefined}
       style={{
         aspectRatio: `${layout.width}/${layout.height}`,
+        width: mini
+          ? Math.min(66, (170 * layout.width) / layout.height)
+          : undefined,
         transform: mini ? `rotate(${layout.angle ?? -9}deg)` : undefined,
       }}
     >
       {image && (
         <img className="model-artwork" src={image} alt="" draggable={false} />
       )}
-      {!(mini && image && layout.artworkButtons) &&
-        layout.buttons.map((b) => {
+      {!mini &&
+        buttons.map((b) => {
           const definition = resource.keys.find((k) => k.id === b.key)!;
           const props = {
             className: `model-button ${b.key === 2 ? "voice" : ""}`,
@@ -946,8 +963,8 @@ function ModelRemote({
     </div>
   );
 }
-function MiniRemote({ model }: { model: string }) {
-  return <ModelRemote model={model} mini />;
+function MiniRemote({ model, keys }: { model: string; keys?: number[] }) {
+  return <ModelRemote model={model} keys={keys} mini />;
 }
 function KeyRow({
   entry,

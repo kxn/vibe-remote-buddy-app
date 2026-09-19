@@ -11,6 +11,7 @@ export interface ModelLayout {
   artwork?: string;
   thumbnailSymbols?: boolean;
   artworkButtons?: boolean;
+  editorRows?: number;
   angle?: number;
   buttons: {
     key: number;
@@ -152,6 +153,8 @@ export function validateModel(v: unknown): RemoteModel {
     (typeof l.angle === "number" &&
       Number.isFinite(l.angle) &&
       Math.abs(l.angle) <= 30), "缩略图角度无效");
+  require(l.editorRows === undefined ||
+    integer(l.editorRows, 16, 8), "编辑网格无效");
   require(l.artworkButtons === undefined ||
     typeof l.artworkButtons === "boolean", "图片按键设置无效");
   require(l.thumbnailSymbols === undefined ||

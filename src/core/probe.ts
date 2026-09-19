@@ -351,6 +351,46 @@ export class ProbeClient {
     if (!count)
       throw Error("没有可订阅的 HID 输入报告；可能需要先配对并重新读取");
   }
+  async reconnect(
+    candidate: ProbeCandidate,
+    expected: RemoteModel,
+    progress: (s: string) => void,
+  ) {
+    progress("正在清理异常连接");
+    await this.end();
+    await this.command(OP.PROBE_BEGIN);
+    this.resetCandidates();
+    progress("正在重新连接，请唤醒遥控器；未发现时请进入配对模式");
+    let found: ProbeCandidate | undefined;
+    for (let i = 0; i < 40; i++) {
+      found = (await this.candidates()).find(
+        (c) =>
+          c.address === candidate.address &&
+          c.address_type === candidate.address_type &&
+          c.connectable,
+      );
+      if (found) break;
+      await sleep(250);
+    }
+    if (!found) throw Error("未找到原遥控器，请将它置于配对模式后重试");
+    await this.connect(found);
+    await this.security();
+    const attrs = await this.identity(await this.discover());
+    const detected = makeVariant(
+      expected,
+      found,
+      attrs,
+      expected.id,
+      expected.title,
+    );
+    if (
+      familyEvidence(attrs) !== expected.family ||
+      detected.map_crc !== expected.map_crc
+    )
+      throw Error("重新连接的设备特征已变化，请重新适配");
+    await this.subscribe(attrs);
+    return { candidate: found, attrs };
+  }
   async reports(after: number) {
     const out: ProbeReport[] = [];
     for (let i = 0; i < 32; i++)

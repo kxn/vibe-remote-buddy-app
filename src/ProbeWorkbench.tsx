@@ -16,7 +16,12 @@ import {
   type ProbeStatus,
   type ProbeVoiceStatus,
 } from "./core/probe";
-import { verifiedModel, removeKey, type KeyProof } from "./core/probe-layout";
+import {
+  copyLayoutPreset,
+  verifiedModel,
+  removeKey,
+  type KeyProof,
+} from "./core/probe-layout";
 import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ProbeLayout } from "./ProbeLayout";
 import { OP, sleep, DeviceError } from "./core/session";
@@ -51,6 +56,7 @@ export function ProbeWorkbench({
     attrsRef = useRef<ProbeAttribute[]>([]),
     modelRef = useRef<RemoteModel | undefined>(undefined),
     voicePrepared = useRef(false),
+    reconnectNeeded = useRef(false),
     audioFetching = useRef(false),
     urlRef = useRef(""),
     lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
@@ -74,7 +80,9 @@ export function ProbeWorkbench({
     [voice, setVoice] = useState<ProbeVoiceStatus>(),
     [audio, setAudio] = useState(""),
     [failures, setFailures] = useState<string[]>([]),
-    [identified, setIdentified] = useState(false);
+    [identified, setIdentified] = useState(false),
+    [presetId, setPresetId] = useState(""),
+    [replacePreset, setReplacePreset] = useState(false);
   function update(m: RemoteModel) {
     modelRef.current = m;
     setModel(m);
@@ -356,6 +364,7 @@ export function ProbeWorkbench({
       await client.current!.command(OP.PROBE_BEGIN);
       client.current!.resetCandidates();
       voicePrepared.current = false;
+      reconnectNeeded.current = false;
       ended.current = false;
       epoch.current++;
       attrsRef.current = [];
@@ -441,6 +450,18 @@ export function ProbeWorkbench({
       fail(e);
     }
   }
+  function applyPreset() {
+    const preset = remoteModels.get(presetId);
+    if (!model || !preset) return;
+    try {
+      update(copyLayoutPreset(model, preset));
+      setProofs({});
+      setReplacePreset(false);
+      setError("");
+    } catch (e) {
+      fail(e);
+    }
+  }
   async function verify(key: number) {
     await run(async () => {
       epoch.current++;
@@ -474,21 +495,44 @@ export function ProbeWorkbench({
       audioFetching.current = false;
       clearAudio();
       setProgress("准备语音协议");
-      if (voicePrepared.current) {
-        await client.current!.command(OP.PROBE_VOICE_CANCEL);
-        let idle = false;
-        for (let i = 0; i < 30; i++) {
-          const v = await client.current!.command<ProbeVoiceStatus>(
-            OP.PROBE_VOICE_STATUS,
-          );
-          if (v.idle) {
-            idle = true;
-            break;
+      if (voicePrepared.current && !reconnectNeeded.current) {
+        try {
+          await client.current!.command(OP.PROBE_VOICE_CANCEL);
+          let idle = false;
+          for (let i = 0; i < 30; i++) {
+            const v = await client.current!.command<ProbeVoiceStatus>(
+              OP.PROBE_VOICE_STATUS,
+            );
+            if (v.idle && !v.error && !v.decode_error) {
+              idle = true;
+              break;
+            }
+            if (v.error || v.decode_error) break;
+            await sleep(100);
           }
-          await sleep(100);
+          reconnectNeeded.current = !idle;
+        } catch (e) {
+          fail(e);
+          reconnectNeeded.current = true;
         }
-        if (!idle) throw Error("上一段语音尚未结束，请松开语音键后重试");
       }
+      if (reconnectNeeded.current) {
+        const recovered = await client.current!.reconnect(
+          selected!,
+          model!,
+          setProgress,
+        );
+        setSelected(recovered.candidate);
+        attrsRef.current = recovered.attrs;
+        setAttrs(recovered.attrs);
+        after.current = baseline.current = 0;
+        pending.current = undefined;
+        setStatus(await client.current!.status());
+        voicePrepared.current = false;
+        reconnectNeeded.current = false;
+        setError("");
+      }
+      reconnectNeeded.current = true;
       await client.current!.command(OP.PROBE_VOICE_ARM, {
         family: model!.family,
         map_crc: model!.map_crc,
@@ -496,6 +540,7 @@ export function ProbeWorkbench({
         usage: c.proof!.usage,
       });
       voicePrepared.current = true;
+      reconnectNeeded.current = false;
       capturing({ ...c, phase: "voice", listened: false });
     });
   }
@@ -777,6 +822,32 @@ export function ProbeWorkbench({
                 </label>
               </details>
             </div>
+            <div className="probe-actions">
+              <label>
+                从已有布局复制
+                <select
+                  aria-label="布局预设"
+                  value={presetId}
+                  disabled={modalBusy}
+                  onChange={(e) => setPresetId(e.target.value)}
+                >
+                  <option value="">选择型号</option>
+                  {[...remoteModels.values()].map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                disabled={modalBusy || !presetId}
+                onClick={() =>
+                  model.keys.length ? setReplacePreset(true) : applyPreset()
+                }
+              >
+                加载布局
+              </button>
+            </div>
             <ProbeLayout
               model={model}
               proofs={proofs}
@@ -830,6 +901,31 @@ export function ProbeWorkbench({
             </div>
           </>
         )}
+        {replacePreset && (
+          <div
+            className="probe-modal-layer"
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") setReplacePreset(false);
+            }}
+          >
+            <section
+              className="probe-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label="替换当前布局"
+            >
+              <h3>替换当前布局？</h3>
+              <p>当前布局和按键验证结果将被清除。</p>
+              <div className="probe-actions">
+                <button onClick={() => setReplacePreset(false)}>取消</button>
+                <button className="primary" onClick={applyPreset}>
+                  替换
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
         {capture && (
           <div
             className="probe-modal-layer"
@@ -848,6 +944,27 @@ export function ProbeWorkbench({
                 验证按键 ·{" "}
                 {model?.keys.find((k) => k.id === capture.key)?.label}
               </h3>
+              <label>
+                按键名称
+                <input
+                  maxLength={24}
+                  disabled={busy}
+                  value={
+                    model?.keys.find((k) => k.id === capture.key)?.label ?? ""
+                  }
+                  onChange={(e) => {
+                    if (model)
+                      update({
+                        ...model,
+                        keys: model.keys.map((k) =>
+                          k.id === capture.key
+                            ? { ...k, label: e.target.value }
+                            : k,
+                        ),
+                      });
+                  }}
+                />
+              </label>
               {capture.phase === "key" ? (
                 <>
                   {capture.key === 2 && (

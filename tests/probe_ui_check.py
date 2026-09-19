@@ -25,6 +25,18 @@ with sync_playwright() as p:
   assert d.get_by_role('button',name='保存诊断',exact=True).count()==0
   d.get_by_text('高级信息',exact=True).click()
   d.get_by_label('型号标识').fill('example.test');d.get_by_label('型号名称').fill('测试变种')
+  # Preset copies require replacement confirmation and discard all borrowed proofs.
+  d.get_by_label('布局预设').select_option('xiaomi.rc003');d.get_by_role('button',name='加载布局',exact=True).click()
+  assert d.locator('.probe-grid button:not(.empty)').count()>2
+  d.get_by_label('布局预设').select_option('unicom.hid_ico.v1');d.get_by_role('button',name='加载布局',exact=True).click()
+  page.get_by_role('dialog',name='替换当前布局').get_by_role('button',name='取消',exact=True).click()
+  d.get_by_role('button',name='加载布局',exact=True).click();page.get_by_role('dialog',name='替换当前布局').get_by_role('button',name='替换',exact=True).click()
+  assert d.locator('.probe-grid button:not(.empty)').count()==28
+  assert d.get_by_role('button',name='保存并使用',exact=True).is_disabled()
+  # Restart this mock session for the small two-key complete-save regression.
+  d.locator('.probe-footer').get_by_role('button',name='返回',exact=True).click();d.locator('.probe-footer').get_by_role('button',name='返回',exact=True).click()
+  d.get_by_role('button',name='选择',exact=True).click();d.get_by_role('button',name='识别',exact=True).click()
+  d.get_by_label('型号名称').wait_for();d.get_by_text('高级信息',exact=True).click();d.get_by_label('型号标识').fill('example.test')
   # Drag standard Up; add voice through the empty-cell picker.
   if width>650:d.locator('.probe-palette').get_by_role('button',name='上',exact=True).drag_to(d.locator('.probe-cell').nth(2))
   else:
@@ -38,11 +50,8 @@ with sync_playwright() as p:
   add=page.get_by_role('dialog',name='添加按键');add.get_by_label('按键类型').select_option('custom');add.get_by_label('名称',exact=True).fill('Netflix');add.get_by_role('button',name='添加',exact=True).click()
   d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).drag_to(d.locator('.probe-cell').nth(10))
   assert d.locator('.probe-cell').nth(10).get_by_role('button',name='Netflix',exact=True).count()==1
-  if width>650:
-   d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).drag_to(d.locator('.probe-trash'))
-  else:
-   d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).click()
-   page.get_by_role('dialog',name='验证按键').get_by_role('button',name='移除按键',exact=True).click()
+  d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True).click()
+  page.get_by_role('dialog',name='验证按键').get_by_role('button',name='移除按键',exact=True).click()
   expect(d.locator('.probe-grid').get_by_role('button',name='Netflix',exact=True)).to_have_count(0)
   page.screenshot(path=str(out/f'probe-grid-debug-{width}.png'),full_page=True)
   assert d.get_by_role('button',name='保存并使用',exact=True).is_disabled()
@@ -90,7 +99,7 @@ with sync_playwright() as p:
   page.screenshot(path=str(out/f'probe-real-{width}.png'),full_page=True)
   assert d.evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
   d.get_by_role('button',name='添加这只遥控器',exact=True).click();d.wait_for(state='hidden');page.get_by_role('dialog',name='添加遥控器').wait_for();page.wait_for_timeout(200)
-  assert page.evaluate('window.fixture.writes.filter(x=>x===0x441).length')==1
+  assert page.evaluate('window.fixture.writes.filter(x=>x===0x441).length')==3
   assert not errors,errors;c.close()
  b.close()
 print('PASS: real wizard scan/connect, grid, per-key capture, voice decode retrieval/playback confirmation, export and cleanup at 150% DPI')

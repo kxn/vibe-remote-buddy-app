@@ -50,65 +50,68 @@ export function ProbeLayout({
       <div className="probe-designer">
         <section>
           <div className="probe-grid" aria-label="遥控器布局">
-            {Array.from({ length: 40 }, (_, cell) => {
-              const k = model.keys.find((k) => cellOf(model, k.id) === cell);
-              return (
-                <div
-                  key={cell}
-                  className="probe-cell"
-                  onDragOver={(e) => {
-                    if (!disabled) e.preventDefault();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (disabled) return;
-                    const id = Number(
-                      e.dataTransfer.getData("application/buddy-key"),
-                    );
-                    if (id) put(cell, id);
-                  }}
-                >
-                  {k ? (
-                    <button
-                      key={`key-${k.id}`}
-                      disabled={disabled}
-                      className={
-                        proofs[k.id] && (k.id !== 2 || proofs[k.id].voice)
-                          ? "verified"
-                          : ""
-                      }
-                      draggable={!disabled}
-                      onDragStart={(e) =>
-                        e.dataTransfer.setData(
-                          "application/buddy-key",
-                          String(k.id),
-                        )
-                      }
-                      onClick={() => verify(k.id)}
-                    >
-                      {k.label}
-                      {proofs[k.id] && (k.id !== 2 || proofs[k.id].voice)
-                        ? " ✓"
-                        : ""}
-                    </button>
-                  ) : (
-                    <button
-                      key={`empty-${cell}`}
-                      disabled={disabled}
-                      className="empty"
-                      aria-label={`空格 ${cell + 1}`}
-                      onClick={() => open(cell)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          open(cell);
+            {Array.from(
+              { length: 5 * (model.layout.editorRows ?? 8) },
+              (_, cell) => {
+                const k = model.keys.find((k) => cellOf(model, k.id) === cell);
+                return (
+                  <div
+                    key={cell}
+                    className="probe-cell"
+                    onDragOver={(e) => {
+                      if (!disabled) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (disabled) return;
+                      const id = Number(
+                        e.dataTransfer.getData("application/buddy-key"),
+                      );
+                      if (id) put(cell, id);
+                    }}
+                  >
+                    {k ? (
+                      <button
+                        key={`key-${k.id}`}
+                        disabled={disabled}
+                        className={
+                          proofs[k.id] && (k.id !== 2 || proofs[k.id].voice)
+                            ? "verified"
+                            : ""
                         }
-                      }}
-                    />
-                  )}
-                </div>
-              );
-            })}
+                        draggable={!disabled}
+                        onDragStart={(e) =>
+                          e.dataTransfer.setData(
+                            "application/buddy-key",
+                            String(k.id),
+                          )
+                        }
+                        onClick={() => verify(k.id)}
+                      >
+                        {k.label}
+                        {proofs[k.id] && (k.id !== 2 || proofs[k.id].voice)
+                          ? " ✓"
+                          : ""}
+                      </button>
+                    ) : (
+                      <button
+                        key={`empty-${cell}`}
+                        disabled={disabled}
+                        className="empty"
+                        aria-label={`空格 ${cell + 1}`}
+                        onClick={() => open(cell)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            open(cell);
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              },
+            )}
           </div>
           <small>单击空格添加 · 单击按键验证 · 拖动调整位置</small>
         </section>

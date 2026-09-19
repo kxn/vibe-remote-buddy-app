@@ -3,6 +3,7 @@ import { it, expect } from "vitest";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
 import { validateModel } from "../src/core/models";
 import {
+  copyLayoutPreset,
   placeKey,
   removeKey,
   cellOf,
@@ -201,4 +202,15 @@ it("HID/ICO voice captures dedicated F8 edges, ignoring keyboard echoes in eithe
     report: 1,
     usages: [234],
   });
+});
+
+it("copies layout without borrowing device identity or verified key codes",()=>{
+ const source=validateModel(structuredClone(xiaomi));
+ const current=blank();current.family=2;current.id="mobile.test";current.map_crc=123;
+ const copy=copyLayoutPreset(current,source);
+ expect(copy.id).toBe(current.id);expect(copy.family).toBe(2);expect(copy.map_crc).toBe(123);
+ expect(copy.matches).toEqual(current.matches);expect(copy.raw).toEqual([]);
+ expect(new Set(copy.keys.map(k=>cellOf(copy,k.id))).size).toBe(copy.keys.length);
+ copy.keys[0].label="changed";expect(source.keys[0].label).not.toBe("changed");
+ expect(()=>verifiedModel(copy,{})).toThrow("验证");
 });

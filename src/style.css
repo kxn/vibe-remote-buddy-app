@@ -1175,3 +1175,20 @@ main {
   color: #31542a;
   box-shadow: inset 0 0 0 1px #98b98b;
 }
+
+/* Decoration is behind the bounded artwork, never over its keys. */
+.device-art {
+  isolation: isolate;
+}
+.device-art:before,
+.device-art:after {
+  z-index: 0;
+  pointer-events: none;
+}
+.device-art .model-mini {
+  z-index: 1;
+  max-height: 170px;
+}
+.device-art .more {
+  z-index: 2;
+}
