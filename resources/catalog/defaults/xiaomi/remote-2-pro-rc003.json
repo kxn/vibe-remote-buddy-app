@@ -1,0 +1,103 @@
+{
+  "format_version": 2,
+  "kind": "defaults",
+  "id": "xiaomi.rc003",
+  "revision": 1,
+  "buttons": {
+    "b01": {
+      "label": "电源",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b03": {
+      "label": "上",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 82
+      }
+    },
+    "b04": {
+      "label": "下",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 81
+      }
+    },
+    "b05": {
+      "label": "左",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 80
+      }
+    },
+    "b06": {
+      "label": "右",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 79
+      }
+    },
+    "b07": {
+      "label": "确认",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 40
+      }
+    },
+    "b08": {
+      "label": "返回",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 42
+      }
+    },
+    "b09": {
+      "label": "主页",
+      "action": {
+        "type": "app",
+        "command": "task-view"
+      }
+    },
+    "b10": {
+      "label": "菜单",
+      "action": {
+        "type": "app",
+        "command": "window-picker"
+      }
+    },
+    "b11": {
+      "label": "电视",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b12": {
+      "label": "音量 +",
+      "action": {
+        "type": "media",
+        "command": "volume-up"
+      }
+    },
+    "b13": {
+      "label": "音量 −",
+      "action": {
+        "type": "media",
+        "command": "volume-down"
+      }
+    },
+    "b02": {
+      "label": "语音",
+      "action": {
+        "type": "voice-preset",
+        "preset": "doubao"
+      }
+    }
+  }
+}

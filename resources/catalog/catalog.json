@@ -1,0 +1,183 @@
+{
+  "format_version": 2,
+  "catalog_version": "0.2.0",
+  "minimum_catalog_api": 2,
+  "resources": [
+    {
+      "kind": "protocol",
+      "id": "hid-ico.v1",
+      "revision": 1,
+      "path": "protocols/hid-ico-16khz.json",
+      "sha256": "4d0012246f28a1aeca8b91a4c4d2fbc4ae8704150619fb5504eda57b6c91f36e",
+      "size": 153
+    },
+    {
+      "kind": "protocol",
+      "id": "xiaomi.hid-msbc",
+      "revision": 1,
+      "path": "protocols/xiaomi-hid-msbc-16khz.json",
+      "sha256": "1df4c80d95d0e52217d77d6316102f2d6bb1cce7bd11b1a944a6e05a70777359",
+      "size": 166
+    },
+    {
+      "kind": "protocol",
+      "id": "atvv.rc003",
+      "revision": 1,
+      "path": "protocols/xiaomi-rc003-atvv-16khz.json",
+      "sha256": "21bddf3af7b0db4185d8da03e952000b0e19688a2c0b402432ede24b8715ebe3",
+      "size": 150
+    },
+    {
+      "kind": "keymap",
+      "id": "cmcc.sample-28",
+      "revision": 1,
+      "path": "keymaps/operators/cmcc-28-key.json",
+      "sha256": "d78c5506dc80c3f30d09ac4ed4165a4fec690838764b143a203a2521d5b85466",
+      "size": 2264
+    },
+    {
+      "kind": "keymap",
+      "id": "unicom.sample-28",
+      "revision": 1,
+      "path": "keymaps/operators/unicom-28-key.json",
+      "sha256": "8e7bfb3e84eb6ed16dd8689c62ebc6f26feb04dbdbfdc78453712184bdec8362",
+      "size": 2278
+    },
+    {
+      "kind": "keymap",
+      "id": "xiaomi.legacy-32ba",
+      "revision": 1,
+      "path": "keymaps/xiaomi/legacy-2717-32ba.json",
+      "sha256": "6108e6e3b8de5c45f8f0da9c85bc919d9b5230500a208504dd6af69fcbfec2e8",
+      "size": 1048
+    },
+    {
+      "kind": "keymap",
+      "id": "xiaomi.rc003",
+      "revision": 1,
+      "path": "keymaps/xiaomi/remote-2-pro-rc003.json",
+      "sha256": "ba202753c8ae508fce25e018dc28773f1445b4a0d96e3c7d1372684fe0edeaef",
+      "size": 1126
+    },
+    {
+      "kind": "layout",
+      "id": "operator.three-column-28",
+      "revision": 1,
+      "path": "layouts/operator-28-key-three-column.json",
+      "sha256": "2d503a9c6b962dc2ea403e53f9a6c21ac586ed6caf8468a936cc621f3ca74073",
+      "size": 4629
+    },
+    {
+      "kind": "layout",
+      "id": "xiaomi.legacy-32ba",
+      "revision": 1,
+      "path": "layouts/xiaomi-legacy-2717-32ba.json",
+      "sha256": "f8a3b067fba01e02012a23e3277acc076c3b34f6afb53f53f78363edacb33f71",
+      "size": 2828
+    },
+    {
+      "kind": "layout",
+      "id": "xiaomi.rc003",
+      "revision": 1,
+      "path": "layouts/xiaomi-remote-2-pro-rc003.json",
+      "sha256": "d392ff0b95867c68d49aa3755c2c57223b2028ddd708c33d7bf2f04a5ad74137",
+      "size": 3213
+    },
+    {
+      "kind": "defaults",
+      "id": "cmcc.sample-28",
+      "revision": 1,
+      "path": "defaults/operators/cmcc-28-key.json",
+      "sha256": "e1abea725276766b96a47c60eee60ea7f5925bb9a27b113e9dbe9c72b1eeabc4",
+      "size": 3747
+    },
+    {
+      "kind": "defaults",
+      "id": "unicom.sample-28",
+      "revision": 1,
+      "path": "defaults/operators/unicom-28-key.json",
+      "sha256": "ff2b2f89edc65531f7fb630ac2d53bc8adc7b283cb2cd9da3709651480d367f8",
+      "size": 3729
+    },
+    {
+      "kind": "defaults",
+      "id": "xiaomi.legacy-32ba",
+      "revision": 1,
+      "path": "defaults/xiaomi/legacy-2717-32ba.json",
+      "sha256": "800f5dd9e7e4f6254025fd8f95abb840a9dba35edb2eb9c6b53827278c5a956c",
+      "size": 1733
+    },
+    {
+      "kind": "defaults",
+      "id": "xiaomi.rc003",
+      "revision": 1,
+      "path": "defaults/xiaomi/remote-2-pro-rc003.json",
+      "sha256": "8010787d8584dc0756c5e551bc347d0bef274f0a9eac1f6f6bf3a98422c62b0a",
+      "size": 1788
+    },
+    {
+      "kind": "model",
+      "id": "cmcc.sample-28",
+      "revision": 1,
+      "path": "models/operators/cmcc-28-key.json",
+      "sha256": "48d881be87cb18c84a40e2c22678c29119569554028be9db1f5f833a80300fc2",
+      "size": 1925
+    },
+    {
+      "kind": "model",
+      "id": "unicom.sample-28",
+      "revision": 1,
+      "path": "models/operators/unicom-28-key.json",
+      "sha256": "8344776068df9f3ee433fb9d83fa4fe1491e7c62303bcf48611958c7861248a3",
+      "size": 1934
+    },
+    {
+      "kind": "model",
+      "id": "xiaomi.legacy-32ba",
+      "revision": 1,
+      "path": "models/xiaomi/legacy-2717-32ba.json",
+      "sha256": "96ad94cc92f1ee677377cb1a854cd552514d8a75fe24985878539b90da515428",
+      "size": 985
+    },
+    {
+      "kind": "model",
+      "id": "xiaomi.rc003",
+      "revision": 1,
+      "path": "models/xiaomi/remote-2-pro-rc003.json",
+      "sha256": "627cb3c0d9a3f5762eb4ebf546c4cee192b67ff6065d9a0b09b3a12c625b5d55",
+      "size": 1003
+    },
+    {
+      "kind": "fingerprint",
+      "id": "cmcc.sample-28",
+      "revision": 1,
+      "path": "fingerprints/operators/cmcc-28-key.json",
+      "sha256": "43902fbe1d041d2adc1a202b7300200d7ec9a3e39e6fe0c2be5a740f67a4e265",
+      "size": 1433
+    },
+    {
+      "kind": "fingerprint",
+      "id": "unicom.sample-28",
+      "revision": 1,
+      "path": "fingerprints/operators/unicom-28-key.json",
+      "sha256": "f34a16251ba0b6887327f493bfa1e83d8ce23f8bf53860c274e7414913cde633",
+      "size": 825
+    },
+    {
+      "kind": "fingerprint",
+      "id": "xiaomi.legacy-32ba",
+      "revision": 1,
+      "path": "fingerprints/xiaomi/legacy-2717-32ba.json",
+      "sha256": "c70aca97409d8a09c1b01eea7bdd620208a781418e6b7a3898f3eec7ffa7f98c",
+      "size": 2441
+    },
+    {
+      "kind": "fingerprint",
+      "id": "xiaomi.rc003",
+      "revision": 1,
+      "path": "fingerprints/xiaomi/remote-2-pro-rc003.json",
+      "sha256": "3be88bfe7aa93da33712f14e53c3b98b0d01465b4b06b749ba3d1e7c682fa471",
+      "size": 1195
+    }
+  ]
+}

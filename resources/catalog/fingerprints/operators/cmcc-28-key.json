@@ -1,0 +1,69 @@
+{
+  "format_version": 2,
+  "kind": "fingerprint",
+  "id": "cmcc.sample-28",
+  "revision": 1,
+  "scan_hints": [
+    {
+      "company": 31078,
+      "name": "CMCC_Voice_Remote"
+    }
+  ],
+  "required": {
+    "report_map": {
+      "length": 169,
+      "crc32c": "42b0439b",
+      "hex": "05010906a1018501050719e029e71500250175019508810295017508810195057501050819012905910295017503910195067508150025ff0507190029ff8100c0050c0901a101850319002a9c021500269c02950175108100c0050c0901a101850495147508150025ff8100c0050c0901a10185fc95147508150026ff008100c0050c0901a10185f895147508150026ff008100c0050c0901a10185f995017508150026ff008100c0",
+      "sha256": "e368292bcebb0f13ee1bbc39087aac3654658e7829390a7fc535d455cdb2acff"
+    },
+    "pnp": {
+      "source": 1,
+      "vendor": 1046,
+      "product": 768
+    },
+    "services": [
+      "0x1800",
+      "0x1801",
+      "0x180a",
+      "0x180f",
+      "0x1812",
+      "0xfd00"
+    ],
+    "reports": [
+      {
+        "id": 1,
+        "type": 1
+      },
+      {
+        "id": 3,
+        "type": 1
+      },
+      {
+        "id": 4,
+        "type": 1
+      },
+      {
+        "id": 248,
+        "type": 1
+      },
+      {
+        "id": 249,
+        "type": 1
+      },
+      {
+        "id": 250,
+        "type": 2
+      },
+      {
+        "id": 251,
+        "type": 2
+      },
+      {
+        "id": 252,
+        "type": 1
+      }
+    ]
+  },
+  "model": "cmcc.sample-28",
+  "confidence": "captured-map"
+}

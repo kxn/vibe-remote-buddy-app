@@ -1,0 +1,9 @@
+{
+  "format_version": 2,
+  "kind": "protocol",
+  "id": "xiaomi.hid-msbc",
+  "revision": 1,
+  "driver": "xiaomi-hid-msbc",
+  "driver_api": 1,
+  "sample_rate": 16000
+}

@@ -1,0 +1,146 @@
+{
+  "format_version": 2,
+  "kind": "keymap",
+  "id": "unicom.sample-28",
+  "revision": 1,
+  "encoding": "hid-report-usage",
+  "entries": [
+    {
+      "button": "b01",
+      "report_id": 1,
+      "usage": 102
+    },
+    {
+      "button": "b14",
+      "report_id": 1,
+      "usage": 127
+    },
+    {
+      "button": "b19",
+      "report_id": 3,
+      "usage": 246
+    },
+    {
+      "button": "b03",
+      "report_id": 1,
+      "usage": 82
+    },
+    {
+      "button": "b04",
+      "report_id": 1,
+      "usage": 81
+    },
+    {
+      "button": "b05",
+      "report_id": 1,
+      "usage": 80
+    },
+    {
+      "button": "b06",
+      "report_id": 1,
+      "usage": 79
+    },
+    {
+      "button": "b07",
+      "report_id": 1,
+      "usage": 40
+    },
+    {
+      "button": "b09",
+      "report_id": 3,
+      "usage": 547
+    },
+    {
+      "button": "b20",
+      "report_id": 3,
+      "usage": 1023
+    },
+    {
+      "button": "b08",
+      "report_id": 1,
+      "usage": 243
+    },
+    {
+      "button": "b12",
+      "report_id": 1,
+      "usage": 128
+    },
+    {
+      "button": "b13",
+      "report_id": 1,
+      "usage": 129
+    },
+    {
+      "button": "b21",
+      "report_id": 3,
+      "usage": 156
+    },
+    {
+      "button": "b22",
+      "report_id": 3,
+      "usage": 157
+    },
+    {
+      "button": "b24",
+      "report_id": 1,
+      "usage": 30
+    },
+    {
+      "button": "b25",
+      "report_id": 1,
+      "usage": 31
+    },
+    {
+      "button": "b26",
+      "report_id": 1,
+      "usage": 32
+    },
+    {
+      "button": "b27",
+      "report_id": 1,
+      "usage": 33
+    },
+    {
+      "button": "b28",
+      "report_id": 1,
+      "usage": 34
+    },
+    {
+      "button": "b29",
+      "report_id": 1,
+      "usage": 35
+    },
+    {
+      "button": "b30",
+      "report_id": 1,
+      "usage": 36
+    },
+    {
+      "button": "b31",
+      "report_id": 1,
+      "usage": 37
+    },
+    {
+      "button": "b32",
+      "report_id": 1,
+      "usage": 38
+    },
+    {
+      "button": "b33",
+      "report_id": 3,
+      "usage": 771
+    },
+    {
+      "button": "b23",
+      "report_id": 1,
+      "usage": 39
+    },
+    {
+      "button": "b34",
+      "report_id": 3,
+      "usage": 772
+    }
+  ],
+  "voice_button": "b02",
+  "provenance": "existing-builtin-mapping"
+}

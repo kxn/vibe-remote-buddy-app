@@ -1,0 +1,71 @@
+{
+  "format_version": 2,
+  "kind": "keymap",
+  "id": "xiaomi.rc003",
+  "revision": 1,
+  "encoding": "hid-report-usage",
+  "entries": [
+    {
+      "button": "b01",
+      "report_id": 1,
+      "usage": 102
+    },
+    {
+      "button": "b03",
+      "report_id": 1,
+      "usage": 82
+    },
+    {
+      "button": "b04",
+      "report_id": 1,
+      "usage": 81
+    },
+    {
+      "button": "b05",
+      "report_id": 1,
+      "usage": 80
+    },
+    {
+      "button": "b06",
+      "report_id": 1,
+      "usage": 79
+    },
+    {
+      "button": "b07",
+      "report_id": 1,
+      "usage": 40
+    },
+    {
+      "button": "b08",
+      "report_id": 1,
+      "usage": 241
+    },
+    {
+      "button": "b09",
+      "report_id": 1,
+      "usage": 74
+    },
+    {
+      "button": "b10",
+      "report_id": 1,
+      "usage": 101
+    },
+    {
+      "button": "b11",
+      "report_id": 1,
+      "usage": 53
+    },
+    {
+      "button": "b12",
+      "report_id": 1,
+      "usage": 128
+    },
+    {
+      "button": "b13",
+      "report_id": 1,
+      "usage": 129
+    }
+  ],
+  "voice_button": "b02",
+  "provenance": "existing-builtin-mapping"
+}

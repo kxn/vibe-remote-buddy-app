@@ -1,0 +1,157 @@
+{
+  "format_version": 2,
+  "kind": "layout",
+  "id": "xiaomi.rc003",
+  "revision": 1,
+  "geometry": {
+    "width": 176,
+    "height": 600,
+    "buttons": [
+      {
+        "x": 25,
+        "y": 6,
+        "width": 23,
+        "height": 6.75,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#4c5457",
+        "border": "#6e777b",
+        "button": "b01"
+      },
+      {
+        "x": 75,
+        "y": 6,
+        "width": 23,
+        "height": 6.75,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#4c5457",
+        "border": "#6e777b",
+        "button": "b02"
+      },
+      {
+        "x": 50,
+        "y": 18,
+        "width": 27,
+        "height": 7.9,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b03"
+      },
+      {
+        "x": 22,
+        "y": 26,
+        "width": 27,
+        "height": 7.9,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b05"
+      },
+      {
+        "x": 50,
+        "y": 26,
+        "width": 43,
+        "height": 12.6,
+        "radius": 50,
+        "fill": "#22282a",
+        "color": "#d5dbdc",
+        "border": "#101618",
+        "button": "b07"
+      },
+      {
+        "x": 78,
+        "y": 26,
+        "width": 27,
+        "height": 7.9,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b06"
+      },
+      {
+        "x": 50,
+        "y": 34,
+        "width": 27,
+        "height": 7.9,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b04"
+      },
+      {
+        "x": 25,
+        "y": 43,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "#22282a",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b08"
+      },
+      {
+        "x": 75,
+        "y": 43,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b12"
+      },
+      {
+        "x": 25,
+        "y": 53,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "#22282a",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b09"
+      },
+      {
+        "x": 75,
+        "y": 53,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "transparent",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b13"
+      },
+      {
+        "x": 25,
+        "y": 63,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "#22282a",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b10"
+      },
+      {
+        "x": 75,
+        "y": 63,
+        "width": 30,
+        "height": 8.8,
+        "radius": 50,
+        "fill": "#22282a",
+        "color": "#d5dbdc",
+        "border": "transparent",
+        "button": "b11"
+      }
+    ],
+    "thumbnailSymbols": true,
+    "angle": -12
+  }
+}

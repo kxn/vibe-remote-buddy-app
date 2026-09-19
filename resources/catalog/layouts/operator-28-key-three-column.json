@@ -1,0 +1,242 @@
+{
+  "format_version": 2,
+  "kind": "layout",
+  "id": "operator.three-column-28",
+  "revision": 1,
+  "geometry": {
+    "width": 150,
+    "height": 500,
+    "buttons": [
+      {
+        "x": 82,
+        "y": 10.583333333333334,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b01"
+      },
+      {
+        "x": 18,
+        "y": 17.75,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b14"
+      },
+      {
+        "x": 82,
+        "y": 17.75,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b19"
+      },
+      {
+        "x": 50,
+        "y": 24.916666666666664,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b03"
+      },
+      {
+        "x": 18,
+        "y": 32.083333333333336,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b05"
+      },
+      {
+        "x": 50,
+        "y": 32.083333333333336,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b07"
+      },
+      {
+        "x": 82,
+        "y": 32.083333333333336,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b06"
+      },
+      {
+        "x": 50,
+        "y": 39.25,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b04"
+      },
+      {
+        "x": 18,
+        "y": 46.41666666666667,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b09"
+      },
+      {
+        "x": 50,
+        "y": 46.41666666666667,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b20"
+      },
+      {
+        "x": 82,
+        "y": 46.41666666666667,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b08"
+      },
+      {
+        "x": 18,
+        "y": 53.58333333333333,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b12"
+      },
+      {
+        "x": 50,
+        "y": 53.58333333333333,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b02"
+      },
+      {
+        "x": 82,
+        "y": 53.58333333333333,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "symbol": "CH+",
+        "button": "b21"
+      },
+      {
+        "x": 18,
+        "y": 60.75,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b13"
+      },
+      {
+        "x": 82,
+        "y": 60.75,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "symbol": "CH−",
+        "button": "b22"
+      },
+      {
+        "x": 18,
+        "y": 67.91666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b24"
+      },
+      {
+        "x": 50,
+        "y": 67.91666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b25"
+      },
+      {
+        "x": 82,
+        "y": 67.91666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b26"
+      },
+      {
+        "x": 18,
+        "y": 75.08333333333334,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b27"
+      },
+      {
+        "x": 50,
+        "y": 75.08333333333334,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b28"
+      },
+      {
+        "x": 82,
+        "y": 75.08333333333334,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b29"
+      },
+      {
+        "x": 18,
+        "y": 82.25,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b30"
+      },
+      {
+        "x": 50,
+        "y": 82.25,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b31"
+      },
+      {
+        "x": 82,
+        "y": 82.25,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b32"
+      },
+      {
+        "x": 18,
+        "y": 89.41666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b33"
+      },
+      {
+        "x": 50,
+        "y": 89.41666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b23"
+      },
+      {
+        "x": 82,
+        "y": 89.41666666666666,
+        "width": 24,
+        "height": 5.59,
+        "radius": 50,
+        "button": "b34"
+      }
+    ],
+    "thumbnailSymbols": true,
+    "angle": 11,
+    "editorColumns": 3,
+    "editorRows": 12
+  }
+}

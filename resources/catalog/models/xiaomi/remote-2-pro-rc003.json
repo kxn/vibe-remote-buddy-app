@@ -1,0 +1,65 @@
+{
+  "format_version": 2,
+  "kind": "model",
+  "id": "xiaomi.rc003",
+  "revision": 1,
+  "title": "小米 Remote 2 Pro",
+  "buttons": [
+    {
+      "id": "b01",
+      "semantic": "power"
+    },
+    {
+      "id": "b03",
+      "semantic": "up"
+    },
+    {
+      "id": "b04",
+      "semantic": "down"
+    },
+    {
+      "id": "b05",
+      "semantic": "left"
+    },
+    {
+      "id": "b06",
+      "semantic": "right"
+    },
+    {
+      "id": "b07",
+      "semantic": "ok"
+    },
+    {
+      "id": "b08",
+      "semantic": "back"
+    },
+    {
+      "id": "b09",
+      "semantic": "home"
+    },
+    {
+      "id": "b10",
+      "semantic": "menu"
+    },
+    {
+      "id": "b11",
+      "semantic": "tv"
+    },
+    {
+      "id": "b12",
+      "semantic": "volume_up"
+    },
+    {
+      "id": "b13",
+      "semantic": "volume_down"
+    },
+    {
+      "id": "b02",
+      "semantic": "voice"
+    }
+  ],
+  "protocol": "atvv.rc003",
+  "keymap": "xiaomi.rc003",
+  "layout": "xiaomi.rc003",
+  "defaults": "xiaomi.rc003"
+}

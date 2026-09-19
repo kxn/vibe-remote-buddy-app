@@ -1,0 +1,217 @@
+{
+  "format_version": 2,
+  "kind": "defaults",
+  "id": "unicom.sample-28",
+  "revision": 1,
+  "buttons": {
+    "b01": {
+      "label": "电源",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b14": {
+      "label": "静音",
+      "action": {
+        "type": "media",
+        "command": "mute"
+      }
+    },
+    "b19": {
+      "label": "设置",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b03": {
+      "label": "上",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 82
+      }
+    },
+    "b04": {
+      "label": "下",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 81
+      }
+    },
+    "b05": {
+      "label": "左",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 80
+      }
+    },
+    "b06": {
+      "label": "右",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 79
+      }
+    },
+    "b07": {
+      "label": "确认",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 40
+      }
+    },
+    "b09": {
+      "label": "主页",
+      "action": {
+        "type": "app",
+        "command": "task-view"
+      }
+    },
+    "b20": {
+      "label": "本地",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b08": {
+      "label": "返回",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 42
+      }
+    },
+    "b12": {
+      "label": "音量 +",
+      "action": {
+        "type": "media",
+        "command": "volume-up"
+      }
+    },
+    "b13": {
+      "label": "音量 −",
+      "action": {
+        "type": "media",
+        "command": "volume-down"
+      }
+    },
+    "b21": {
+      "label": "频道 +",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b22": {
+      "label": "频道 −",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b02": {
+      "label": "语音",
+      "action": {
+        "type": "voice-preset",
+        "preset": "doubao"
+      }
+    },
+    "b24": {
+      "label": "1",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 30
+      }
+    },
+    "b25": {
+      "label": "2",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 31
+      }
+    },
+    "b26": {
+      "label": "3",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 32
+      }
+    },
+    "b27": {
+      "label": "4",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 33
+      }
+    },
+    "b28": {
+      "label": "5",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 34
+      }
+    },
+    "b29": {
+      "label": "6",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 35
+      }
+    },
+    "b30": {
+      "label": "7",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 36
+      }
+    },
+    "b31": {
+      "label": "8",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 37
+      }
+    },
+    "b32": {
+      "label": "9",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 38
+      }
+    },
+    "b33": {
+      "label": "*",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 2,
+        "usage": 37
+      }
+    },
+    "b23": {
+      "label": "0",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 39
+      }
+    },
+    "b34": {
+      "label": "#",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 2,
+        "usage": 32
+      }
+    }
+  }
+}

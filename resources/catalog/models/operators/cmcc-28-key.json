@@ -1,0 +1,125 @@
+{
+  "format_version": 2,
+  "kind": "model",
+  "id": "cmcc.sample-28",
+  "revision": 1,
+  "title": "CMCC_Voice_Remote",
+  "buttons": [
+    {
+      "id": "b01",
+      "semantic": "power"
+    },
+    {
+      "id": "b14",
+      "semantic": "menu"
+    },
+    {
+      "id": "b19",
+      "semantic": "settings"
+    },
+    {
+      "id": "b03",
+      "semantic": "up"
+    },
+    {
+      "id": "b04",
+      "semantic": "down"
+    },
+    {
+      "id": "b05",
+      "semantic": "left"
+    },
+    {
+      "id": "b06",
+      "semantic": "right"
+    },
+    {
+      "id": "b07",
+      "semantic": "ok"
+    },
+    {
+      "id": "b09",
+      "semantic": "home"
+    },
+    {
+      "id": "b20",
+      "semantic": "local"
+    },
+    {
+      "id": "b08",
+      "semantic": "back"
+    },
+    {
+      "id": "b12",
+      "semantic": "volume_up"
+    },
+    {
+      "id": "b13",
+      "semantic": "volume_down"
+    },
+    {
+      "id": "b21",
+      "semantic": "channel_up"
+    },
+    {
+      "id": "b22",
+      "semantic": "channel_down"
+    },
+    {
+      "id": "b02",
+      "semantic": "voice"
+    },
+    {
+      "id": "b24",
+      "semantic": "digit_1"
+    },
+    {
+      "id": "b25",
+      "semantic": "digit_2"
+    },
+    {
+      "id": "b26",
+      "semantic": "digit_3"
+    },
+    {
+      "id": "b27",
+      "semantic": "digit_4"
+    },
+    {
+      "id": "b28",
+      "semantic": "digit_5"
+    },
+    {
+      "id": "b29",
+      "semantic": "digit_6"
+    },
+    {
+      "id": "b30",
+      "semantic": "digit_7"
+    },
+    {
+      "id": "b31",
+      "semantic": "digit_8"
+    },
+    {
+      "id": "b32",
+      "semantic": "digit_9"
+    },
+    {
+      "id": "b33",
+      "semantic": "star"
+    },
+    {
+      "id": "b23",
+      "semantic": "digit_0"
+    },
+    {
+      "id": "b34",
+      "semantic": "hash"
+    }
+  ],
+  "protocol": "hid-ico.v1",
+  "keymap": "cmcc.sample-28",
+  "layout": "operator.three-column-28",
+  "defaults": "cmcc.sample-28"
+}

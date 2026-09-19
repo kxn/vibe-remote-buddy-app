@@ -1,0 +1,99 @@
+{
+  "format_version": 2,
+  "kind": "defaults",
+  "id": "xiaomi.legacy-32ba",
+  "revision": 1,
+  "buttons": {
+    "b01": {
+      "label": "电源",
+      "action": {
+        "type": "none"
+      }
+    },
+    "b02": {
+      "label": "语音",
+      "action": {
+        "type": "voice-preset",
+        "preset": "doubao"
+      }
+    },
+    "b03": {
+      "label": "上",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 82
+      }
+    },
+    "b04": {
+      "label": "下",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 81
+      }
+    },
+    "b05": {
+      "label": "左",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 80
+      }
+    },
+    "b06": {
+      "label": "右",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 79
+      }
+    },
+    "b07": {
+      "label": "确认",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 40
+      }
+    },
+    "b08": {
+      "label": "返回",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 41
+      }
+    },
+    "b09": {
+      "label": "主页",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 74
+      }
+    },
+    "b10": {
+      "label": "菜单",
+      "action": {
+        "type": "keyboard",
+        "modifiers": 0,
+        "usage": 101
+      }
+    },
+    "b12": {
+      "label": "音量 +",
+      "action": {
+        "type": "media",
+        "command": "volume-up"
+      }
+    },
+    "b13": {
+      "label": "音量 −",
+      "action": {
+        "type": "media",
+        "command": "volume-down"
+      }
+    }
+  }
+}

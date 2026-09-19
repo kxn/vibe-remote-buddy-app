@@ -1,0 +1,61 @@
+{
+  "format_version": 2,
+  "kind": "model",
+  "id": "xiaomi.legacy-32ba",
+  "revision": 1,
+  "title": "小米蓝牙语音遥控器",
+  "buttons": [
+    {
+      "id": "b01",
+      "semantic": "power"
+    },
+    {
+      "id": "b02",
+      "semantic": "voice"
+    },
+    {
+      "id": "b03",
+      "semantic": "up"
+    },
+    {
+      "id": "b04",
+      "semantic": "down"
+    },
+    {
+      "id": "b05",
+      "semantic": "left"
+    },
+    {
+      "id": "b06",
+      "semantic": "right"
+    },
+    {
+      "id": "b07",
+      "semantic": "ok"
+    },
+    {
+      "id": "b08",
+      "semantic": "back"
+    },
+    {
+      "id": "b09",
+      "semantic": "home"
+    },
+    {
+      "id": "b10",
+      "semantic": "menu"
+    },
+    {
+      "id": "b12",
+      "semantic": "volume_up"
+    },
+    {
+      "id": "b13",
+      "semantic": "volume_down"
+    }
+  ],
+  "protocol": "xiaomi.hid-msbc",
+  "keymap": "xiaomi.legacy-32ba",
+  "layout": "xiaomi.legacy-32ba",
+  "defaults": "xiaomi.legacy-32ba"
+}

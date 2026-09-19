@@ -1,0 +1,9 @@
+{
+  "format_version": 2,
+  "kind": "protocol",
+  "id": "hid-ico.v1",
+  "revision": 1,
+  "driver": "hid-ico",
+  "driver_api": 1,
+  "sample_rate": 16000
+}
