@@ -1204,3 +1204,23 @@ main {
 .device-art .more {
   z-index: 2;
 }
+
+/* Status text owns a bounded area; asynchronous updates cannot move actions. */
+footer.editor-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem 5rem;
+  align-items: center;
+  gap: .65rem;
+  min-height: 5rem;
+}
+.editor-status {
+  height: 5rem;
+  min-width: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  display: flex;
+  align-items: safe center;
+}
+.dialog .editor-status p { margin: 0; }
+.editor-footer > button { width: 5rem; padding-inline: .35rem; }
+.editor-save.reserved { visibility: hidden; }

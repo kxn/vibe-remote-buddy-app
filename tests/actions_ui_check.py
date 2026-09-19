@@ -24,5 +24,16 @@ with sync_playwright() as p:
  page.locator('.model-full button[aria-label="语音"]').click();page.get_by_role('combobox',name='语音输入',exact=True).select_option('wechat');assert 'Windows 语音输入' not in page.locator('[role=dialog]').inner_text()
  page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();page.get_by_role('button',name='完成',exact=True).click();page.locator('[role=dialog]').wait_for(state='hidden');assert page.evaluate('fixture.maps["0:2"].kind')==5;assert page.evaluate('fixture.maps["0:2"].value')==2
  page.locator('.model-full button[aria-label="语音"]').click();assert page.get_by_role('combobox',name='语音输入',exact=True).input_value()=='wechat'
- page.get_by_role('combobox',name='语音输入',exact=True).select_option('meeting');page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();assert page.evaluate('fixture.maps["0:2"].value')==44;assert page.evaluate('fixture.maps["0:2"].kind')==3;assert page.evaluate('fixture.maps["0:2"].modifiers')==0;assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors;b.close()
+ page.get_by_role('combobox',name='语音输入',exact=True).select_option('meeting');page.get_by_role('status').filter(has_text='已保存到接收器').wait_for();assert page.evaluate('fixture.maps["0:2"].value')==44;assert page.evaluate('fixture.maps["0:2"].kind')==3;assert page.evaluate('fixture.maps["0:2"].modifiers')==0;assert page.locator("[role=alert]").count()==0,page.locator("[role=alert]").all_text_contents();assert not errors,errors
+ for width in (1000,440):
+  page.set_viewport_size({'width':width,'height':780})
+  done=page.get_by_role('button',name='完成',exact=True)
+  base=done.bounding_box()
+  for text in ('保存中…','已保存到接收器','连接已断开，请恢复连接后重试。'*15):
+   page.locator('.editor-status').evaluate('(e,t)=>{e.textContent=t}',text)
+   assert done.bounding_box()==base,(width,text,base,done.bounding_box())
+  page.locator('.editor-save').evaluate('(e)=>e.classList.remove("reserved")')
+  assert done.bounding_box()==base
+ page.screenshot(path=str(root/'build/host-ui/editor-stable-footer.png'),full_page=True)
+ b.close()
 print('PASS: one-step application commands; WeChat preset persistence; 13-key Xiaomi layout; zero recording layout shift')

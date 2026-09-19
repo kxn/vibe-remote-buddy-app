@@ -1597,49 +1597,38 @@ function Editor({
           </>
         )}
       </fieldset>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {disabled && <p className="muted">连接可用且录音结束后可保存</p>}
-      <footer>
+      <footer className="editor-footer">
+        <div className="editor-status">
+          {error ? (
+            <p className="error" role="alert">{error}</p>
+          ) : disabled ? (
+            <p className="muted" role="status">连接可用且录音结束后可保存</p>
+          ) : autoSave ? (
+            <span role="status">{saving || dirty ? "保存中…" : "已保存到接收器"}</span>
+          ) : null}
+        </div>
+        <button
+          className={`primary editor-save${autoSave && !error ? " reserved" : ""}`}
+          aria-hidden={autoSave && !error ? true : undefined}
+          tabIndex={autoSave && !error ? -1 : undefined}
+          disabled={
+            (autoSave && !error) || disabled || saving || !dirty ||
+            (map.kind === 4 && !validAction(action)) ||
+            (map.kind === 1 && !map.value && !map.modifiers)
+          }
+          onClick={() => {
+            setSaving(true);
+            setError("");
+            void save(map, map.kind === 4 ? action : undefined)
+              .catch((e) => setError(service.report(e)))
+              .finally(() => setSaving(false));
+          }}
+        >
+          {saving ? "保存中…" : "保存"}
+        </button>
         <button disabled={saving} onClick={requestClose}>
           {autoSave ? "完成" : "取消"}
         </button>
-        {(!autoSave || !!error) && (
-          <button
-            className="primary"
-            disabled={
-              disabled ||
-              saving ||
-              !dirty ||
-              (map.kind === 4 && !validAction(action)) ||
-              (map.kind === 1 && !map.value && !map.modifiers)
-            }
-            onClick={() => {
-              setSaving(true);
-              setError("");
-              void save(map, map.kind === 4 ? action : undefined)
-                .catch((e) => setError(service.report(e)))
-                .finally(() => setSaving(false));
-            }}
-          >
-            {saving ? (
-              <>
-                <Spinner />
-                保存中…
-              </>
-            ) : (
-              "保存"
-            )}
-          </button>
-        )}
-        {autoSave && !error && (
-          <span role="status">
-            {saving || dirty ? "保存中…" : "已保存到接收器"}
-          </span>
-        )}
       </footer>
     </Dialog>
   );
