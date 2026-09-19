@@ -286,7 +286,15 @@ export class ProbeClient {
   }
   async wait(stage = "探测") {
     for (let i = 0; i < 180; i++) {
-      const s = await this.status();
+      let s = await this.status();
+      // NimBLE reports SMP ENOTCONN before delivering GAP DISCONNECT.
+      // Collect the terminal reason instead of stopping at the intermediate callback.
+      if (!s.pending && s.sdk_error === 7 && s.connected) {
+        for (let n = 0; n < 10 && s.connected && s.sdk_error === 7; n++) {
+          await sleep(50);
+          s = await this.status();
+        }
+      }
       if (!s.active) throw Error("探测已结束");
       if (!s.pending) {
         if (s.sdk_error)
@@ -309,9 +317,9 @@ export class ProbeClient {
     }
     throw Error("接收器仍在清理临时连接");
   }
-  async candidates() {
+  async candidates(cancelled: () => boolean = () => false) {
     const list: ProbeCandidate[] = [];
-    for (let index = 0; index < 24; index++) {
+    for (let index = 0; index < 24 && !cancelled(); index++) {
       try {
         list.push(await this.command<ProbeCandidate>(OP.CANDIDATE, { index }));
       } catch (e) {

@@ -247,3 +247,26 @@ describe("voice retry ownership", () => {
     expect(subscribed).toEqual([0, 1, 2]);
   });
 });
+
+it("waits for the GAP reason after an SMP ENOTCONN callback", async () => {
+  let reads = 0;
+  const c = new ProbeClient((async () => ({
+    active: true,
+    pending: false,
+    connected: ++reads === 1,
+    sdk_error: 7,
+    disconnect_reason: reads === 1 ? 0 : 531,
+    error_phase: "pairing",
+  })) as ProbeCommand);
+  await expect(c.wait("配对加密")).rejects.toThrow("断开原因");
+  expect(reads).toBe(2);
+});
+it("stops obsolete scanning requests when a connection starts", async () => {
+  let count = 0;
+  const c = new ProbeClient((async () => {
+    count++;
+    throw new DeviceError(6, OP.CANDIDATE, {});
+  }) as ProbeCommand);
+  await c.candidates(() => count === 1);
+  expect(count).toBe(1);
+});

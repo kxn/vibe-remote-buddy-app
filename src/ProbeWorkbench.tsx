@@ -202,7 +202,12 @@ export function ProbeWorkbench({
                 setError("连接已断开，请返回连接步骤重试");
               }
               if (s.active && !s.connected && !s.pending) {
-                const list = await started.candidates();
+                const list = await started.candidates(
+                  () =>
+                    !alive.current ||
+                    locked.current ||
+                    pollEpoch !== epoch.current,
+                );
                 if (
                   alive.current &&
                   !locked.current &&
