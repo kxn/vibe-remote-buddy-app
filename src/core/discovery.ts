@@ -17,6 +17,39 @@ export function visibleCandidates(items: Candidate[]): Candidate[] {
       c.age_ms < 5000,
   );
 }
+/** Rank by signal at admission, never by later RSSI fluctuations. */
+export class PairCandidates {
+  private items = new Map<number, Candidate>();
+  private rank = new Map<number, number>();
+  update(list: Candidate[]) {
+    const fresh = new Map(
+      list
+        .filter(
+          (c) =>
+            (c.known || isBoundCandidate(c)) &&
+            Number.isFinite(c.rssi) &&
+            c.rssi <= 0 &&
+            c.age_ms < 5000,
+        )
+        .map((c) => [c.candidate_id, c]),
+    );
+    for (const [id] of this.items) {
+      const c = fresh.get(id);
+      if (!c || c.rssi < PAIR_MIN_RSSI - 5) {
+        this.items.delete(id);
+        this.rank.delete(id);
+      } else this.items.set(id, c);
+    }
+    for (const [id, c] of fresh)
+      if (!this.items.has(id) && c.rssi >= PAIR_MIN_RSSI) {
+        this.items.set(id, c);
+        this.rank.set(id, c.rssi);
+      }
+    return [...this.items.values()].sort(
+      (a, b) => this.rank.get(b.candidate_id)! - this.rank.get(a.candidate_id)!,
+    );
+  }
+}
 interface DiscoveryPort {
   scan(): Promise<{ scan_epoch: number }>;
   candidates(epoch: number): Promise<Candidate[]>;
@@ -37,10 +70,11 @@ export class Discovery {
         update([]); // New epochs invalidate candidate IDs and selection.
         const { scan_epoch } = await this.port.scan();
         started = true;
+        const stable = new PairCandidates();
         const end = performance.now() + SCAN_DURATION_MS;
         while (!this.stopped && performance.now() < end) {
           const items = await this.port.candidates(scan_epoch);
-          if (!this.stopped) update(visibleCandidates(items));
+          if (!this.stopped) update(stable.update(items));
           if (!this.stopped) await new Promise((r) => setTimeout(r, 500));
         }
       }

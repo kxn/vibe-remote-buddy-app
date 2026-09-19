@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   Discovery,
+  PairCandidates,
   visibleCandidates,
   isBoundCandidate,
 } from "../src/core/discovery";
@@ -79,4 +80,35 @@ describe("discovery", () => {
     expect(port.stopScan).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(1);
   });
+});
+
+it("ranks new nearby devices by admission strength, retains order and hysteresis", () => {
+  const list = new PairCandidates();
+  const ids = (rows: Candidate[]) => rows.map((c) => c.candidate_id);
+  expect(
+    ids(
+      list.update([
+        candidate({ candidate_id: 1, rssi: -60 }),
+        candidate({ candidate_id: 2, rssi: -40 }),
+        candidate({ candidate_id: 3, rssi: -80 }),
+      ]),
+    ),
+  ).toEqual([2, 1]);
+  expect(
+    ids(
+      list.update([
+        candidate({ candidate_id: 1, rssi: -35 }),
+        candidate({ candidate_id: 2, rssi: -68 }),
+        candidate({ candidate_id: 4, rssi: -30 }),
+      ]),
+    ),
+  ).toEqual([4, 2, 1]);
+  expect(
+    ids(
+      list.update([
+        candidate({ candidate_id: 1, rssi: -71 }),
+        candidate({ candidate_id: 4, rssi: -35 }),
+      ]),
+    ),
+  ).toEqual([4]);
 });

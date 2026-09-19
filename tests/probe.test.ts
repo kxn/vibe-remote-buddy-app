@@ -170,6 +170,15 @@ describe("probe discovery usability", () => {
         .map((c) => c.candidate_id),
     ).toEqual([44, 2]);
   });
+  it("inserts a stronger newcomer ahead without reranking existing devices", () => {
+    const list = new ProbeCandidates();
+    list.update([candidate(1, -45), candidate(2, -60)]);
+    expect(
+      list
+        .update([candidate(1, -65), candidate(2, -30), candidate(3, -35)])
+        .map((c) => c.candidate_id),
+    ).toEqual([3, 1, 2]);
+  });
   it("uses hysteresis and ages devices out without constantly reordering", () => {
     const list = new ProbeCandidates();
     list.update([candidate(1, -64)]);
