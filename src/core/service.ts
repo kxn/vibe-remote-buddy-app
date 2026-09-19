@@ -41,6 +41,8 @@ export interface Platform {
   background(enabled: boolean): Promise<void>;
   updateLock?(enabled: boolean): Promise<void>;
 }
+export class ProbeSessionLostError extends Error {}
+
 export class BuddyService {
   snapshot: Snapshot = {
     status: "disconnected",
@@ -284,7 +286,7 @@ export class BuddyService {
     this.ensureMutable();
     if (
       this.snapshot.info?.probe_api !== 1 ||
-      this.snapshot.info?.probe_voice_api !== 2
+      this.snapshot.info?.probe_voice_api !== 3
     )
       throw Error("接收器固件不支持适配工具，请先更新固件");
     this.update({ busy: true });
@@ -301,7 +303,7 @@ export class BuddyService {
       body: Record<string, unknown> = {},
     ) => {
       if (this.session !== session)
-        throw Error("探测连接已断开，请关闭工具后重新打开");
+        throw new ProbeSessionLostError("接收器连接已中断，请重新打开适配工具");
       return session.command<T>(op, body);
     };
   }
@@ -455,13 +457,20 @@ export class BuddyService {
     return keys;
   }
   async key(slot: Slot, key: number): Promise<Mapping> {
-    const id = this.identity(slot), s = this.require();
+    const id = this.identity(slot),
+      s = this.require();
     const before = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
-    if (before.peer_id !== slot.peer_id || before.state !== 5) throw Error("请先唤醒遥控器");
+    if (before.peer_id !== slot.peer_id || before.state !== 5)
+      throw Error("请先唤醒遥控器");
     const map = await s.command<Mapping>(OP.MAP_GET, { ...id, key });
     const after = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
     this.identity(slot);
-    if (this.require() !== s || after.peer_id !== before.peer_id || after.generation !== before.generation || after.state !== 5)
+    if (
+      this.require() !== s ||
+      after.peer_id !== before.peer_id ||
+      after.generation !== before.generation ||
+      after.state !== 5
+    )
       throw Error("遥控器连接已变化，请重新打开按键设置");
     return map;
   }

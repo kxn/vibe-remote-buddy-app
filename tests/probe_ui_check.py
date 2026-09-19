@@ -11,6 +11,19 @@ with sync_playwright() as p:
   page.evaluate('family=>window.fixture.probeFamily=family',family)
   page.locator('.setting').filter(has_text='遥控器适配工具').get_by_role('button').click()
   d=page.get_by_role('dialog',name='遥控器适配工具')
+  def preflight():
+   modal=page.get_by_role('dialog',name='验证按键')
+   modal.get_by_text('等待按键…',exact=True).wait_for()
+   page.evaluate("""()=>{const seq=window.fixture.probe.sequence||0;window.fixture.probeReports=[{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'00003e0000000000'},{sequence:seq+2,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'}];window.fixture.probe.sequence=seq+2;}""")
+   if family==2:
+    page.evaluate("""()=>{const seq=window.fixture.probe.sequence;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:250,handle:10,length:20,hex:'820301'+'00'.repeat(17)},{sequence:seq+2,lost:0,time_ms:300,handle:10,length:20,hex:'820300'+'00'.repeat(17)});window.fixture.probe.sequence=seq+2;}""")
+   try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for(timeout=10000)
+   except Exception:
+    print(page.locator('body').inner_text()[-2500:]);print(page.evaluate('fixture.voice'));raise
+   page.evaluate("Object.assign(window.fixture.voice,{armed:false,released:true,samples:320,rate:16000,recording:false})")
+   modal.locator('audio').wait_for();modal.locator('audio').evaluate('(e)=>e.play()')
+   expect(modal.get_by_role('button',name='声音正常',exact=True)).to_be_enabled()
+   modal.get_by_role('button',name='声音正常',exact=True).click();modal.wait_for(state='hidden')
   d.get_by_role('button',name='选择',exact=True).click()
   assert page.get_by_role('button',name='保存诊断',exact=True).count()==0
   assert d.get_by_role('button',name='配置按键',exact=True).count()==0
@@ -21,6 +34,7 @@ with sync_playwright() as p:
   assert d.get_by_role('button',name='配置按键',exact=True).count()==0
   page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
   d.get_by_role('button',name='重试识别',exact=True).click()
+  preflight()
   d.get_by_label('型号名称').wait_for()
   assert page.get_by_role('button',name='保存诊断',exact=True).count()==0
   d.get_by_text('高级信息',exact=True).click()
@@ -36,6 +50,7 @@ with sync_playwright() as p:
   # Restart this mock session for the small two-key complete-save regression.
   d.locator('.probe-footer').get_by_role('button',name='返回',exact=True).click();d.locator('.probe-footer').get_by_role('button',name='返回',exact=True).click()
   d.get_by_role('button',name='选择',exact=True).click();d.get_by_role('button',name='识别',exact=True).click()
+  preflight()
   d.get_by_label('型号名称').wait_for();d.get_by_text('高级信息',exact=True).click();d.get_by_label('型号标识').fill('example.test')
   # Drag standard Up; add voice through the empty-cell picker.
   if width>650:d.locator('.probe-palette').get_by_role('button',name='上',exact=True).drag_to(d.locator('.probe-cell').nth(2))
@@ -59,11 +74,6 @@ with sync_playwright() as p:
    d.locator('.probe-grid').get_by_role('button',name=key,exact=True).click()
    modal=page.get_by_role('dialog',name='验证按键');modal.get_by_text('等待按键…',exact=True).wait_for()
    expect(modal.locator('.probe-key-gesture strong')).to_have_text(['按下','松开'])
-   if key=='语音' and family==1:
-    page.evaluate("""()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000520000000000'},{sequence:seq+2,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'});window.fixture.probe.sequence=seq+2}""")
-    page.get_by_text('这个键码已分配给其他按键',exact=True).wait_for()
-    assert page.evaluate('window.fixture.voice===undefined')
-
    page.evaluate("""usage=>{const seq=(window.fixture.probeReports??[]).length;window.fixture.probeReports=[...(window.fixture.probeReports??[]),{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000'+usage.toString(16).padStart(2,'0')+'0000000000'}];window.fixture.probe.sequence=seq+1}""",usage)
    if key=='语音' and family==2:
     page.evaluate('''()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:150,handle:10,length:20,hex:'820301'+'00'.repeat(17)});window.fixture.probe.sequence=seq+1}''')
@@ -72,31 +82,6 @@ with sync_playwright() as p:
    if key=='语音' and family==2:
     page.evaluate('''()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:250,handle:10,length:20,hex:'820300'+'00'.repeat(17)});window.fixture.probe.sequence=seq+1}''')
    expect(modal.locator('.probe-key-gesture strong.done')).to_have_text(['按下 ✓','松开 ✓'])
-   if key=='语音':
-    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
-    except Exception:
-     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
-    assert modal.get_by_role('button',name='重新录音',exact=True).count()==0
-    page.evaluate("Object.assign(window.fixture.voice,{armed:false,recording:false,error:'no audio stream'})")
-    page.get_by_text('没有收到语音数据',exact=True).wait_for()
-    modal.get_by_role('button',name='重新录音',exact=True).click()
-    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
-    except Exception:
-     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
-    page.evaluate("window.fixture.audioGap=true;Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")
-    page.get_by_role('alert').first.wait_for()
-    assert modal.get_by_role('button',name='声音正常',exact=True).count()==0
-    page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
-    modal.get_by_role('button',name='重新录音',exact=True).click()
-    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
-    except Exception:
-     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
-    page.evaluate("Object.assign(window.fixture.voice,{recording:true,samples:100})")
-    modal.get_by_text('正在录音，说话约 3 秒后松开',exact=True).wait_for()
-    page.evaluate("Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")
-    modal.locator('audio').wait_for();assert modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).count()==0;assert modal.get_by_role('button',name='声音正常',exact=True).is_disabled()
-    modal.locator('audio').evaluate('(e)=>e.play()');expect(modal.get_by_role('button',name='声音正常',exact=True)).to_be_enabled()
-    modal.get_by_role('button',name='声音正常',exact=True).click()
    modal.wait_for(state='hidden')
   d.get_by_role('button',name='保存并使用',exact=True).click()
   page.get_by_text('型号已保存',exact=True).wait_for()
@@ -107,5 +92,16 @@ with sync_playwright() as p:
   d.get_by_role('button',name='添加这只遥控器',exact=True).click();d.wait_for(state='hidden');page.get_by_role('dialog',name='添加遥控器').wait_for();page.wait_for_timeout(200)
   assert page.evaluate('window.fixture.writes.filter(x=>x===0x441).length')==2
   assert not errors,errors;c.close()
+ page=b.new_page();page.add_init_script(path=str(root/'tests/ui-native-fixture.js'))
+ page.goto('http://127.0.0.1:1420');page.locator('.device').nth(3).wait_for()
+ page.get_by_role('button',name='设置',exact=True).click();page.get_by_text('高级',exact=True).click()
+ page.locator('.setting').filter(has_text='遥控器适配工具').get_by_role('button').click()
+ d=page.get_by_role('dialog',name='遥控器适配工具');d.get_by_role('button',name='选择',exact=True).click();d.get_by_role('button',name='识别',exact=True).click()
+ page.get_by_role('dialog',name='验证按键').wait_for()
+ page.evaluate("""()=>{const orig=window.__TAURI_INTERNALS__.invoke;window.__TAURI_INTERNALS__.invoke=async(c,a)=>{if(c==='serial_read')throw Error('USB disconnected');if(c==='ports')return [];return orig(c,a)};}""")
+ page.get_by_text('接收器连接已中断，请重新打开适配工具',exact=True).wait_for()
+ page.wait_for_timeout(500);before=page.evaluate('fixture.writes.filter(x=>x===0x442).length')
+ page.wait_for_timeout(1000);assert page.evaluate('fixture.writes.filter(x=>x===0x442).length')==before
+ d.get_by_role('button',name='关闭',exact=True).click();d.wait_for(state='hidden')
  b.close()
-print('PASS: real wizard scan/connect, grid, per-key capture, voice decode retrieval/playback confirmation, export and cleanup at 150% DPI')
+print('PASS: real wizard scan/connect, grid, per-key capture, front-loaded UAC recording/playback confirmation and session loss termination, export and cleanup at 150% DPI')

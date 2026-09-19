@@ -172,21 +172,12 @@ available in STATUS and command error details.
 
 ## 适配向导语音验证（固件 0.8.4）
 
-`INFO.probe_voice_api=2` 表示支持同一探测连接上的真实语音验证。
+`INFO.probe_voice_api=3` 支持探测语音经标准 USB 麦克风输出。
 
-| 命令 | 请求 | 返回/用途 |
-| --- | --- | --- |
-| 0x44a PROBE_VOICE_ARM | family, map_crc, report, usage | 新 capture；复用协议族初始化与解码 |
-| 0x44b PROBE_VOICE_STATUS | 无 | active/ready/idle/armed/recording/released、capture/samples/rate/codec/peak、error/sdk_error/decode_error/end_reason |
-| 0x44c PROBE_VOICE_READ | diagnostic（0–63） | 停止后的分片诊断元数据；不再下载 PCM |
-| 0x483 PROBE_AUDIO（事件） | 无 | capture、offset（字节）、hex；最多 192 字节小端 PCM |
-| 0x44d PROBE_VOICE_CANCEL | 无 | 撤销本轮录制并停麦；idle 后才可重试 |
+- ARM 0x44a：family、map_crc、report、usage，电脑先打开接收器麦克风再 ARM。板端按物理键启动/停止语音，不发送 HID 快捷键。
+- STATUS 0x44b：原有状态字段，以及 pending_samples（待输出 PCM 样本）；ready 仅表示协议准备完成。正常 END、released 且 pending_samples=0 后，主机留200ms尾音时间再结束本地录制。
+- READ 0x44c：仅分片诊断或 transport 计数，不提供录音下载。
+- CANCEL 0x44d：撤销录音资格并请求协议停麦。等待 idle 后可重试；空闲时改变键码重新初始化 adapter。
+- 不再发送 0x483 PCM 事件，不兼容旧试录音频路径。
 
-family=1 为 ATVV，family=2 为 HID/ICO。普通键 report=1/3；联通专用语音 report=248、usage=1，不写入普通键表。ARM 需要加密连接和已完整读取的 Report Map CRC，同一连接更换协议或语音键码需要重新建联。客户端先采集键码再准备协议，准备完成后用户再次按住说话。
-
-录音为 16kHz mono s16，边录边发送到电脑，电脑收齐后封装 WAV；默认测试上限为电脑端 10 分钟。板子仅分配固定 16 KB 发送环，满时明确结束本轮并报 host audio buffer overrun。音频事件为管理队列保留四个控制消息位置；不会因接收不及时扩容或覆盖旧音频。
-
-事件由 RBP/3 会话序号及 capture/offset 隔离和校验；客户端不得跨 capture 拼接，不得接受重复、跳号、奇数字节或超长块。正常结束、物理松开且接收字节数等于 samples×2 后才可试听通过。尾部未到齐最多等待两秒。取消清理发送环，断线清理会话。测试音频不输出 USB HID/UAC，不触发输入法；旧整段录音下载接口已删除，无兼容分支。
-
-
-固件 0.8.5 增加 `PROBE_VOICE_READ {transport:true}`，返回 `capture,samples,sent,buffered,high_water,backpressure`；样本计数单位均为 16-bit mono 样本，backpressure 为管理音频队列拒绝入队的次数。采集中也可读取，命令不返回音频，不改变录音状态；与 diagnostic 二选一。
+上位机最多试录90秒。断开、取消、关闭必须释放音频设备。旧管理会话不可重试：终止探测轮询，重新打开工具建立新会话。

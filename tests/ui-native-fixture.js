@@ -15,6 +15,7 @@ window.__TAURI_INTERNALS__ = {
     const f = window.fixture;
     if(cmd === "remote_model_resources") return f.models=await Promise.all(["xiaomi.rc003","unicom.hid_ico.v1"].map(async id=>({source:id, model:await (await fetch(`/resources/remotes/${id}/model.json`)).json(), image:await (await fetch(`/resources/remotes/${id}/artwork.svg`)).text()})));
     if (cmd === "save_remote_model") { f.exported=args; return "test/exported-model"; }
+    if (cmd === "save_probe_diagnostic") return "test/diagnostic.json";
     if (cmd === "desktop_platform") return "windows";
     if (cmd === "firmware_package") return null;
     if (cmd === "firmware_lock") return;
@@ -51,7 +52,7 @@ window.__TAURI_INTERNALS__ = {
       const slot = q.body.slot ?? 0,
         model = slot % 2 ? "unicom.hid_ico.v1" : "xiaomi.rc003";
       if(q.opcode===f.failProbeOpcode) status=7;
-      else if(q.opcode===0x440) f.probe={active:true,connected:false,pending:false,phase:"scanning",encrypted:false,sdk_error:0,cleanup_error:0,attributes:f.probeFamily===2?10:6,sequence:0};
+      else if(q.opcode===0x440) {f.probeReports=[];f.probe={active:true,connected:false,pending:false,phase:"scanning",encrypted:false,sdk_error:0,cleanup_error:0,attributes:f.probeFamily===2?10:6,sequence:0};}
       else if(q.opcode===0x441) f.probe={...f.probe,active:false,connected:false,phase:"idle"};
       else if(q.opcode===0x442) body=f.probe;
       else if(q.opcode===0x443) f.probe={...f.probe,connected:true,phase:"connected"};
@@ -96,7 +97,7 @@ window.__TAURI_INTERNALS__ = {
           voice_presets: 1,
           host_os: 1,
           slots: 4,
-          probe_api:1, probe_voice_api:2, model_api:1, model_capacity:16,
+          probe_api:1, probe_voice_api:3, model_api:1, model_capacity:16,
           voice_owner: f.voiceOwner,
           manual_pairing: true,
           scanning: false,
@@ -176,4 +177,12 @@ window.__TAURI_INTERNALS__ = {
     }
     throw Error("Unhandled native command: " + cmd);
   },
+};
+
+Object.defineProperty(navigator.mediaDevices,"enumerateDevices",{value:async()=>[{kind:"audioinput",label:"Remote USB S3",deviceId:"receiver"}]});
+Object.defineProperty(navigator.mediaDevices,"getUserMedia",{value:async()=>({getTracks:()=>[{stop(){}}]})});
+window.MediaRecorder=class {
+ state="inactive";mimeType="audio/wav";
+ start(){this.state="recording";}
+ stop(){this.state="inactive";const bytes=new Uint8Array(684),v=new DataView(bytes.buffer);const put=(o,s)=>[...s].forEach((c,i)=>bytes[o+i]=c.charCodeAt(0));put(0,"RIFF");v.setUint32(4,676,true);put(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,16000,true);v.setUint32(28,32000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);put(36,"data");v.setUint32(40,640,true);queueMicrotask(()=>{this.ondataavailable?.({data:new Blob([bytes])});this.onstop?.();});}
 };

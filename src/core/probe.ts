@@ -655,6 +655,7 @@ export function identityText(a: ProbeAttribute): string {
   return a.hex;
 }
 export interface ProbeVoiceStatus {
+  pending_samples?: number;
   idle: boolean;
   active: boolean;
   ready: boolean;

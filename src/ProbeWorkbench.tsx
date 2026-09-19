@@ -1,7 +1,8 @@
+import { ProbeMicrophone } from "./core/probe-microphone";
 import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { BuddyService } from "./core/service";
+import { BuddyService, ProbeSessionLostError } from "./core/service";
 import { remoteModels, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
@@ -10,7 +11,6 @@ import {
   familyEvidence,
   sdkError,
   probeStages,
-  readProbeAudio,
   type ProbeCandidate,
   type ProbeAttribute,
   type ProbeReport,
@@ -57,6 +57,10 @@ export function ProbeWorkbench({
     attrsRef = useRef<ProbeAttribute[]>([]),
     modelRef = useRef<RemoteModel | undefined>(undefined),
     voicePrepared = useRef(false),
+    microphone = useRef(new ProbeMicrophone()),
+    sessionLost = useRef(false),
+    voiceProof = useRef<KeyProof | undefined>(undefined),
+    preflight = useRef(false),
     audioFetching = useRef(false),
     urlRef = useRef(""),
     lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
@@ -99,6 +103,7 @@ export function ProbeWorkbench({
     setCapture(c);
   }
   function clearAudio() {
+    microphone.current.cancel();
     client.current?.clearAudio();
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = "";
@@ -106,7 +111,15 @@ export function ProbeWorkbench({
     setVoice(undefined);
   }
   function fail(e: unknown) {
-    const message = service.report(e);
+    microphone.current.cancel();
+    const message = e instanceof Error ? e.message : String(e);
+    if (e instanceof ProbeSessionLostError) {
+      sessionLost.current = true;
+      epoch.current++;
+      microphone.current.cancel();
+      capturing(undefined);
+      voicePrepared.current = false;
+    }
     const detail =
       e instanceof DeviceError
         ? ` [opcode=0x${e.opcode.toString(16)} status=${e.status} ${JSON.stringify(e.detail)}]`
@@ -190,7 +203,7 @@ export function ProbeWorkbench({
           return;
         }
         setBusy(false);
-        while (alive.current) {
+        while (alive.current && !sessionLost.current) {
           try {
             if (!locked.current) {
               const pollEpoch = epoch.current;
@@ -222,7 +235,10 @@ export function ProbeWorkbench({
                   setCandidates(list);
               }
               if (s.active && s.connected) {
-                const batch = await started.reports(after.current);
+                const batch =
+                  captureRef.current?.phase === "voice"
+                    ? []
+                    : await started.reports(after.current);
                 if (!alive.current) break;
                 if (pollEpoch !== epoch.current) continue;
                 for (const r of batch) {
@@ -301,11 +317,10 @@ export function ProbeWorkbench({
                   )
                     continue;
                   const previousVoice = lastVoice.current;
-                  const streamError = started.audioError(v.capture);
-                  if (streamError && !v.error) {
-                    v.error = streamError;
-                    if (previousVoice?.error !== streamError)
-                      await started.command(OP.PROBE_VOICE_CANCEL);
+                  if (microphone.current.error && !v.error) {
+                    v.error = microphone.current.error;
+                    if (previousVoice?.error !== v.error)
+                      await started.cancelVoice();
                   }
                   lastVoice.current = v;
                   setVoice(v);
@@ -336,6 +351,7 @@ export function ProbeWorkbench({
                     !v.recording &&
                     v.released &&
                     v.samples &&
+                    !v.pending_samples &&
                     !v.error &&
                     !v.decode_error &&
                     !urlRef.current &&
@@ -346,12 +362,9 @@ export function ProbeWorkbench({
                     void run(async () => {
                       setProgress("完成录音");
                       try {
-                        const wav = await readProbeAudio(
-                          started!,
-                          v,
-                          () => {},
-                          () => !alive.current || epoch.current !== generation,
-                        );
+                        // UAC tail has drained on board. Allow the host audio buffer to arrive.
+                        await sleep(200);
+                        const wav = await microphone.current.finish();
                         if (!alive.current || epoch.current !== generation)
                           return;
                         urlRef.current = URL.createObjectURL(wav);
@@ -385,7 +398,8 @@ export function ProbeWorkbench({
       alive.current = false;
       epoch.current++;
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
-      if (started && !ended.current) {
+      microphone.current.cancel();
+      if (started && !ended.current && !sessionLost.current) {
         ended.current = true;
         void started
           .end()
@@ -397,7 +411,7 @@ export function ProbeWorkbench({
   async function finish() {
     await run(async () => {
       epoch.current++;
-      if (!ended.current) await client.current?.end();
+      if (!ended.current && !sessionLost.current) await client.current?.end();
       ended.current = true;
       service.releaseProbe();
       close();
@@ -463,6 +477,12 @@ export function ProbeWorkbench({
       if (!s.connected) throw Error("连接已断开，请重新连接");
       setIdentified(true);
       beginLayout(a, fresh);
+      setStep(1);
+      preflight.current = true;
+      voiceProof.current = undefined;
+      baseline.current = after.current = s.sequence;
+      pending.current = undefined;
+      capturing({ key: 2, phase: "key", listened: false });
     });
   }
   function beginLayout(attributes: ProbeAttribute[], candidate = selected) {
@@ -537,7 +557,7 @@ export function ProbeWorkbench({
     await run(async () => {
       const c = captureRef.current!;
       checkProof(c);
-      if (service.snapshot.info?.probe_voice_api !== 2)
+      if (service.snapshot.info?.probe_voice_api !== 3)
         throw Error("请更新接收器固件以支持语音验证");
       epoch.current++;
       audioFetching.current = false;
@@ -546,9 +566,10 @@ export function ProbeWorkbench({
       // Capture errors are cleared by ARM. They do not imply a broken link.
       // Never delete the temporary bond as an implicit retry of a recording.
       if (voicePrepared.current) await client.current!.cancelVoice();
+      await microphone.current.start();
       await client.current!.command(OP.PROBE_VOICE_ARM, {
-        family: model!.family,
-        map_crc: model!.map_crc,
+        family: modelRef.current!.family,
+        map_crc: modelRef.current!.map_crc,
         report: c.proof!.report,
         usage: c.proof!.usage,
       });
@@ -593,9 +614,19 @@ export function ProbeWorkbench({
       checkProof(c);
       if (
         c.key === 2 &&
+        !(
+          voiceProof.current &&
+          c.proof?.report === voiceProof.current.report &&
+          c.proof?.usage === voiceProof.current.usage
+        ) &&
         (!c.listened || !audio || voice?.error || !voice?.released)
       )
         throw Error("请完成录音、试听并确认声音正常");
+      if (c.key === 2) voiceProof.current = { ...c.proof!, voice: true };
+      if (preflight.current) {
+        preflight.current = false;
+        setStep(2);
+      }
       setProofs((old) => ({
         ...old,
         [c.key]: { ...c.proof!, ...(c.key === 2 ? { voice: true } : {}) },
@@ -617,7 +648,13 @@ export function ProbeWorkbench({
         fail(e);
         return;
       }
-      if (capture.key === 2) void testVoice();
+      if (
+        capture.key === 2 &&
+        (!voiceProof.current ||
+          voiceProof.current.report !== capture.proof?.report ||
+          voiceProof.current.usage !== capture.proof?.usage)
+      )
+        void testVoice();
       else confirmCapture();
     }, 500);
     return () => window.clearTimeout(timer);
@@ -824,9 +861,20 @@ export function ProbeWorkbench({
               <button
                 disabled={busy || voicePrepared.current}
                 className="primary"
-                onClick={() => void connect()}
+                onClick={() => {
+                  if (identified && status?.connected) {
+                    if (voiceProof.current) setStep(2);
+                    else void verify(2);
+                  } else void connect();
+                }}
               >
-                {error ? "重试识别" : "识别"}
+                {identified && status?.connected
+                  ? voiceProof.current
+                    ? "配置按键"
+                    : "验证语音"
+                  : error
+                    ? "重试识别"
+                    : "识别"}
               </button>
             </div>
           </>
@@ -974,7 +1022,7 @@ export function ProbeWorkbench({
             >
               <h3>
                 验证按键 ·{" "}
-                {model?.keys.find((k) => k.id === capture.key)?.label}
+                {model?.keys.find((k) => k.id === capture.key)?.label ?? "语音"}
               </h3>
               <label>
                 按键名称
@@ -982,7 +1030,8 @@ export function ProbeWorkbench({
                   maxLength={24}
                   disabled={busy}
                   value={
-                    model?.keys.find((k) => k.id === capture.key)?.label ?? ""
+                    model?.keys.find((k) => k.id === capture.key)?.label ??
+                    "语音"
                   }
                   onChange={(e) => {
                     if (model)
@@ -1004,7 +1053,9 @@ export function ProbeWorkbench({
                   )}
                   <p>
                     请操作遥控器上的「
-                    {model?.keys.find((k) => k.id === capture.key)?.label}」键：
+                    {model?.keys.find((k) => k.id === capture.key)?.label ??
+                      "语音"}
+                    」键：
                   </p>
                   <div className="probe-key-gesture">
                     <strong
@@ -1048,12 +1099,6 @@ export function ProbeWorkbench({
                   <div className="voice-media-slot">
                     {!audio && !error && (
                       <div className="probe-voice-state">
-                        <meter
-                          min={0}
-                          max={32768}
-                          value={voice?.peak ?? 0}
-                          aria-label="音量"
-                        />
                         <span>
                           {(
                             (voice?.samples ?? 0) / (voice?.rate || 16000)
