@@ -411,19 +411,22 @@ export function ProbeWorkbench({
     if (!selected) return;
     await run(async () => {
       const c = client.current!;
-      epoch.current++;
+      const connectEpoch = ++epoch.current;
       setNotice("");
       setIdentified(false);
-      setProgress("建立蓝牙连接");
-      let s = await c.status();
-      if (!s.connected) await c.connect(selected);
+      const fresh = await c.connectSelected(
+        selected,
+        setProgress,
+        () => !alive.current || epoch.current !== connectEpoch,
+      );
+      setSelected(fresh);
       setProgress("配对并加密");
       await c.security();
       setProgress("读取服务与设备信息");
       const a = await c.identity(await c.discover());
       attrsRef.current = a;
       setAttrs(a);
-      s = await c.status();
+      let s = await c.status();
       setStatus(s);
       const family = familyEvidence(a);
       if (!family) throw Error("未识别出受支持的语音协议，请保存诊断");
@@ -435,23 +438,23 @@ export function ProbeWorkbench({
       setStatus(s);
       if (!s.connected) throw Error("连接已断开，请重新连接");
       setIdentified(true);
-      beginLayout(a);
+      beginLayout(a, fresh);
     });
   }
-  function beginLayout(attributes: ProbeAttribute[]) {
+  function beginLayout(attributes: ProbeAttribute[], candidate = selected) {
     try {
       const family = familyEvidence(attributes);
       if (!family || (protocol && protocol !== family))
         throw Error("请先完成连接与协议识别");
       const base = [...remoteModels.values()].find((m) => m.family === family);
-      if (!base || !selected) throw Error("缺少协议模板");
+      if (!base || !candidate) throw Error("缺少协议模板");
       if (!model) {
         const m = makeVariant(
           base,
-          selected,
+          candidate,
           attributes,
           `remote.${Date.now().toString(36)}`,
-          selected.name,
+          candidate.name,
         );
         m.keys = [];
         m.raw = [];

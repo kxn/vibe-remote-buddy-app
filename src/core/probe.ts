@@ -340,6 +340,58 @@ export class ProbeClient {
     const s = await this.wait("建立 BLE 连接");
     if (!s.connected) throw Error("未能连接设备");
   }
+  async connectSelected(
+    selected: ProbeCandidate,
+    progress: (message: string) => void,
+    cancelled: () => boolean = () => false,
+  ) {
+    const s = await this.status();
+    // A failed SMP/GATT transaction can leave a live link and a temporary bond.
+    // End the old probe before BEGIN snapshots the bonds for the new attempt.
+    if (s.sdk_error || s.pending || s.cleanup_error) {
+      progress("正在清理异常连接");
+      await this.end();
+      await this.command(OP.PROBE_BEGIN);
+      this.resetCandidates();
+    } else if (!s.active) {
+      await this.command(OP.PROBE_BEGIN);
+      this.resetCandidates();
+    } else if (s.connected) return selected;
+
+    progress("等待遥控器，请进入配对模式");
+    const deadline = performance.now() + 30000;
+    while (performance.now() < deadline && !cancelled()) {
+      for (let index = 0; index < 24 && !cancelled(); index++) {
+        let c: ProbeCandidate;
+        const started = performance.now();
+        try {
+          c = await this.command<ProbeCandidate>(OP.CANDIDATE, { index });
+        } catch (e) {
+          if (e instanceof DeviceError && e.status === 6) continue;
+          throw e;
+        }
+        // Match identity, never a name or an old candidate ID. Connect immediately
+        // instead of finishing a full UI list poll while its advertisement ages.
+        if (
+          !cancelled() &&
+          c.address === selected.address &&
+          c.address_type === selected.address_type &&
+          c.connectable &&
+          c.age_ms + performance.now() - started < 1000
+        ) {
+          progress("建立蓝牙连接");
+          await this.connect(c);
+          return { ...c, name: c.name || selected.name };
+        }
+      }
+      await sleep(150);
+    }
+    throw Error(
+      cancelled()
+        ? "连接已取消"
+        : "未收到遥控器的新广播，请重新进入配对模式后重试",
+    );
+  }
   async security() {
     await this.send(OP.PROBE_SECURITY, {}, "配对加密");
     await this.wait("配对加密");
@@ -418,20 +470,7 @@ export class ProbeClient {
     await this.end();
     await this.command(OP.PROBE_BEGIN);
     this.resetCandidates();
-    progress("正在重新连接，请唤醒遥控器；未发现时请进入配对模式");
-    let found: ProbeCandidate | undefined;
-    for (let i = 0; i < 40; i++) {
-      found = (await this.candidates()).find(
-        (c) =>
-          c.address === candidate.address &&
-          c.address_type === candidate.address_type &&
-          c.connectable,
-      );
-      if (found) break;
-      await sleep(250);
-    }
-    if (!found) throw Error("未找到原遥控器，请将它置于配对模式后重试");
-    await this.connect(found);
+    const found = await this.connectSelected(candidate, progress);
     await this.security();
     const attrs = await this.identity(await this.discover());
     const detected = makeVariant(

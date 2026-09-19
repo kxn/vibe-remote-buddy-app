@@ -270,3 +270,87 @@ it("stops obsolete scanning requests when a connection starts", async () => {
   await c.candidates(() => count === 1);
   expect(count).toBe(1);
 });
+
+it("restarts a failed live probe, ignores stale and unrelated advertisements, and connects with the new epoch", async () => {
+  const selected = {
+    address: "0c:f3:de:94:c5:d3",
+    address_type: 0,
+    name: "CMCC",
+    candidate_id: 26,
+    scan_epoch: 3,
+  } as ProbeCandidate;
+  const ops: number[] = [];
+  let ended = false,
+    connected = false;
+  const c = new ProbeClient((async (op: number, body: any) => {
+    ops.push(op);
+    if (op === OP.PROBE_END) ended = true;
+    if (op === OP.PROBE_STATUS)
+      return {
+        active: !ended || connected,
+        connected: !ended || connected,
+        pending: false,
+        sdk_error: ended ? 0 : 7,
+      };
+    if (op === OP.CANDIDATE)
+      return {
+        ...selected,
+        candidate_id: 41,
+        scan_epoch: 4,
+        connectable: true,
+        name: "",
+        age_ms: body.index === 0 ? 8807 : 25,
+        address: body.index === 1 ? "other-device" : selected.address,
+      };
+    if (op === OP.PROBE_CONNECT) {
+      expect(body).toEqual({ candidate_id: 41, scan_epoch: 4 });
+      connected = true;
+    }
+    return {};
+  }) as ProbeCommand);
+  const fresh = await c.connectSelected(selected, () => {});
+  expect(fresh.name).toBe("CMCC");
+  expect(ops).toEqual([
+    OP.PROBE_STATUS,
+    OP.PROBE_END,
+    OP.PROBE_STATUS,
+    OP.PROBE_BEGIN,
+    OP.CANDIDATE,
+    OP.CANDIDATE,
+    OP.CANDIDATE,
+    OP.PROBE_CONNECT,
+    OP.PROBE_STATUS,
+  ]);
+});
+it("preserves a healthy established link when identifying again", async () => {
+  const ops: number[] = [];
+  const c = new ProbeClient((async (op: number) => {
+    ops.push(op);
+    return { active: true, connected: true, pending: false, sdk_error: 0 };
+  }) as ProbeCommand);
+  const selected = { address: "selected" } as ProbeCandidate;
+  expect(await c.connectSelected(selected, () => {})).toBe(selected);
+  expect(ops).toEqual([OP.PROBE_STATUS]);
+});
+it("does not connect after a selected-target search is cancelled", async () => {
+  let cancelled = false;
+  const c = new ProbeClient((async (op: number) => {
+    if (op === OP.PROBE_STATUS)
+      return { active: true, connected: false, pending: false, sdk_error: 0 };
+    if (op !== OP.CANDIDATE) throw Error("unexpected connection");
+    cancelled = true;
+    return {
+      address: "selected",
+      address_type: 0,
+      connectable: true,
+      age_ms: 0,
+    };
+  }) as ProbeCommand);
+  await expect(
+    c.connectSelected(
+      { address: "selected", address_type: 0 } as ProbeCandidate,
+      () => {},
+      () => cancelled,
+    ),
+  ).rejects.toThrow("连接已取消");
+});
