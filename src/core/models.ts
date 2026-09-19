@@ -42,6 +42,8 @@ export interface RemoteModel {
   image?: string;
 }
 export interface ModelSource {
+  evidence?: any;
+  edited?: boolean;
   model: unknown;
   image?: string;
   source: string;

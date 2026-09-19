@@ -1,0 +1,14 @@
+import { build } from "esbuild";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { resolve, dirname, join } from "node:path";
+const root = resolve(import.meta.dirname, "..");
+const result = await build({ entryPoints: [join(root, "src/core/catalog.ts")], bundle: true, write: false, format: "esm", platform: "node" });
+const { compileCatalog, resolveCatalog } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].contents).toString("base64")}`);
+const source = resolve(process.argv[2] ?? join(root, "resources/catalog"));
+const output = resolve(process.argv[3] ?? join(root, "out/catalog/catalog.bin"));
+const generation = Number(process.argv[4] ?? 1);
+const index = JSON.parse(await readFile(join(source, "catalog.json"), "utf8"));
+const resources = await Promise.all(index.resources.map(async r => JSON.parse(await readFile(join(source, r.path), "utf8"))));
+const models = resolveCatalog(resources), image = compileCatalog(models, generation);
+await mkdir(dirname(output), { recursive: true }); await writeFile(output, image.bytes);
+console.log(JSON.stringify({ count: image.count, bytes: image.bytes.length, indexBytes: image.indexBytes, generation, output }));

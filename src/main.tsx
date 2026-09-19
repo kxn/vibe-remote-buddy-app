@@ -87,6 +87,9 @@ if (!native) {
   );
 }
 const service = new BuddyService({
+  catalog: () => call("catalog_resources"),
+  stageCatalog: () => call("catalog_stage"),
+  activateCatalog: (commit) => call("catalog_activate", { commit }),
   models: () => call("remote_model_resources"),
   ports: () => call<Port[]>("ports"),
   transport: () => new SerialTransport(),
@@ -135,11 +138,12 @@ function App() {
       | "rename"
       | "remove"
       | "edit"
+      | "reset-defaults"
+      | "adopt-defaults"
       | "probe"
       | "setup"
       | "receiver"
       | "diagnostics"
-      | "shared"
       | "backup"
       | "about"
       | null
@@ -305,7 +309,8 @@ function App() {
                   ? "微信输入法"
                   : chord(m.modifiers, m.value)
             : m.kind === 4
-              ? (service.resolveAction(m.value)?.label ?? `未配置的功能 #${m.value}`)
+              ? (service.resolveAction(m.value)?.label ??
+                `未配置的功能 #${m.value}`)
               : chord(m.modifiers, m.value);
   const openMore = (s: Slot) => {
     setPeer(s.peer_id);
@@ -326,7 +331,12 @@ function App() {
           Vibe Remote Buddy
         </button>
         <div className="header-right">
-          <button className="connection" disabled={!connected} onClick={() => setModal("receiver")} aria-label="接收器详情">
+          <button
+            className="connection"
+            disabled={!connected}
+            onClick={() => setModal("receiver")}
+            aria-label="接收器详情"
+          >
             {snap.status === "connecting" ? (
               <Spinner />
             ) : (
@@ -543,6 +553,32 @@ function App() {
                         ))}
                     </div>
                   </details>
+                  <details>
+                    <summary>默认设置</summary>
+                    <div className="setting">
+                      <span>恢复全部按键</span>
+                      <button
+                        disabled={busy || recording || !connected}
+                        onClick={() => setModal("reset-defaults")}
+                      >
+                        恢复
+                      </button>
+                    </div>
+                    <div className="setting">
+                      <span>采用机型库的新默认值</span>
+                      <button
+                        disabled={
+                          busy ||
+                          recording ||
+                          !connected ||
+                          snap.info?.catalog_api !== 2
+                        }
+                        onClick={() => setModal("adopt-defaults")}
+                      >
+                        更新
+                      </button>
+                    </div>
+                  </details>
                 </div>
               </div>
             ) : (
@@ -558,88 +594,140 @@ function App() {
             <div className="title">
               <h1>设置</h1>
             </div>
-            <section className="settings-group"><h2>常规</h2>
-            <label className="setting">
-              <span>登录时启动</span>
-              <input
-                type="checkbox"
-                checked={autostart}
-                disabled={!native}
-                onChange={(e) => {
-                  const value = e.target.checked;
-                  void safely(async () => {
-                    await call(
-                      `plugin:autostart|${value ? "enable" : "disable"}`,
-                    );
-                    setAutostart(value);
-                  });
-                }}
-              />
-            </label>
-            <label className="setting">
-              <span>关闭窗口后继续运行</span>
-              <input
-                type="checkbox"
-                checked={service.settings.background}
-                disabled={!native}
-                onChange={(e) =>
-                  void safely(() => service.setBackground(e.target.checked))
-                }
-              />
-            </label>
+            <section className="settings-group">
+              <h2>常规</h2>
+              <label className="setting">
+                <span>登录时启动</span>
+                <input
+                  type="checkbox"
+                  checked={autostart}
+                  disabled={!native}
+                  onChange={(e) => {
+                    const value = e.target.checked;
+                    void safely(async () => {
+                      await call(
+                        `plugin:autostart|${value ? "enable" : "disable"}`,
+                      );
+                      setAutostart(value);
+                    });
+                  }}
+                />
+              </label>
+              <label className="setting">
+                <span>关闭窗口后继续运行</span>
+                <input
+                  type="checkbox"
+                  checked={service.settings.background}
+                  disabled={!native}
+                  onChange={(e) =>
+                    void safely(() => service.setBackground(e.target.checked))
+                  }
+                />
+              </label>
             </section>
-            <section className="settings-group"><h2>接收器</h2>
-            <div className="setting"><span>接收器信息</span><button disabled={!connected} onClick={() => setModal("receiver")}>查看</button></div>
-            <div className="setting">
-              <span>
-                接收器固件
-                <br />
-                <small className="muted">
-                  {snap.info?.firmware ?? "未连接"}
-                  {firmware ? ` · 可用 ${firmware.manifest.version}` : ""}
-                </small>
-              </span>
-              <button
-                disabled={
-                  !connected ||
-                  busy ||
-                  !firmware ||
-                  snap.info?.update_api !== 1 ||
-                  !isNewer(firmware.manifest.version, snap.info?.firmware ?? "")
-                }
-                onClick={() =>
-                  void safely(() => service.updateFirmware(firmware!))
-                }
-              >
-                更新
-              </button>
-            </div>
-            {firmware && <p className="muted">{firmware.manifest.notes}</p>}
-            {connected && snap.info?.update_api !== 1 && (
-              <p className="muted">此接收器需要首次安装新版固件</p>
-            )}
-            {snap.firmwareProgress && (
-              <Feedback persistent={snap.firmwareProgress.active}>
-                <div role="status" aria-live="polite">
-                  <span>{snap.firmwareProgress.phase}</span>
-                  {snap.firmwareProgress.active && (
-                    <progress
-                      style={{ width: "100%" }}
-                      max={100}
-                      value={snap.firmwareProgress.percent}
-                    />
-                  )}
-                  {snap.firmwareProgress.active &&
-                    snap.firmwareProgress.percent < 96 && (
-                      <button onClick={() => service.cancelFirmwareUpdate()}>
-                        取消更新
-                      </button>
+            <section className="settings-group">
+              <h2>接收器</h2>
+              <div className="setting">
+                <span>接收器信息</span>
+                <button
+                  disabled={!connected}
+                  onClick={() => setModal("receiver")}
+                >
+                  查看
+                </button>
+              </div>
+              <div className="setting">
+                <span>
+                  接收器固件
+                  <br />
+                  <small className="muted">
+                    {snap.info?.firmware ?? "未连接"}
+                    {firmware ? ` · 可用 ${firmware.manifest.version}` : ""}
+                  </small>
+                </span>
+                <button
+                  disabled={
+                    !connected ||
+                    busy ||
+                    !firmware ||
+                    snap.info?.update_api !== 1 ||
+                    !isNewer(
+                      firmware.manifest.version,
+                      snap.info?.firmware ?? "",
+                    )
+                  }
+                  onClick={() =>
+                    void safely(() => service.updateFirmware(firmware!))
+                  }
+                >
+                  更新
+                </button>
+              </div>
+              {firmware && <p className="muted">{firmware.manifest.notes}</p>}
+              {connected && snap.info?.update_api !== 1 && (
+                <p className="muted">此接收器需要首次安装新版固件</p>
+              )}
+              {snap.firmwareProgress && (
+                <Feedback persistent={snap.firmwareProgress.active}>
+                  <div role="status" aria-live="polite">
+                    <span>{snap.firmwareProgress.phase}</span>
+                    {snap.firmwareProgress.active && (
+                      <progress
+                        style={{ width: "100%" }}
+                        max={100}
+                        value={snap.firmwareProgress.percent}
+                      />
                     )}
-                </div>
-              </Feedback>
-            )}
+                    {snap.firmwareProgress.active &&
+                      snap.firmwareProgress.percent < 96 && (
+                        <button onClick={() => service.cancelFirmwareUpdate()}>
+                          取消更新
+                        </button>
+                      )}
+                  </div>
+                </Feedback>
+              )}
             </section>
-            <section className="settings-group"><h2>配置</h2>
+            <section className="settings-group">
+              <h2>配置</h2>
+              <div className="setting">
+                <span>
+                  机型库<small>{service.catalogVersion}</small>
+                </span>
+                <button
+                  disabled={!native || busy || recording}
+                  onClick={() =>
+                    void safely(async () => {
+                      await service.updateCatalog();
+                      setNotice("机型库已更新");
+                    })
+                  }
+                >
+                  检查更新
+                </button>
+              </div>
+              <div className="setting">
+                <span>
+                  接收器机型库
+                  <small>{snap.info?.catalog_count ?? 0} 个机型</small>
+                </span>
+                <button
+                  disabled={
+                    !connected ||
+                    busy ||
+                    recording ||
+                    snap.info?.catalog_api !== 2
+                  }
+                  onClick={() =>
+                    void safely(async () => {
+                      await service.installCatalog();
+                      setNotice("已同步到接收器");
+                    })
+                  }
+                >
+                  同步
+                </button>
+              </div>
               <div className="setting">
                 <span>备份与恢复</span>
                 <button
@@ -712,15 +800,33 @@ function App() {
       {modal === "receiver" && (
         <Dialog title="接收器详情" close={() => setModal(null)}>
           <dl className="receiver-details">
-            <dt>状态</dt><dd>{connected ? "已连接" : "已断开"}</dd>
-            <dt>设备</dt><dd>{snap.board?.name ?? "—"}</dd>
-            <dt>固件</dt><dd>{snap.info?.firmware ?? "—"}</dd>
-            <dt>已添加遥控器</dt><dd>{snap.slots.filter(s => s.peer_id).length} / {snap.info?.slots ?? "—"}</dd>
-            <dt>接口</dt><dd>{snap.board?.path ?? "—"}</dd>
-            <dt>序列号</dt><dd>{snap.board?.serial || "—"}</dd>
-            <dt>Flash / PSRAM</dt><dd>{[snap.info?.flash_bytes, snap.info?.psram_bytes].map(bytes => bytes === undefined ? "—" : `${bytes / 1048576} MB`).join(" / ")}</dd>
+            <dt>状态</dt>
+            <dd>{connected ? "已连接" : "已断开"}</dd>
+            <dt>设备</dt>
+            <dd>{snap.board?.name ?? "—"}</dd>
+            <dt>固件</dt>
+            <dd>{snap.info?.firmware ?? "—"}</dd>
+            <dt>已添加遥控器</dt>
+            <dd>
+              {snap.slots.filter((s) => s.peer_id).length} /{" "}
+              {snap.info?.slots ?? "—"}
+            </dd>
+            <dt>接口</dt>
+            <dd>{snap.board?.path ?? "—"}</dd>
+            <dt>序列号</dt>
+            <dd>{snap.board?.serial || "—"}</dd>
+            <dt>Flash / PSRAM</dt>
+            <dd>
+              {[snap.info?.flash_bytes, snap.info?.psram_bytes]
+                .map((bytes) =>
+                  bytes === undefined ? "—" : `${bytes / 1048576} MB`,
+                )
+                .join(" / ")}
+            </dd>
           </dl>
-          <footer><button onClick={() => setModal(null)}>关闭</button></footer>
+          <footer>
+            <button onClick={() => setModal(null)}>关闭</button>
+          </footer>
         </Dialog>
       )}
       {modal === "setup" && (
@@ -734,10 +840,7 @@ function App() {
         />
       )}
       {modal === "probe" && (
-        <ProbeWorkbench
-          service={service}
-          close={() => setModal(null)}
-        />
+        <ProbeWorkbench service={service} close={() => setModal(null)} />
       )}
       {modal === "about" && (
         <Dialog title="关于" close={() => setModal(null)}>
@@ -920,8 +1023,8 @@ function App() {
           }
           disabled={busy || !!recording || !connected}
           close={() => setModal(null)}
-          save={async (m, a) => {
-            const actual = await service.saveMap(selected, m, a);
+          save={async (m, a, inherit) => {
+            const actual = await service.saveMap(selected, m, a, inherit);
             setEntries((old) =>
               old.map((e) =>
                 e.catalog.key === m.key ? { ...e, map: actual } : e,
@@ -932,9 +1035,43 @@ function App() {
           }}
         />
       )}
-      {modal === "shared" && (
-        <SharedDialog service={service} close={() => setModal(null)} />
-      )}
+      {(modal === "reset-defaults" || modal === "adopt-defaults") &&
+        selected && (
+          <Dialog
+            title={
+              modal === "reset-defaults" ? "恢复全部按键？" : "更新默认设置？"
+            }
+            close={() => setModal(null)}
+          >
+            <p>
+              {modal === "reset-defaults"
+                ? "这只遥控器的自定义按键将被清除。"
+                : "保留已修改的按键，更新其余默认设置。"}
+            </p>
+            <footer>
+              <button disabled={busy} onClick={() => setModal(null)}>
+                取消
+              </button>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() =>
+                  void safely(async () => {
+                    await service.resetDefaults(
+                      selected,
+                      modal === "adopt-defaults",
+                    );
+                    setModal(null);
+                    await loadKeys(selected);
+                    setNotice("已保存");
+                  })
+                }
+              >
+                确认
+              </button>
+            </footer>
+          </Dialog>
+        )}
       {modal === "backup" && (
         <BackupDialog service={service} close={() => setModal(null)} />
       )}
@@ -955,6 +1092,16 @@ function App() {
       )}
       {notice && <Feedback>{notice}</Feedback>}
     </div>
+  );
+}
+function keyName(entry: KeyEntry) {
+  if (entry.catalog.snapshot_name) return entry.catalog.name;
+  return (
+    remoteModels
+      .get(entry.catalog.model)
+      ?.keys.find((k) => k.id === entry.catalog.key)?.label ??
+    labels[entry.catalog.key] ??
+    entry.catalog.name
   );
 }
 function modelName(id: string) {
@@ -1094,13 +1241,7 @@ function KeyRow({
       <span className="key-symbol">
         <KeyIcon id={entry.catalog.key} />
       </span>
-      <span>
-        {remoteModels
-          .get(entry.catalog.model)
-          ?.keys.find((k) => k.id === entry.catalog.key)?.label ??
-          labels[entry.catalog.key] ??
-          entry.catalog.name}
-      </span>
+      <span>{keyName(entry)}</span>
       <span className="function">{description}</span>
       <ChevronRight size={14} />
     </button>
@@ -1244,10 +1385,22 @@ function PairDialog({
               ? "搜索完成"
               : "未发现遥控器"}
       </div>
-      <label className="field">型号
-        <select value={modelId} disabled={pairing} onChange={e=>{explicitModel.current=e.target.value;setModelId(e.target.value);}}>
+      <label className="field">
+        型号
+        <select
+          value={modelId}
+          disabled={pairing}
+          onChange={(e) => {
+            explicitModel.current = e.target.value;
+            setModelId(e.target.value);
+          }}
+        >
           <option value="">自动识别</option>
-          {[...remoteModels.values()].map(m=><option key={m.id} value={m.id}>{m.title}</option>)}
+          {[...remoteModels.values()].map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.title}
+            </option>
+          ))}
         </select>
       </label>
       {items.map((c) => (
@@ -1343,8 +1496,9 @@ function Editor({
   entry: KeyEntry;
   disabled: boolean;
   close: () => void;
-  save: (m: Mapping, a?: Action) => Promise<void>;
+  save: (m: Mapping, a?: Action, inherit?: boolean) => Promise<void>;
 }) {
+  const [inherit, setInherit] = useState(false);
   const [map, setMap] = useState({ ...entry.map }),
     [type, setType] = useState(
       entry.map.kind === 4
@@ -1440,18 +1594,7 @@ function Editor({
     </>
   );
   return (
-    <Dialog
-      title={
-        voice
-          ? "语音输入"
-          : (remoteModels
-              .get(entry.catalog.model)
-              ?.keys.find((k) => k.id === entry.catalog.key)?.label ??
-            labels[entry.catalog.key] ??
-            entry.catalog.name)
-      }
-      close={requestClose}
-    >
+    <Dialog title={voice ? "语音输入" : keyName(entry)} close={requestClose}>
       <fieldset
         disabled={saving}
         style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
@@ -1618,6 +1761,17 @@ function Editor({
         )}
       </fieldset>
       <footer className="editor-footer">
+        {entry.map.default && (
+          <label>
+            <input
+              type="checkbox"
+              checked={inherit}
+              disabled={saving}
+              onChange={(e) => setInherit(e.target.checked)}
+            />
+            恢复默认
+          </label>
+        )}
         <div className="editor-status">
           {error ? (
             <p className="error" role="alert">
@@ -1636,14 +1790,18 @@ function Editor({
           disabled={
             disabled ||
             saving ||
-            !dirty ||
-            (map.kind === 4 && !validAction(action)) ||
-            (map.kind === 1 && !map.value && !map.modifiers)
+            (!dirty && !inherit) ||
+            (!inherit && map.kind === 4 && !validAction(action)) ||
+            (!inherit && map.kind === 1 && !map.value && !map.modifiers)
           }
           onClick={() => {
             setSaving(true);
             setError("");
-            void save(map, map.kind === 4 ? action : undefined)
+            void save(
+              map,
+              !inherit && map.kind === 4 ? action : undefined,
+              inherit,
+            )
               .catch((e) => setError(service.report(e)))
               .finally(() => setSaving(false));
           }}
@@ -1652,122 +1810,6 @@ function Editor({
         </button>
         <button disabled={saving} onClick={requestClose}>
           取消
-        </button>
-      </footer>
-    </Dialog>
-  );
-}
-function SharedDialog({
-  service,
-  close,
-}: {
-  service: BuddyService;
-  close: () => void;
-}) {
-  const [key, setKey] = useState(9),
-    [targets, setTargets] = useState<number[]>([]),
-    [entry, setEntry] = useState<KeyEntry>(),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  const slots = service.snapshot.slots.filter((s) => s.peer_id);
-  const changeKey = (key: number) => {
-    setKey(key);
-    setTargets(
-      slots
-        .filter((s) =>
-          service.boardConfig().followers[s.peer_id]?.includes(key),
-        )
-        .map((s) => s.peer_id),
-    );
-  };
-  if (entry)
-    return (
-      <Editor
-        entry={entry}
-        forceDirty
-        allowActions={false}
-        disabled={busy || service.snapshot.info?.voice_owner !== 255}
-        close={() => setEntry(undefined)}
-        save={async (m) => {
-          setBusy(true);
-          try {
-            await service.saveShared(m, targets);
-            close();
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    );
-  return (
-    <Dialog title="统一按键设置" close={() => !busy && close()}>
-      <label className="field">
-        按键
-        <select value={key} onChange={(e) => changeKey(Number(e.target.value))}>
-          {Object.entries(labels).map(([id, name]) => (
-            <option key={id} value={id}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="muted">只更新勾选的遥控器，其余设置保持不变。</p>
-      {slots.map((s) => (
-        <label className="setting" key={s.peer_id}>
-          <span>{service.name(s)}</span>
-          <input
-            type="checkbox"
-            checked={targets.includes(s.peer_id)}
-            onChange={(e) =>
-              setTargets(
-                e.target.checked
-                  ? [...targets, s.peer_id]
-                  : targets.filter((id) => id !== s.peer_id),
-              )
-            }
-          />
-        </label>
-      ))}
-      {error && <Feedback error>{error}</Feedback>}
-      <footer>
-        <button disabled={busy} onClick={close}>
-          取消
-        </button>
-        <button
-          className="primary"
-          disabled={busy || !targets.length}
-          onClick={() => {
-            setBusy(true);
-            void (async () => {
-              try {
-                const s = slots.find((s) => s.peer_id === targets[0])!;
-                const keys = await service.keys(s);
-                const e = keys.find((e) => e.catalog.key === key);
-                if (!e) throw Error("所选遥控器不支持这个按键");
-                const shared = service.boardConfig().shared[key];
-                setEntry({
-                  ...e,
-                  map: shared
-                    ? { ...shared, revision: e.map.revision }
-                    : e.map.kind === 4
-                      ? {
-                          key: e.catalog.key,
-                          kind: e.catalog.kind,
-                          modifiers: e.catalog.modifiers,
-                          value: e.catalog.value,
-                          revision: e.map.revision,
-                        }
-                      : e.map,
-                });
-              } catch (e) {
-                setError(service.report(e));
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        >
-          {busy ? <Spinner /> : "设置功能"}
         </button>
       </footer>
     </Dialog>
@@ -1801,10 +1843,10 @@ function BackupDialog({
         <>
           <p>
             替换本机配置？包含 {Object.keys(value.boards).length}{" "}
-            个接收器的名称与功能设置。
+            个接收器的名称、功能设置与可用绑定快照。
           </p>
           <p className="muted">
-            不会更改板子上的配对或按键。导入的软件动作需重新保存对应按键后启用。
+            连接原接收器时会恢复已绑定遥控器的按键快照，不改配对。软件动作需重新确认后启用。
           </p>
           <footer>
             <button disabled={busy} onClick={() => setValue(undefined)}>

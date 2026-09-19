@@ -24,6 +24,21 @@ export function validateSettings(value: unknown): Settings {
     ] as const)
       if (!b[prop] || typeof b[prop] !== "object" || Array.isArray(b[prop]))
         throw Error("缺少配置字段 " + prop);
+    if (
+      b.bindings &&
+      (!Array.isArray(b.bindings) ||
+        b.bindings.length > 4 ||
+        b.bindings.some(
+          (x) =>
+            !Number.isInteger(x.peer_id) ||
+            x.peer_id <= 0 ||
+            typeof x.model !== "string" ||
+            typeof x.hex !== "string" ||
+            x.hex.length > 32768 ||
+            !/^(?:[0-9a-f]{2})+$/.test(x.hex),
+        ))
+    )
+      throw Error("绑定快照无效");
     for (const name of Object.values(b.aliases))
       if (typeof name !== "string" || name.length > 64)
         throw Error("遥控器名称无效");
@@ -57,6 +72,12 @@ export function validateSettings(value: unknown): Settings {
         keys.some((k) => !Number.isInteger(k) || k < 1 || k > 63)
       )
         throw Error("按键继承关系无效");
+  }
+  // Historical shared settings were already copied into each receiver slot.
+  // Discard only the obsolete desktop linkage, never rewrite live mappings.
+  for (const b of Object.values(v.boards)) {
+    b.shared = {};
+    b.followers = {};
   }
   return v;
 }

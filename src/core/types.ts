@@ -4,6 +4,13 @@ export interface Port {
   name: string;
 }
 export interface Info {
+  catalog_api?: number;
+  catalog_available?: boolean;
+  catalog_generation?: number;
+  catalog_count?: number;
+  catalog_bytes?: number;
+  catalog_max_count?: number;
+  catalog_max_bytes?: number;
   lifecycle_api?: number;
   probe_api?: number;
   probe_voice_api?: number;
@@ -41,6 +48,8 @@ export interface Slot {
   error: unknown;
 }
 export interface Mapping {
+  default?: { key: number; kind: number; modifiers: number; value: number };
+  overridden?: boolean;
   key: number;
   kind: number;
   modifiers: number;
@@ -48,6 +57,7 @@ export interface Mapping {
   revision: number;
 }
 export interface Catalog {
+  snapshot_name?: boolean;
   key: number;
   name: string;
   model: string;
@@ -96,6 +106,7 @@ export interface Settings {
   boards: Record<
     string,
     {
+      bindings?: { peer_id: number; model: string; hex: string }[];
       aliases: Record<string, string>;
       actions: Record<string, Action>;
       authorizations: Record<string, number>;

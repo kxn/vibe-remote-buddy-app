@@ -16,6 +16,10 @@ Dependencies are downloaded by their package managers, with exact versions in pa
 - Microsoft windows / windows-sys crates: MIT or Apache-2.0.
 - serialport: MPL-2.0.
 - rfd: MIT.
+- reqwest: MIT or Apache-2.0.
+- sha2 (RustCrypto): MIT or Apache-2.0.
+- esbuild: MIT.
+- Bundled model catalog: kxn/vibe-remote-buddy-models, MIT; its LICENSE is retained under resources/catalog.
 - open: MIT.
 - Python Playwright (optional UI tests): Apache-2.0.
 

@@ -7,6 +7,8 @@ use std::{
 use tauri::Manager;
 #[derive(Serialize)]
 pub struct ModelSource {
+    evidence: Option<Value>,
+    edited: bool,
     source: String,
     model: Value,
     image: Option<String>,
@@ -67,12 +69,16 @@ pub fn remote_model_resources(app: tauri::AppHandle) -> Result<Vec<ModelSource>,
             let source = e.path().display().to_string();
             match read_package(&e.path()) {
                 Ok((model, image)) => ModelSource {
+                    evidence: fs::read(e.path().join("probe-evidence.json")).ok().filter(|b|b.len()<=2*1024*1024).and_then(|b|serde_json::from_slice(&b).ok()),
+                    edited: e.path().join("user-edited").is_file(),
                     source,
                     model,
                     image,
                     error: None,
                 },
                 Err(error) => ModelSource {
+                    evidence: None,
+                    edited: false,
                     source,
                     model: Value::Null,
                     image: None,

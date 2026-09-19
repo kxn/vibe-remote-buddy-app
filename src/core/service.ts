@@ -1,6 +1,14 @@
 import { candidateStream } from "./candidates";
 import {
+  resolveCatalog,
+  compileCatalog,
+  uploadCatalog,
+  type CatalogModel,
+  type CatalogSnapshot,
+} from "./catalog";
+import {
   loadModels,
+  validateModel,
   syncModels,
   remoteModels,
   type ModelSource,
@@ -34,6 +42,9 @@ import type {
   Action,
 } from "./types";
 export interface Platform {
+  catalog?(): Promise<CatalogSnapshot>;
+  stageCatalog?(): Promise<CatalogSnapshot>;
+  activateCatalog?(commit: string): Promise<void>;
   models?(): Promise<ModelSource[]>;
   ports(): Promise<Port[]>;
   transport(): Transport;
@@ -65,6 +76,8 @@ export class BuddyService {
   private probeAudio?: (body: Record<string, unknown>) => void;
   private manualSerial?: string;
   private settingsTail: Promise<unknown> = Promise.resolve();
+  private catalogModels: CatalogModel[] = [];
+  catalogVersion = "";
   constructor(private platform: Platform) {}
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -113,9 +126,7 @@ export class BuddyService {
       this.report(e);
     }
     try {
-      if (this.platform.models)
-        for (const error of loadModels(await this.platform.models()))
-          this.report(Error(error));
+      await this.loadModelResources();
     } catch (e) {
       this.report(e);
     }
@@ -199,7 +210,19 @@ export class BuddyService {
       if (this.session !== s) throw Error("握手过程中连接中断");
       await this.refresh();
       if (this.platform.models && remoteModels.size) {
-        if (this.snapshot.info?.model_api === 1) {
+        if (this.snapshot.info?.catalog_api === 2) {
+          if (!this.snapshot.info.catalog_generation) {
+            try {
+              await uploadCatalog(
+                (op, body) => s.command(op, body),
+                this.catalogModels,
+              );
+              await this.refresh();
+            } catch (e) {
+              this.report(e);
+            }
+          }
+        } else if (this.snapshot.info?.model_api === 1) {
           try {
             await syncModels(
               (op, body) => s.command(op, body),
@@ -229,6 +252,8 @@ export class BuddyService {
   async refresh() {
     const s = this.require(),
       info = await s.command<Info>(OP.INFO);
+    if (info.catalog_api === 2)
+      Object.assign(info, await s.command(OP.DB_STATUS));
     const slots: Slot[] = [];
     if (info.slots < 1 || info.slots > 4) throw Error("不支持的设备容量");
     for (let i = 0; i < info.slots; i++)
@@ -318,9 +343,10 @@ export class BuddyService {
   }
   async reloadModels() {
     if (!this.platform.models) return;
-    const errors = loadModels(await this.platform.models());
-    if (errors.length) throw Error(errors.join("\n"));
-    if (this.snapshot.info?.model_api === 1) {
+    await this.loadModelResources();
+    if (this.snapshot.info?.catalog_api === 2) {
+      await this.installCatalog();
+    } else if (this.snapshot.info?.model_api === 1) {
       const session = this.require();
       await syncModels(
         (op, body) => session.command(op, body),
@@ -329,27 +355,167 @@ export class BuddyService {
     }
     this.update();
   }
+  private async loadModelResources(snapshot?: CatalogSnapshot) {
+    const sources = this.platform.models ? await this.platform.models() : [];
+    const current =
+      snapshot ??
+      (this.platform.catalog ? await this.platform.catalog() : undefined);
+    const resolved = current ? resolveCatalog(current.resources) : [];
+    const defaults = new Map(resolved.map((m) => [m.model.id, m]));
+    const local = sources.filter(
+      (s) => !defaults.has((s.model as any)?.id) || s.edited,
+    );
+    const errors = loadModels([
+      ...resolved.map((m) => ({ source: "catalog", model: m.model })),
+      ...local.filter((s) => !defaults.has((s.model as any)?.id)),
+    ]);
+    if (errors.length) throw Error(errors.join("\n"));
+    // A locally edited model is a private default definition; the official
+    // resource graph remains immutable and does not acquire personal changes.
+    for (const s of local.filter((s) => defaults.has((s.model as any)?.id)))
+      remoteModels.set((s.model as any).id, {
+        ...validateModel(s.model),
+        image: s.image,
+      });
+    this.catalogModels = [...remoteModels.values()].map((model) => {
+      const official = defaults.get(model.id);
+      if (official) return { ...official, model };
+      const source = local.find((s) => (s.model as any)?.id === model.id);
+      const attrs = source?.evidence?.attributes ?? [];
+      const map = attrs.find(
+        (a: any) => a.complete && /^(?:0x)?2a4b$/i.test(a.uuid),
+      );
+      const required: Record<string, any> = map
+        ? {
+            report_map: {
+              hex: map.hex.toLowerCase(),
+              length: map.hex.length / 2,
+              crc32c: model.map_crc.toString(16).padStart(8, "0"),
+            },
+          }
+        : {};
+      if (map) {
+        required.services = attrs
+          .filter((a: any) => a.kind === 1)
+          .map((a: any) => a.uuid.toLowerCase());
+        const pnp = attrs.find(
+          (a: any) =>
+            a.complete && /^(?:0x)?2a50$/i.test(a.uuid) && a.hex.length === 14,
+        );
+        if (pnp) {
+          const b = Uint8Array.from(pnp.hex.match(/../g), (h: any) =>
+            parseInt(h, 16),
+          );
+          required.pnp = {
+            source: b[0],
+            vendor: b[1] | (b[2] << 8),
+            product: b[3] | (b[4] << 8),
+          };
+        }
+        required.reports = attrs
+          .filter(
+            (a: any) =>
+              a.complete && /^(?:0x)?2908$/i.test(a.uuid) && a.hex.length === 4,
+          )
+          .map((a: any) => ({
+            id: parseInt(a.hex.slice(0, 2), 16),
+            type: parseInt(a.hex.slice(2), 16),
+          }));
+      }
+      const fingerprints = map
+        ? [{ model: model.id, scan_hints: model.matches, required }]
+        : [];
+      return {
+        model,
+        fingerprints,
+        buttons: model.keys.map((k) => ({
+          id: `b${k.id.toString().padStart(2, "0")}`,
+          key: k.id,
+          semantic: k.id === 2 ? "voice" : "custom",
+        })),
+      };
+    });
+    this.catalogVersion = current?.version ?? "";
+  }
+  async installCatalog() {
+    const session = this.require();
+    await uploadCatalog(
+      (op, body) => session.command(op, body),
+      this.catalogModels,
+    );
+    await this.refresh();
+  }
+  async resetDefaults(slot: Slot, adopt = false) {
+    this.ensureMutable();
+    const session = this.require(),
+      id = this.identity(slot);
+    const live = await session.command<Slot>(OP.SLOT, { slot: slot.slot });
+    if (live.peer_id !== slot.peer_id || live.state !== 5)
+      throw Error("请先唤醒遥控器");
+    await session.command(adopt ? OP.DB_ADOPT_DEFAULTS : OP.MAP_RESET, {
+      ...id,
+      revision: live.map_revision,
+    });
+    if (!adopt) {
+      const conf = this.boardConfig();
+      for (const key of Object.keys(conf.authorizations))
+        if (key.startsWith(`${slot.peer_id}:`)) delete conf.authorizations[key];
+      await this.persist();
+    }
+    await this.refresh();
+  }
+  async updateCatalog() {
+    this.ensureMutable();
+    if (!this.platform.stageCatalog || !this.platform.activateCatalog)
+      throw Error("无法更新机型库");
+    const next = await this.platform.stageCatalog();
+    // Validate and compile before publishing the downloaded directory.
+    compileCatalog(resolveCatalog(next.resources), 1);
+    await this.platform.activateCatalog(next.commit);
+    await this.loadModelResources(next);
+    if (this.snapshot.info?.catalog_api === 2) await this.installCatalog();
+    this.update();
+  }
   async adoptProbe(modelId: string, transferred: () => void) {
     if (!this.adoption) {
-      const { operation_id } = await this.require().command<{ operation_id: number }>(OP.PROBE_ADOPT, { model_id: modelId });
+      const { operation_id } = await this.require().command<{
+        operation_id: number;
+      }>(OP.PROBE_ADOPT, { model_id: modelId });
       this.adoption = { model: modelId, operation: operation_id };
     }
     if (this.adoption.model !== modelId) throw Error("绑定型号已变化");
     transferred();
     const state = await this.require().command<Operation>(OP.OPERATION);
-    if (state.operation_id === this.adoption.operation && !state.pending && state.result) {
-      const retry = await this.require().command<{ operation_id: number }>(OP.RETRY, { operation_id: state.operation_id });
+    if (
+      state.operation_id === this.adoption.operation &&
+      !state.pending &&
+      state.result
+    ) {
+      const retry = await this.require().command<{ operation_id: number }>(
+        OP.RETRY,
+        { operation_id: state.operation_id },
+      );
       this.adoption.operation = retry.operation_id;
     }
     const result = await this.waitOperation(this.adoption.operation);
     await this.refresh();
-    if (!this.snapshot.slots.some(s => s.peer_id === result.peer_id && s.model === modelId))
+    if (
+      !this.snapshot.slots.some(
+        (s) => s.peer_id === result.peer_id && s.model === modelId,
+      )
+    )
       throw Error("尚未确认设备绑定记录");
   }
   async scan(renew = false) {
     this.ensureMutable();
-    if (this.snapshot.info?.lifecycle_api !== 2) throw Error("请先更新接收器固件");
-    if (!renew && this.platform.models && this.snapshot.info?.model_api === 1) {
+    if (this.snapshot.info?.lifecycle_api !== 2)
+      throw Error("请先更新接收器固件");
+    if (
+      !renew &&
+      this.platform.models &&
+      this.snapshot.info?.catalog_api !== 2 &&
+      this.snapshot.info?.model_api === 1
+    ) {
       const session = this.require();
       await syncModels(
         (op, body) => session.command(op, body),
@@ -366,7 +532,9 @@ export class BuddyService {
   async candidates(epoch: number) {
     const s = this.require(),
       items: Candidate[] = [];
-    for await (const c of candidateStream<Candidate>((op, body) => s.command(op, body))) {
+    for await (const c of candidateStream<Candidate>((op, body) =>
+      s.command(op, body),
+    )) {
       if (c.scan_epoch === epoch && c.age_ms < 15000)
         items.push({ ...c, seen: performance.now() });
     }
@@ -385,17 +553,17 @@ export class BuddyService {
     try {
       const { operation_id } = await this.require().command<{
         operation_id: number;
-      }>(OP.PAIR, { candidate_id: c.candidate_id, scan_epoch: c.scan_epoch, ...(modelId ? {model_id:modelId} : {}) });
+      }>(OP.PAIR, {
+        candidate_id: c.candidate_id,
+        scan_epoch: c.scan_epoch,
+        ...(modelId ? { model_id: modelId } : {}),
+      });
       onOperation(operation_id);
       const op = await this.waitOperation(operation_id);
       await this.refresh();
       if (expectedPeer && op.peer_id !== expectedPeer)
         throw Error("配对结果属于另一台遥控器，请核对设备列表");
-      if (
-        !this.snapshot.slots.some(
-          (s) => s.peer_id === op.peer_id,
-        )
-      )
+      if (!this.snapshot.slots.some((s) => s.peer_id === op.peer_id))
         throw Error("尚未确认设备绑定记录");
     } finally {
       this.update({ busy: false });
@@ -436,7 +604,7 @@ export class BuddyService {
         this.log(`操作 ${id}：${JSON.stringify(op)}`);
         if (op.uncertain) throw Error("操作结果不确定，请核对设备状态");
         if (op.result && op.model_error) {
-          const messages: Record<number,string> = {
+          const messages: Record<number, string> = {
             1: "尚未适配此型号，请先适配遥控器",
             2: "有多个匹配型号，请选择型号后重试",
             3: "遥控器与所选型号不符，请重新选择",
@@ -502,9 +670,17 @@ export class BuddyService {
     return map;
   }
   resolveAction(id: number): Action | undefined {
-    return this.settings.boards[this.snapshot.board?.serial ?? ""]?.actions[id] ?? builtinActions[id];
+    return (
+      this.settings.boards[this.snapshot.board?.serial ?? ""]?.actions[id] ??
+      builtinActions[id]
+    );
   }
-  async saveMap(slot: Slot, desired: Mapping, action?: Action) {
+  async saveMap(
+    slot: Slot,
+    desired: Mapping,
+    action?: Action,
+    inherit = false,
+  ) {
     if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
       throw Error("请先更新接收器固件，再使用自动语音预设");
     this.ensureMutable();
@@ -524,20 +700,43 @@ export class BuddyService {
       if (before.revision !== desired.revision)
         throw Error("按键设置已变化，请重新打开后修改");
       const conf = this.boardConfig();
-      if (action) {
+      if (action && !inherit) {
         let actionId = 1;
         while (conf.actions[actionId] && actionId < 65534) actionId++;
-        if (actionId >= 65534)
-          throw Error("软件动作已满");
+        if (actionId >= 65534) throw Error("软件动作已满");
         desired = { ...desired, kind: 4, modifiers: 0, value: actionId };
         conf.actions[actionId] = action;
         await this.persist();
       }
-      await s.command(OP.MAP_SET, { ...id, ...desired });
+      if (inherit) {
+        if (!before.default) throw Error("接收器没有默认配置快照");
+        desired = { ...desired, ...before.default };
+      }
+      let writeError: unknown;
+      try {
+        await s.command(
+          inherit ? OP.MAP_RESET : OP.MAP_SET,
+          inherit
+            ? { ...id, key: desired.key, revision: desired.revision }
+            : { ...id, ...desired },
+        );
+      } catch (error) {
+        writeError = error;
+      }
       const actual = await s.command<Mapping>(OP.MAP_GET, {
         ...id,
         key: desired.key,
       });
+      const expectedRevision = (desired.revision + 1) >>> 0 || 1;
+      if (
+        writeError &&
+        (actual.revision !== expectedRevision ||
+          actual.kind !== desired.kind ||
+          actual.modifiers !== desired.modifiers ||
+          actual.value !== desired.value ||
+          actual.overridden !== !inherit)
+      )
+        throw writeError;
       if (
         actual.kind !== desired.kind ||
         actual.modifiers !== desired.modifiers ||
@@ -583,8 +782,11 @@ export class BuddyService {
         id = Number(event.action);
       const configured = conf.actions[id];
       const action = configured ?? builtinActions[id];
-      if (!action || (configured &&
-        conf.authorizations[`${slot.peer_id}:${event.key}`] !== id)) {
+      if (
+        !action ||
+        (configured &&
+          conf.authorizations[`${slot.peer_id}:${event.key}`] !== id)
+      ) {
         this.log(`未配置的软件动作 #${id}`);
         return;
       }
@@ -738,46 +940,90 @@ export class BuddyService {
     }
     return result;
   }
-  async saveShared(desired: Mapping, peers: number[]) {
-    this.ensureMutable();
-    if (desired.kind === 4) throw Error("软件动作请在各遥控器中单独设置");
-    const board = this.snapshot.board!.serial,
-      conf = this.boardConfig();
-    const { revision: _, ...shared } = desired;
-    conf.shared[desired.key] = shared;
-    await this.persist();
-    const failures: string[] = [];
-    let applied = 0;
-    for (const peer of peers) {
-      try {
-        if (this.snapshot.board?.serial !== board) throw Error("接收器已变化");
-        const slot = this.snapshot.slots.find((s) => s.peer_id === peer);
-        if (!slot) throw Error("遥控器已移除");
-        const keys = await this.keys(slot);
-        const entry = keys.find((e) => e.catalog.key === desired.key);
-        if (!entry) throw Error("此遥控器没有这个按键");
-        await this.saveMap(slot, { ...desired, revision: entry.map.revision });
-        conf.followers[peer] = [
-          ...new Set([...(conf.followers[peer] ?? []), desired.key]),
-        ];
-        await this.persist();
-        applied++;
-      } catch (e) {
-        failures.push(`${peer}: ${e instanceof Error ? e.message : e}`);
-      }
-    }
-    if (failures.length)
-      throw Error(`已保存 ${applied} 台，其余失败：${failures.join("；")}`);
-  }
   async backup() {
     await this.settingsTail;
-    return JSON.parse(JSON.stringify(this.settings)) as Settings;
+    const copy = JSON.parse(JSON.stringify(this.settings)) as Settings;
+    if (this.snapshot.info?.catalog_api === 2 && this.snapshot.board) {
+      const session = this.require(),
+        bindings = [];
+      for (const slot of this.snapshot.slots.filter((s) => s.peer_id)) {
+        const live = await session.command<Slot>(OP.SLOT, { slot: slot.slot });
+        if (live.peer_id !== slot.peer_id) throw Error("遥控器已变化");
+        let hex = "",
+          length = 1;
+        while (hex.length / 2 < length) {
+          const part = await session.command<{ hex: string; length: number }>(
+            OP.CONFIG_READ,
+            {
+              ...this.identity(slot),
+              revision: live.map_revision,
+              offset: hex.length / 2,
+            },
+          );
+          if (!part.hex || part.length > 16384) throw Error("快照读取失败");
+          length = part.length;
+          hex += part.hex;
+        }
+        bindings.push({ peer_id: slot.peer_id, model: slot.model, hex });
+      }
+      copy.boards[this.snapshot.board.serial] = {
+        ...this.boardConfig(),
+        bindings,
+      };
+    }
+    return copy;
   }
   async importSettings(value: Settings) {
     if (this.snapshot.busy) throw Error("请先等待当前操作结束");
     // Imported actions require a fresh, explicitly saved mapping before execution.
     const copy = JSON.parse(JSON.stringify(value)) as Settings;
     for (const b of Object.values(copy.boards)) b.authorizations = {};
+    const saved =
+      this.snapshot.board && copy.boards[this.snapshot.board.serial]?.bindings;
+    if (saved?.length) {
+      this.ensureMutable();
+      const session = this.require();
+      if (this.snapshot.info?.catalog_api !== 2)
+        throw Error("请更新接收器后恢复绑定快照");
+      // Check every identity before the first write. Each slot then commits
+      // atomically; re-running restoration is safe after an interrupted import.
+      const targets = saved.map((b) => {
+        const slot = this.snapshot.slots.find(
+          (s) => s.peer_id === b.peer_id && s.model === b.model,
+        );
+        if (!slot) throw Error("备份中的遥控器未绑定到当前接收器");
+        return { b, slot };
+      });
+      // Revoke current permissions before any receiver mutation, including
+      // partial/failed imports. A restored numeric action is never consent.
+      for (const board of Object.values(this.settings.boards))
+        board.authorizations = {};
+      await this.persist();
+      for (const { b, slot } of targets) {
+        const live = await session.command<Slot>(OP.SLOT, { slot: slot.slot });
+        const { token } = await session.command<{ token: number }>(
+          OP.CONFIG_BEGIN,
+          {
+            ...this.identity(slot),
+            revision: live.map_revision,
+            length: b.hex.length / 2,
+          },
+        );
+        try {
+          for (let i = 0; i < b.hex.length; i += 320)
+            await session.command(OP.CONFIG_DATA, {
+              token,
+              offset: i / 2,
+              hex: b.hex.slice(i, i + 320),
+            });
+          await session.command(OP.CONFIG_COMMIT, { token });
+        } catch (error) {
+          await session.command(OP.CONFIG_ABORT, { token }).catch(() => {});
+          throw error;
+        }
+      }
+      await this.refresh();
+    }
     await this.platform.save(copy);
     this.settings = copy;
     await this.platform.background(copy.background);

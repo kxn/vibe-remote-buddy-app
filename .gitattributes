@@ -1,0 +1,3 @@
+
+# Catalog manifests hash exact published bytes.
+resources/catalog/** -text

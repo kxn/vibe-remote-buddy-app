@@ -10,6 +10,7 @@ use std::{
 };
 use tauri::{Manager, State};
 mod models;
+mod catalog;
 mod platform;
 mod receiver_setup;
 use platform::{activate, desktop, ime, installed_apps};
@@ -472,6 +473,9 @@ fn main() {
         .manage(receiver_setup::Setup::default())
         .invoke_handler(tauri::generate_handler![
             models::remote_model_resources,
+            catalog::catalog_resources,
+            catalog::catalog_stage,
+            catalog::catalog_activate,
             models::save_remote_model,
             models::update_remote_model,
             receiver_setup::setup_candidates,
