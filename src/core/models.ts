@@ -33,7 +33,7 @@ export interface RemoteModel {
   id: string;
   title: string;
   revision: number;
-  family: 1 | 2;
+  family: 1 | 2 | 3;
   matches: { name?: string; prefix?: string; company?: number }[];
   keys: ModelKey[];
   raw: { report: number; usage: number; key: number }[];
@@ -89,7 +89,7 @@ export function validateModel(v: unknown): RemoteModel {
     ids.test(v.id), "型号 schema/id 无效");
   require(text(v.title, 120) &&
     integer(v.revision, 0xffffffff, 1) &&
-    (v.family === 1 || v.family === 2), "型号名称、版本或协议无效");
+    (v.family === 1 || v.family === 2 || v.family === 3), "型号名称、版本或协议无效");
   require(integer(v.map_crc, 0xffffffff), "map_crc 无效");
   require(Array.isArray(v.matches) &&
     v.matches.length > 0 &&

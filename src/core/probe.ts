@@ -644,7 +644,11 @@ export function familyEvidence(attrs: ProbeAttribute[]): number | undefined {
     [0xf8, 1],
     [0xfa, 2],
   ].every(([id, type]) => refs.some((r) => r[0] === id && r[1] === type));
-  return atvv !== ico ? (atvv ? 1 : 2) : undefined;
+  const legacy = [4, 5, 6, 7, 8].every(id =>
+    refs.filter(r => r[0] === id && r[1] === 3).length === 1) &&
+    refs.some(r => r[0] === 1 && r[1] === 1);
+  const candidates = [atvv ? 1 : 0, ico ? 2 : 0, legacy ? 3 : 0].filter(Boolean);
+  return candidates.length === 1 ? candidates[0] : undefined;
 }
 export function identityText(a: ProbeAttribute): string {
   if (!a.complete) return a.read_error ?? "未读取";

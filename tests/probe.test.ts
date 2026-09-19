@@ -391,3 +391,10 @@ it("assembles streamed audio without download requests and isolates captures", a
   c.clearAudio();
   expect(c.audioSize(8)).toBe(0);
 });
+
+it("recognizes legacy Xiaomi feature topology without guessing ATVV", () => {
+  const refs = [attr({}), ...[4,5,6,7,8].map(id => attr({hex: `0${id}03`}))];
+  expect(familyEvidence(refs)).toBe(3);
+  expect(familyEvidence(refs.slice(0, -1))).toBeUndefined();
+  expect(familyEvidence([...refs, attr({kind:1, uuid:"ab5e0001-5a21-4f05-bc7d-af01f617b664"})])).toBeUndefined();
+});

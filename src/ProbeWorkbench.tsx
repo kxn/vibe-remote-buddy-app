@@ -508,7 +508,12 @@ export function ProbeWorkbench({
       const family = familyEvidence(attributes);
       if (!family || (protocol && protocol !== family))
         throw Error("请先完成连接与协议识别");
-      const base = [...remoteModels.values()].find((m) => m.family === family);
+      const catalog = [...remoteModels.values()];
+      const existing = catalog.find((m) => m.family === family);
+      // Protocol 3 has no factory key layout yet; reuse a valid seed, then
+      // clear all bindings below. Never install a guessed name-only match.
+      const seed = existing ?? (family === 3 ? catalog.find(m => m.family === 1) : undefined);
+      const base = seed ? { ...seed, family: family as RemoteModel["family"] } : undefined;
       if (!base || !candidate) throw Error("缺少协议模板");
       if (!model) {
         const m = makeVariant(
@@ -878,6 +883,7 @@ export function ProbeWorkbench({
                   <option value={0}>自动识别</option>
                   <option value={1}>ATVV（小米等）</option>
                   <option value={2}>HID/ICO（联通、移动等）</option>
+                  <option value={3}>HID/mSBC（小米旧款）</option>
                 </select>
               </label>
             </div>
