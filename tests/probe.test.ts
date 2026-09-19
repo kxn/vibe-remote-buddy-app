@@ -354,3 +354,16 @@ it("does not connect after a selected-target search is cancelled", async () => {
     ),
   ).rejects.toThrow("连接已取消");
 });
+
+it("collects bounded fragment metadata after failure without recording PCM reads", async () => {
+  const c = new ProbeClient((async (_op: number, q: any) => {
+    if (q.diagnostic === undefined) return { hex: "private audio" };
+    if (q.diagnostic === 2) throw new DeviceError(6, OP.PROBE_VOICE_READ, {});
+    return { index: q.diagnostic, time_ms: 100, fragment: "01000000000000000000" };
+  }) as ProbeCommand);
+  await c.voiceDiagnostics();
+  expect(c.trace).toHaveLength(3);
+  expect(c.trace[0].result).toHaveProperty("fragment");
+  await c.command(OP.PROBE_VOICE_READ, { offset: 0 });
+  expect(c.trace[3].result).toEqual({ offset: 0 });
+});

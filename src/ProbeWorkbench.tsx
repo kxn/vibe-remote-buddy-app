@@ -302,10 +302,23 @@ export function ProbeWorkbench({
                     (v.error !== previousVoice?.error ||
                       v.decode_error !== previousVoice?.decode_error ||
                       v.sdk_error !== previousVoice?.sdk_error)
-                  )
-                    fail(
-                      `${voiceError(v.error || "audio decode failed")}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
+                  ) {
+                    await started.voiceDiagnostics(
+                      () =>
+                        !alive.current ||
+                        locked.current ||
+                        voiceEpoch !== epoch.current,
                     );
+                    if (
+                      !alive.current ||
+                      locked.current ||
+                      voiceEpoch !== epoch.current
+                    )
+                      continue;
+                    fail(
+                      `${voiceError(v.error || "audio decode failed")}${v.adapter_error ? " · " + v.adapter_error : ""}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
+                    );
+                  }
                   if (
                     !v.armed &&
                     !v.recording &&

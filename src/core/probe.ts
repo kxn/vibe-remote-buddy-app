@@ -237,7 +237,11 @@ export class ProbeClient {
       try {
         const result = await command<T>(op, body);
         // Audio content does not belong in diagnostic logs.
-        record(op === OP.PROBE_VOICE_READ ? { offset: body?.offset } : result);
+        record(
+          op === OP.PROBE_VOICE_READ && body?.diagnostic === undefined
+            ? { offset: body?.offset }
+            : result,
+        );
         return result;
       } catch (e) {
         record({
@@ -262,6 +266,17 @@ export class ProbeClient {
       await sleep(100);
     }
     throw Error("上一段录音尚未结束，请松开语音键后重试");
+  }
+  async voiceDiagnostics(cancelled: () => boolean = () => false) {
+    for (let diagnostic = 0; diagnostic < 64 && !cancelled(); diagnostic++) {
+      try {
+        await this.command(OP.PROBE_VOICE_READ, { diagnostic });
+      } catch (e) {
+        // Older receivers do not expose this optional metadata operation.
+        // The original voice failure must remain the primary error.
+        break;
+      }
+    }
   }
   resetCandidates() {
     this.scanItems.clear();
