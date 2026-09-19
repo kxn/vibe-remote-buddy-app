@@ -206,24 +206,49 @@ it("HID/ICO voice captures dedicated F8 edges, ignoring keyboard echoes in eithe
   });
 });
 
-it("copies layout without borrowing device identity or verified key codes",()=>{
- const source=validateModel(structuredClone(xiaomi));
- const current=blank();current.family=2;current.id="mobile.test";current.map_crc=123;
- const copy=copyLayoutPreset(current,source);
- expect(copy.id).toBe(current.id);expect(copy.family).toBe(2);expect(copy.map_crc).toBe(123);
- expect(copy.matches).toEqual(current.matches);expect(copy.raw).toEqual([]);
- expect(new Set(copy.keys.map(k=>cellOf(copy,k.id))).size).toBe(copy.keys.length);
- copy.keys[0].label="changed";expect(source.keys[0].label).not.toBe("changed");
- expect(()=>verifiedModel(copy,{})).toThrow("验证");
+it("copies layout without borrowing device identity or verified key codes", () => {
+  const source = validateModel(structuredClone(xiaomi));
+  const current = blank();
+  current.family = 2;
+  current.id = "mobile.test";
+  current.map_crc = 123;
+  const copy = copyLayoutPreset(current, source);
+  expect(copy.id).toBe(current.id);
+  expect(copy.family).toBe(2);
+  expect(copy.map_crc).toBe(123);
+  expect(copy.matches).toEqual(current.matches);
+  expect(copy.raw).toEqual([]);
+  expect(new Set(copy.keys.map((k) => cellOf(copy, k.id))).size).toBe(
+    copy.keys.length,
+  );
+  copy.keys[0].label = "changed";
+  expect(source.keys[0].label).not.toBe("changed");
+  expect(() => verifiedModel(copy, {})).toThrow("验证");
 });
 
-it("preserves three-column preset geometry and renamed symbols",()=>{
- const source=validateModel(unicom);
- const copy=copyLayoutPreset(source,source);
- expect(copy.layout.editorColumns).toBe(3);
- expect(copy.layout.buttons.map(({cell,...b})=>b)).toEqual(source.layout.buttons);
- copy.keys.find(k=>k.id===20)!.label="M";
- expect(renderRemoteArtwork(copy)).toContain(">M</text>");
- expect(renderRemoteArtwork(copy)).not.toContain(">本地</text>");
- expect(new Set(copy.keys.map(k=>cellOf(copy,k.id))).size).toBe(copy.keys.length);
+it("preserves three-column preset geometry and renamed symbols", () => {
+  const source = validateModel(unicom);
+  const copy = copyLayoutPreset(source, source);
+  expect(copy.layout.editorColumns).toBe(3);
+  expect(copy.layout.buttons.map(({ cell, ...b }) => b)).toEqual(
+    source.layout.buttons,
+  );
+  copy.keys.find((k) => k.id === 20)!.label = "M";
+  expect(renderRemoteArtwork(copy)).toContain(">M</text>");
+  expect(renderRemoteArtwork(copy)).not.toContain(">本地</text>");
+  expect(new Set(copy.keys.map((k) => cellOf(copy, k.id))).size).toBe(
+    copy.keys.length,
+  );
+});
+
+it("ATVV control-only voice proof is not exported as a fake HID key", () => {
+  const m = placeKey(blank(), 0, 2);
+  expect(
+    verifiedModel(m, { 2: { report: 0, usage: 8, voice: true } }).raw,
+  ).toEqual([]);
+  expect(() => verifiedModel(m, { 2: { report: 0, usage: 8 } })).toThrow();
+  m.family = 2;
+  expect(() =>
+    verifiedModel(m, { 2: { report: 0, usage: 8, voice: true } }),
+  ).toThrow();
 });

@@ -147,6 +147,11 @@ export function verifiedModel(
   m.raw = [];
   for (const k of m.keys) {
     const p = proofs[k.id];
+    if (p.report === 0) {
+      if (m.family !== 1 || k.id !== 2 || p.usage !== 8)
+        throw Error("不支持此协议按键");
+      continue;
+    }
     if (p.report === 248) {
       if (m.family !== 2 || k.id !== 2 || p.usage !== 1)
         throw Error("不支持此协议按键");

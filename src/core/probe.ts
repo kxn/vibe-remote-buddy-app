@@ -293,7 +293,9 @@ export class ProbeClient {
         const result = await command<T>(op, body);
         // Audio content does not belong in diagnostic logs.
         record(
-          op === OP.PROBE_VOICE_READ && body?.diagnostic === undefined && !body?.transport
+          op === OP.PROBE_VOICE_READ &&
+            body?.diagnostic === undefined &&
+            !body?.transport
             ? { offset: body?.offset }
             : result,
         );
@@ -324,8 +326,11 @@ export class ProbeClient {
   }
   async voiceDiagnostics(cancelled: () => boolean = () => false) {
     if (!cancelled()) {
-      try { await this.command(OP.PROBE_VOICE_READ, { transport: true }); }
-      catch { /* Optional counters must not replace the original failure. */ }
+      try {
+        await this.command(OP.PROBE_VOICE_READ, { transport: true });
+      } catch {
+        /* Optional counters must not replace the original failure. */
+      }
     }
     for (let diagnostic = 0; diagnostic < 64 && !cancelled(); diagnostic++) {
       try {
@@ -655,6 +660,8 @@ export function identityText(a: ProbeAttribute): string {
   return a.hex;
 }
 export interface ProbeVoiceStatus {
+  trigger_report?: number;
+  trigger_usage?: number;
   pending_samples?: number;
   idle: boolean;
   active: boolean;

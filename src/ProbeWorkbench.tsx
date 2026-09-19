@@ -3,7 +3,11 @@ import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
-import { remoteModels, conflictingModel, type RemoteModel } from "./core/models";
+import {
+  remoteModels,
+  conflictingModel,
+  type RemoteModel,
+} from "./core/models";
 import {
   ProbeClient,
   decodeProbeKey,
@@ -322,6 +326,19 @@ export function ProbeWorkbench({
                     if (previousVoice?.error !== v.error)
                       await started.cancelVoice();
                   }
+                  if (
+                    v.released &&
+                    v.trigger_usage &&
+                    v.trigger_report !== undefined &&
+                    captureRef.current
+                  )
+                    capturing({
+                      ...captureRef.current,
+                      proof: {
+                        report: v.trigger_report,
+                        usage: v.trigger_usage,
+                      },
+                    });
                   lastVoice.current = v;
                   setVoice(v);
                   if (
@@ -482,7 +499,8 @@ export function ProbeWorkbench({
       voiceProof.current = undefined;
       baseline.current = after.current = s.sequence;
       pending.current = undefined;
-      capturing({ key: 2, phase: "key", listened: false });
+      capturing({ key: 2, phase: "voice", listened: false });
+      await prepareVoice();
     });
   }
   function beginLayout(attributes: ProbeAttribute[], candidate = selected) {
@@ -533,6 +551,15 @@ export function ProbeWorkbench({
   async function verify(key: number) {
     await run(async () => {
       epoch.current++;
+      if (key === 2 && voiceProof.current) {
+        setProofs((old) => ({ ...old, [2]: voiceProof.current! }));
+        return;
+      }
+      if (key === 2) {
+        capturing({ key: 2, phase: "voice", listened: false });
+        await prepareVoice();
+        return;
+      }
       setProgress("准备按键验证");
       const s = await client.current!.status();
       if (!s.connected) throw Error("遥控器已断开");
@@ -553,29 +580,39 @@ export function ProbeWorkbench({
       )
         throw Error("这个键码已分配给其他按键");
   }
-  async function testVoice() {
-    await run(async () => {
-      const c = captureRef.current!;
-      checkProof(c);
-      if (service.snapshot.info?.probe_voice_api !== 3)
-        throw Error("请更新接收器固件以支持语音验证");
-      epoch.current++;
-      audioFetching.current = false;
-      clearAudio();
-      setProgress("准备语音协议");
-      // Capture errors are cleared by ARM. They do not imply a broken link.
-      // Never delete the temporary bond as an implicit retry of a recording.
-      if (voicePrepared.current) await client.current!.cancelVoice();
-      await microphone.current.start();
-      await client.current!.command(OP.PROBE_VOICE_ARM, {
-        family: modelRef.current!.family,
-        map_crc: modelRef.current!.map_crc,
-        report: c.proof!.report,
-        usage: c.proof!.usage,
-      });
-      voicePrepared.current = true;
-      capturing({ ...c, phase: "voice", listened: false });
+  async function prepareVoice() {
+    if (service.snapshot.info?.probe_voice_api !== 4)
+      throw Error("请更新接收器固件以支持语音验证");
+    epoch.current++;
+    audioFetching.current = false;
+    clearAudio();
+    lastVoice.current = undefined;
+    setProgress("准备语音协议");
+    if (voicePrepared.current) {
+      await client.current!.cancelVoice();
+      const until = Date.now() + 3000;
+      while (true) {
+        const v = await client.current!.command<ProbeVoiceStatus>(
+          OP.PROBE_VOICE_STATUS,
+        );
+        if (v.idle) break;
+        if (Date.now() > until) throw Error("请松开语音键后重试");
+        await sleep(80);
+      }
+    }
+    await microphone.current.start();
+    await client.current!.command(OP.PROBE_VOICE_ARM, {
+      family: modelRef.current!.family,
+      map_crc: modelRef.current!.map_crc,
+      learn: true,
+      report: 0,
+      usage: 0,
     });
+    voicePrepared.current = true;
+    capturing({ key: 2, phase: "voice", listened: false });
+  }
+  async function testVoice() {
+    await run(prepareVoice);
   }
   async function reconnectVoice() {
     await run(async () => {
@@ -593,7 +630,10 @@ export function ProbeWorkbench({
       voicePrepared.current = false;
       clearAudio();
       const c = captureRef.current;
-      if (c) capturing({ ...c, phase: "key", listened: false });
+      if (c) {
+        capturing({ key: 2, phase: "voice", listened: false });
+        await prepareVoice();
+      }
     });
   }
   async function cancelCapture(remove = false) {
@@ -678,8 +718,11 @@ export function ProbeWorkbench({
     await run(async () => {
       const m = verifiedModel(model!, proofs);
       m.layout.artworkButtons = true;
-      const conflict=conflictingModel(m);
-      if(conflict)throw Error(`此遥控器已有型号「${conflict.title}」（${conflict.id}），请使用已有型号，不能重复添加相同识别规则`);
+      const conflict = conflictingModel(m);
+      if (conflict)
+        throw Error(
+          `此遥控器已有型号「${conflict.title}」（${conflict.id}），请使用已有型号，不能重复添加相同识别规则`,
+        );
       if (remoteModels.has(m.id) && localSaved.current !== m.id)
         throw Error("型号标识已存在");
       setProgress("保存型号");
@@ -1081,7 +1124,7 @@ export function ProbeWorkbench({
               ) : (
                 <>
                   <p className="probe-stage-title">
-                    {audio ? "3. 试听确认" : "2. 测试录音"}
+                    {audio ? "试听确认" : "测试录音"}
                   </p>
                   <p role="status">
                     {error || voice?.error

@@ -13,10 +13,6 @@ with sync_playwright() as p:
   d=page.get_by_role('dialog',name='遥控器适配工具')
   def preflight():
    modal=page.get_by_role('dialog',name='验证按键')
-   modal.get_by_text('等待按键…',exact=True).wait_for()
-   page.evaluate("""()=>{const seq=window.fixture.probe.sequence||0;window.fixture.probeReports=[{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'00003e0000000000'},{sequence:seq+2,lost:0,time_ms:200,handle:5,length:8,hex:'0000000000000000'}];window.fixture.probe.sequence=seq+2;}""")
-   if family==2:
-    page.evaluate("""()=>{const seq=window.fixture.probe.sequence;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:250,handle:10,length:20,hex:'820301'+'00'.repeat(17)},{sequence:seq+2,lost:0,time_ms:300,handle:10,length:20,hex:'820300'+'00'.repeat(17)});window.fixture.probe.sequence=seq+2;}""")
    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for(timeout=10000)
    except Exception:
     print(page.locator('body').inner_text()[-2500:]);print(page.evaluate('fixture.voice'));raise
@@ -72,6 +68,9 @@ with sync_playwright() as p:
   assert d.get_by_role('button',name='保存并使用',exact=True).is_disabled()
   for key,usage in [('上',82),('语音',62)]:
    d.locator('.probe-grid').get_by_role('button',name=key,exact=True).click()
+   if key=='语音':
+    expect(page.get_by_role('dialog',name='验证按键')).to_have_count(0)
+    continue
    modal=page.get_by_role('dialog',name='验证按键');modal.get_by_text('等待按键…',exact=True).wait_for()
    expect(modal.locator('.probe-key-gesture strong')).to_have_text(['按下','松开'])
    page.evaluate("""usage=>{const seq=(window.fixture.probeReports??[]).length;window.fixture.probeReports=[...(window.fixture.probeReports??[]),{sequence:seq+1,lost:0,time_ms:100,handle:5,length:8,hex:'0000'+usage.toString(16).padStart(2,'0')+'0000000000'}];window.fixture.probe.sequence=seq+1}""",usage)
@@ -86,7 +85,7 @@ with sync_playwright() as p:
   d.get_by_role('button',name='保存并使用',exact=True).click()
   page.get_by_text('型号已保存',exact=True).wait_for()
   assert '<svg' in page.evaluate('window.fixture.exported.image')
-  data=page.evaluate('window.fixture.exported.model');assert data['id']=='example.test';assert len(data['keys'])==2;assert data['raw']==([{'report':1,'usage':82,'key':3},{'report':1,'usage':62,'key':2}] if family==1 else [{'report':1,'usage':82,'key':3}])
+  data=page.evaluate('window.fixture.exported.model');assert data['id']=='example.test';assert len(data['keys'])==2;assert data['raw']==[{'report':1,'usage':82,'key':3}]
   page.screenshot(path=str(out/f'probe-real-{width}.png'),full_page=True)
   assert d.evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
   d.get_by_role('button',name='添加这只遥控器',exact=True).click();d.wait_for(state='hidden');page.get_by_role('dialog',name='添加遥控器').wait_for();page.wait_for_timeout(200)

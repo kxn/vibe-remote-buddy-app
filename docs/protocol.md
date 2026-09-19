@@ -172,7 +172,7 @@ available in STATUS and command error details.
 
 ## 适配向导语音验证（固件 0.8.4）
 
-`INFO.probe_voice_api=3` 支持探测语音经标准 USB 麦克风输出。
+`INFO.probe_voice_api=4` 支持探测语音经标准 USB 麦克风输出。
 
 - ARM 0x44a：family、map_crc、report、usage，电脑先打开接收器麦克风再 ARM。板端按物理键启动/停止语音，不发送 HID 快捷键。
 - STATUS 0x44b：原有状态字段，以及 pending_samples（待输出 PCM 样本）；ready 仅表示协议准备完成。正常 END、released 且 pending_samples=0 后，主机留200ms尾音时间再结束本地录制。
@@ -181,3 +181,5 @@ available in STATUS and command error details.
 - 不再发送 0x483 PCM 事件，不兼容旧试录音频路径。
 
 上位机最多试录90秒。断开、取消、关闭必须释放音频设备。旧管理会话不可重试：终止探测轮询，重新打开工具建立新会话。
+
+API 4 的 ARM 支持 `learn:true, report:0, usage:0`，无需先学 HID 键。STATUS 返回 trigger_report/trigger_usage；0/8 表示 ATVV 协议触发，248/1 表示 ICO 专用通道，1/3 表示实测 HID 报告。仅语音试听通过后可保存触发证明；协议触发不写入 raw HID 表。
