@@ -137,6 +137,7 @@ function App() {
       | "edit"
       | "probe"
       | "setup"
+      | "receiver"
       | "diagnostics"
       | "shared"
       | "backup"
@@ -325,7 +326,7 @@ function App() {
           Vibe Remote Buddy
         </button>
         <div className="header-right">
-          <span className="connection">
+          <button className="connection" disabled={!connected} onClick={() => setModal("receiver")} aria-label="接收器详情">
             {snap.status === "connecting" ? (
               <Spinner />
             ) : (
@@ -336,7 +337,7 @@ function App() {
               : snap.status === "connecting"
                 ? "正在连接…"
                 : "未找到接收器"}
-          </span>
+          </button>
           {!connected && setupCandidates.length > 0 && (
             <button
               disabled={busy || !!modal}
@@ -557,6 +558,7 @@ function App() {
             <div className="title">
               <h1>设置</h1>
             </div>
+            <section className="settings-group"><h2>常规</h2>
             <label className="setting">
               <span>登录时启动</span>
               <input
@@ -585,6 +587,9 @@ function App() {
                 }
               />
             </label>
+            </section>
+            <section className="settings-group"><h2>接收器</h2>
+            <div className="setting"><span>接收器信息</span><button disabled={!connected} onClick={() => setModal("receiver")}>查看</button></div>
             <div className="setting">
               <span>
                 接收器固件
@@ -633,7 +638,19 @@ function App() {
                 </div>
               </Feedback>
             )}
-            <details>
+            </section>
+            <section className="settings-group"><h2>配置</h2>
+              <div className="setting">
+                <span>备份与恢复</span>
+                <button
+                  disabled={!native || busy}
+                  onClick={() => setModal("backup")}
+                >
+                  打开
+                </button>
+              </div>
+            </section>
+            <details className="settings-group">
               <summary>高级</summary>
               <div className="setting">
                 <span>初始化接收器</span>
@@ -655,16 +672,7 @@ function App() {
               </div>
 
               <div className="setting">
-                <span>备份与恢复</span>
-                <button
-                  disabled={!native || busy}
-                  onClick={() => setModal("backup")}
-                >
-                  打开
-                </button>
-              </div>
-              <div className="setting">
-                <span>接收器与故障日志</span>
+                <span>故障诊断</span>
                 <button
                   disabled={!connected}
                   onClick={() =>
@@ -677,6 +685,15 @@ function App() {
                   查看
                 </button>
               </div>
+            </details>
+            <button
+              className="setting about-entry quiet"
+              onClick={() => setModal("about")}
+            >
+              <span>关于 Vibe Remote Buddy</span>
+              <ChevronRight size={17} />
+            </button>
+            <div className="settings-exit">
               <button
                 disabled={!native}
                 onClick={() =>
@@ -688,17 +705,24 @@ function App() {
               >
                 退出 Vibe Remote Buddy
               </button>
-            </details>
-            <button
-              className="setting about-entry quiet"
-              onClick={() => setModal("about")}
-            >
-              <span>关于 Vibe Remote Buddy</span>
-              <ChevronRight size={17} />
-            </button>
+            </div>
           </>
         )}
       </main>
+      {modal === "receiver" && (
+        <Dialog title="接收器详情" close={() => setModal(null)}>
+          <dl className="receiver-details">
+            <dt>状态</dt><dd>{connected ? "已连接" : "已断开"}</dd>
+            <dt>设备</dt><dd>{snap.board?.name ?? "—"}</dd>
+            <dt>固件</dt><dd>{snap.info?.firmware ?? "—"}</dd>
+            <dt>已添加遥控器</dt><dd>{snap.slots.filter(s => s.peer_id).length} / {snap.info?.slots ?? "—"}</dd>
+            <dt>接口</dt><dd>{snap.board?.path ?? "—"}</dd>
+            <dt>序列号</dt><dd>{snap.board?.serial || "—"}</dd>
+            <dt>Flash / PSRAM</dt><dd>{[snap.info?.flash_bytes, snap.info?.psram_bytes].map(bytes => bytes === undefined ? "—" : `${bytes / 1048576} MB`).join(" / ")}</dd>
+          </dl>
+          <footer><button onClick={() => setModal(null)}>关闭</button></footer>
+        </Dialog>
+      )}
       {modal === "setup" && (
         <ReceiverSetup
           service={service}

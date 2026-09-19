@@ -1341,3 +1341,18 @@ footer.editor-footer {
 .shade, .probe-modal-layer { padding-bottom: 7rem; }
 .dialog, .probe-workbench, .probe-modal { max-height: calc(100dvh - 9rem); }
 .receiver-setup[open] { height: min(40rem, calc(100dvh - 9rem)); margin-top: 1rem; margin-bottom: 8rem; }
+
+/* Desktop controls are not document text; retain selection for editable/copyable data. */
+body { user-select: none; -webkit-user-select: none; }
+input, textarea, [contenteditable="true"], pre, code, .receiver-details dd {
+  user-select: text; -webkit-user-select: text;
+}
+img, a { -webkit-user-drag: none; }
+.settings-group { margin: 0 0 1.5rem; padding: 1rem 1.5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 1rem; }
+.settings-group h2 { font-size: 1rem; color: var(--muted); margin: 0 0 .25rem; }
+.settings-group .setting:last-child { border-bottom: 0; }
+.settings-group > summary { padding: .5rem 0; }
+.settings-exit { margin-top: 1.5rem; }
+.receiver-details { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .8rem 1.5rem; }
+.receiver-details dt { color: var(--muted); }
+.receiver-details dd { margin: 0; overflow-wrap: anywhere; }
