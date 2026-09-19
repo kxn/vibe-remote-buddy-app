@@ -359,11 +359,33 @@ it("collects bounded fragment metadata after failure without recording PCM reads
   const c = new ProbeClient((async (_op: number, q: any) => {
     if (q.diagnostic === undefined) return { hex: "private audio" };
     if (q.diagnostic === 2) throw new DeviceError(6, OP.PROBE_VOICE_READ, {});
-    return { index: q.diagnostic, time_ms: 100, fragment: "01000000000000000000" };
+    return {
+      index: q.diagnostic,
+      time_ms: 100,
+      fragment: "01000000000000000000",
+    };
   }) as ProbeCommand);
   await c.voiceDiagnostics();
   expect(c.trace).toHaveLength(3);
   expect(c.trace[0].result).toHaveProperty("fragment");
   await c.command(OP.PROBE_VOICE_READ, { offset: 0 });
   expect(c.trace[3].result).toEqual({ offset: 0 });
+});
+
+it("assembles streamed audio without download requests and isolates captures", async () => {
+  const c = new ProbeClient((async () => {
+    throw Error("unexpected audio download");
+  }) as ProbeCommand);
+  c.receiveAudio({ capture: 8, offset: 0, hex: "0100" });
+  c.receiveAudio({ capture: 7, offset: 0, hex: "ff7f" });
+  c.receiveAudio({ capture: 8, offset: 2, hex: "0200" });
+  const wav = c.audioWav(8, 4, 16000);
+  const v = new DataView(await wav.arrayBuffer());
+  expect(v.getInt16(44, true)).toBe(1);
+  expect(v.getInt16(46, true)).toBe(2);
+  c.receiveAudio({ capture: 8, offset: 8, hex: "0000" });
+  expect(c.audioError(8)).toContain("序号");
+  expect(() => c.audioWav(8, 4, 16000)).toThrow();
+  c.clearAudio();
+  expect(c.audioSize(8)).toBe(0);
 });

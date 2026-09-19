@@ -128,7 +128,7 @@ it("audio read rejects stale epochs, incomplete release and cancellation", async
       () => {},
       () => false,
     ),
-  ).rejects.toThrow("不一致");
+  ).rejects.toThrow("不完整");
   await expect(
     readProbeAudio(
       c,

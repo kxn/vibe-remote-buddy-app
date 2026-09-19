@@ -55,8 +55,15 @@ window.__TAURI_INTERNALS__ = {
       else if(q.opcode===0x441) f.probe={...f.probe,active:false,connected:false,phase:"idle"};
       else if(q.opcode===0x442) body=f.probe;
       else if(q.opcode===0x443) f.probe={...f.probe,connected:true,phase:"connected"};
-      else if(q.opcode===0x44a) {f.voice={idle:false,active:true,ready:true,armed:true,recording:false,released:false,capture:(f.voice?.capture??0)+1,samples:0,rate:16000,codec:1,peak:0,decode_error:0,sdk_error:0,end_reason:0,error:""};}
-      else if(q.opcode===0x44b) body=f.voice;
+      else if(q.opcode===0x44a) {f.audioSent=0;f.voice={idle:false,active:true,ready:true,armed:true,recording:false,released:false,capture:(f.voice?.capture??0)+1,samples:0,rate:16000,codec:1,peak:0,decode_error:0,sdk_error:0,end_reason:0,error:""};}
+      else if(q.opcode===0x44b) {
+        body=f.voice;
+        while(f.audioSent < (f.voice?.samples??0)*2) {
+          const n=Math.min(192,f.voice.samples*2-f.audioSent);
+          f.rx.push(...encode({kind:3,session:f.session,seq:++f.seq,request:0,opcode:0x483,status:0,body:{capture:f.voice.capture,offset:f.audioSent+(f.audioGap?2:0),hex:'00'.repeat(n)}}));
+          f.audioSent+=n;
+        }
+      }
       else if(q.opcode===0x44c) body={capture:f.voice.capture,offset:q.body.offset,hex:'00'.repeat(Math.min(192,f.voice.samples*2-q.body.offset))};
       else if(q.opcode===0x44d) {if(f.voice){f.voice.armed=f.voice.recording=false;f.voice.idle=true;}}
       else if(q.opcode===0x444) f.probe.encrypted=true;
@@ -89,7 +96,7 @@ window.__TAURI_INTERNALS__ = {
           voice_presets: 1,
           host_os: 1,
           slots: 4,
-          probe_api:1, probe_voice_api:1, model_api:1, model_capacity:16,
+          probe_api:1, probe_voice_api:2, model_api:1, model_capacity:16,
           voice_owner: f.voiceOwner,
           manual_pairing: true,
           scanning: false,
@@ -106,7 +113,7 @@ window.__TAURI_INTERNALS__ = {
           slot,
           peer_id: slot < f.count ? slot + 1 : 0,
           generation: 1,
-          state: slot < f.count ? 5 : 0,
+          state: slot < f.count ? (f.sleeping ? 1 : 5) : 0,
           name: slot % 2 ? `书房联通 ${slot + 1}` : `客厅小米 ${slot + 1}`,
           model,
           battery: slot % 2 ? 255 : 97,

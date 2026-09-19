@@ -19,7 +19,7 @@ with sync_playwright() as p:
   d.get_by_role('alert').wait_for()
   expect(d.get_by_role('button',name='保存诊断',exact=True)).to_be_visible()
   assert d.get_by_role('button',name='配置按键',exact=True).count()==0
-  page.evaluate('window.fixture.failProbeOpcode=0')
+  page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
   d.get_by_role('button',name='重试识别',exact=True).click()
   d.get_by_label('型号名称').wait_for()
   assert d.get_by_role('button',name='保存诊断',exact=True).count()==0
@@ -73,18 +73,24 @@ with sync_playwright() as p:
     page.evaluate('''()=>{const seq=window.fixture.probeReports.length;window.fixture.probeReports.push({sequence:seq+1,lost:0,time_ms:250,handle:10,length:20,hex:'820300'+'00'.repeat(17)});window.fixture.probe.sequence=seq+1}''')
    expect(modal.locator('.probe-key-gesture strong.done')).to_have_text(['按下 ✓','松开 ✓'])
    if key=='语音':
-    modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
+    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
+    except Exception:
+     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
     assert modal.get_by_role('button',name='重新录音',exact=True).count()==0
     page.evaluate("Object.assign(window.fixture.voice,{armed:false,recording:false,error:'no audio stream'})")
     modal.get_by_text('没有收到语音数据',exact=True).wait_for()
     modal.get_by_role('button',name='重新录音',exact=True).click()
-    modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
-    page.evaluate("window.fixture.failProbeOpcode=0x44c;Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")
+    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
+    except Exception:
+     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
+    page.evaluate("window.fixture.audioGap=true;Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")
     modal.get_by_role('alert').wait_for()
     assert modal.get_by_role('button',name='声音正常',exact=True).count()==0
-    page.evaluate('window.fixture.failProbeOpcode=0')
+    page.evaluate('window.fixture.failProbeOpcode=0;window.fixture.audioGap=false')
     modal.get_by_role('button',name='重新录音',exact=True).click()
-    modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
+    try: modal.get_by_text('请按住语音键说话约 3 秒，然后松开。',exact=True).wait_for()
+    except Exception:
+     print(modal.inner_text());print(page.evaluate("fixture.voice"));raise
     page.evaluate("Object.assign(window.fixture.voice,{recording:true,samples:100})")
     modal.get_by_text('正在录音，说话约 3 秒后松开',exact=True).wait_for()
     page.evaluate("Object.assign(window.fixture.voice,{armed:false,released:true,samples:160,recording:false})")

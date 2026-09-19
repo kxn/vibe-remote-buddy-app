@@ -125,6 +125,7 @@ function App() {
     [repairPeer, setRepairPeer] = useState<number>(),
     [entries, setEntries] = useState<KeyEntry[]>([]),
     [loading, setLoading] = useState(false),
+    [wake, setWake] = useState<Slot>(),
     [modal, setModal] = useState<
       | "add"
       | "more"
@@ -217,19 +218,51 @@ function App() {
       service.report(e);
     }
   };
-  const loadKeys = async (s: Slot) => {
+  const wakeKey = useRef<number | undefined>(undefined);
+  const wakeBoard = useRef<string | undefined>(undefined);
+  const loadKeys = async (s: Slot, key?: number) => {
+    if (loading || busy) return;
+    if (s.state !== 5) {
+      wakeKey.current = key;
+      wakeBoard.current = snap.board?.serial;
+      setWake(s);
+      return;
+    }
     setPeer(s.peer_id);
     setEntries([]);
-    setPage("keys");
     setLoading(true);
     try {
-      setEntries(await service.keys(s));
+      const fresh = await service.keys(s);
+      setEntries(fresh);
+      setPage("keys");
+      if (key !== undefined) {
+        setEdit(fresh.find((e) => e.catalog.key === key));
+        setModal("edit");
+      }
     } catch (e) {
       service.report(e);
     } finally {
       setLoading(false);
     }
   };
+  useEffect(() => {
+    if (!wake) return;
+    if (!connected || wakeBoard.current !== snap.board?.serial) {
+      setWake(undefined);
+      return;
+    }
+    const current = snap.slots.find(
+      (s) => s.peer_id === wake.peer_id && s.slot === wake.slot,
+    );
+    if (!current) {
+      setWake(undefined);
+      return;
+    }
+    if (current.state === 5 && !snap.busy && !loading) {
+      setWake(undefined);
+      void loadKeys(current, wakeKey.current);
+    }
+  }, [wake, connected, snap.slots, snap.busy, loading, snap.board?.serial]);
   const status = (s: Slot) =>
     !connected
       ? "未连接"
@@ -254,11 +287,13 @@ function App() {
         : m.kind === 2
           ? (media[m.value] ?? `媒体键 ${m.value}`)
           : m.kind === 3
-            ? m.modifiers === 64 && !m.value
-              ? "豆包输入法"
-              : m.modifiers === 9 && !m.value
-                ? "微信输入法"
-                : chord(m.modifiers, m.value)
+            ? m.modifiers === 0 && m.value === 44
+              ? "视频会议"
+              : m.modifiers === 64 && !m.value
+                ? "豆包输入法"
+                : m.modifiers === 9 && !m.value
+                  ? "微信输入法"
+                  : chord(m.modifiers, m.value)
             : m.kind === 4
               ? (service.settings.boards[snap.board?.serial ?? ""]?.actions[
                   m.value
@@ -454,8 +489,7 @@ function App() {
                     model={selected.model}
                     keys={entries.map((e) => e.catalog.key)}
                     onKey={(id) => {
-                      setEdit(entries.find((e) => e.catalog.key === id));
-                      setModal("edit");
+                      void loadKeys(selected, id);
                     }}
                   />
                   <p className="caption muted">按键示意</p>
@@ -475,8 +509,7 @@ function App() {
                           entry={e}
                           description={describe(e.map)}
                           onClick={() => {
-                            setEdit(e);
-                            setModal("edit");
+                            void loadKeys(selected, e.catalog.key);
                           }}
                         />
                       ))}
@@ -494,8 +527,7 @@ function App() {
                             entry={e}
                             description={describe(e.map)}
                             onClick={() => {
-                              setEdit(e);
-                              setModal("edit");
+                              void loadKeys(selected, e.catalog.key);
                             }}
                           />
                         ))}
@@ -817,8 +849,20 @@ function App() {
           </footer>
         </Dialog>
       )}
+      {wake && (
+        <Dialog title="唤醒遥控器" close={() => setWake(undefined)}>
+          <p>请按一下「{service.name(wake)}」的方向键。</p>
+          <p role="status">
+            <Spinner /> 等待连接…
+          </p>
+          <footer>
+            <button onClick={() => setWake(undefined)}>取消</button>
+          </footer>
+        </Dialog>
+      )}
       {modal === "edit" && edit && selected && (
         <Editor
+          autoSave
           entry={edit}
           initialAction={
             edit.map.kind === 4
@@ -829,8 +873,9 @@ function App() {
           close={() => setModal(null)}
           save={async (m, a) => {
             await service.saveMap(selected, m, a);
-            setEntries(await service.keys(selected));
-            setModal(null);
+            const fresh = await service.keys(selected);
+            setEntries(fresh);
+            setEdit(fresh.find((e) => e.catalog.key === m.key));
             setNotice("已保存");
           }}
         />
@@ -935,8 +980,20 @@ function ModelRemote({
               background: b.fill,
               color: b.color,
               borderColor: b.border,
-              fontSize: mini ? Math.min(6, Math.min(66, 170*layout.width/layout.height)*b.width/100 /
-                (Math.max(1, [...(b.symbol || labels[b.key] || definition.label)].length)*1.2)) : undefined,
+              fontSize: mini
+                ? Math.min(
+                    6,
+                    (Math.min(66, (170 * layout.width) / layout.height) *
+                      b.width) /
+                      100 /
+                      (Math.max(
+                        1,
+                        [...(b.symbol || labels[b.key] || definition.label)]
+                          .length,
+                      ) *
+                        1.2),
+                  )
+                : undefined,
             },
           };
           const symbol = b.symbol ? (
@@ -1220,11 +1277,13 @@ function Editor({
   close,
   save,
   forceDirty = false,
+  autoSave = false,
   allowActions = true,
   initialAction,
 }: {
   initialAction?: Action;
   forceDirty?: boolean;
+  autoSave?: boolean;
   allowActions?: boolean;
   entry: KeyEntry;
   disabled: boolean;
@@ -1257,7 +1316,11 @@ function Editor({
         ? entry.map.value === 1
           ? "doubao"
           : "wechat"
-        : "custom",
+        : entry.map.kind === 3 &&
+            entry.map.modifiers === 0 &&
+            entry.map.value === 44
+          ? "meeting"
+          : "custom",
     ),
     [discard, setDiscard] = useState(false);
   const voice = entry.catalog.key === 2,
@@ -1266,11 +1329,41 @@ function Editor({
       JSON.stringify(map) !== JSON.stringify(entry.map) ||
       (map.kind === 4 &&
         JSON.stringify(action) !== JSON.stringify(initialAction));
+  const saveRef = useRef(save);
+  saveRef.current = save;
   useEffect(() => {
     void call<boolean>("desktop_available")
       .then(setDesktop)
       .catch(() => setDesktop(false));
   }, []);
+  useEffect(() => {
+    setMap({ ...entry.map });
+  }, [
+    entry.map.revision,
+    entry.map.value,
+    entry.map.kind,
+    entry.map.modifiers,
+  ]);
+  useEffect(() => {
+    if (
+      !autoSave ||
+      !dirty ||
+      disabled ||
+      saving ||
+      error ||
+      (map.kind === 4 && !validAction(action)) ||
+      (map.kind === 1 && !map.value && !map.modifiers)
+    )
+      return;
+    const timer = setTimeout(() => {
+      setSaving(true);
+      void saveRef
+        .current(map, map.kind === 4 ? action : undefined)
+        .catch((e) => setError(service.report(e)))
+        .finally(() => setSaving(false));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [autoSave, dirty, disabled, saving, error, map, action]);
   const requestClose = () => {
     if (saving) return;
     if (dirty) setDiscard(true);
@@ -1339,157 +1432,171 @@ function Editor({
       }
       close={requestClose}
     >
-      {voice ? (
-        <>
-          <label className="field">
-            语音输入
-            <select
-              value={profile}
-              onChange={(e) => {
-                setProfile(e.target.value);
-                const preset =
-                  voicePresets[e.target.value as keyof typeof voicePresets];
-                if (preset)
-                  setMap({
-                    ...map,
-                    kind: 5,
-                    modifiers: 0,
-                    value: e.target.value === "doubao" ? 1 : 2,
-                  });
-                else if (map.kind === 5)
-                  setMap({
-                    ...map,
-                    kind: 3,
-                    ...(map.value === 2
-                      ? voicePresets.wechat
-                      : voicePresets.doubao),
-                  });
-              }}
-            >
-              <option value="doubao">豆包输入法</option>
-              <option value="custom">自定义</option>
-              <option value="wechat">微信输入法</option>
-            </select>
-          </label>
-          <p className="muted">按住说话，松开结束。</p>
-          {profile === "custom" ? (
-            keyboard
-          ) : (
-            <p className="muted">默认快捷键 · 随系统调整</p>
-          )}
-        </>
-      ) : (
-        <>
-          <label className="field">
-            功能
-            <select
-              aria-label="功能"
-              value={type}
-              onChange={(e) => {
-                setType(e.target.value);
-                if (e.target.value === "default")
-                  setMap({
-                    ...entry.map,
-                    kind: entry.catalog.kind,
-                    modifiers: entry.catalog.modifiers,
-                    value: entry.catalog.value,
-                  });
-                else if (e.target.value.startsWith("input:")) {
-                  const p = inputProfiles.find(
-                    (p) => p.id === e.target.value.slice(6),
-                  )!;
-                  setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
-                  setAction({
-                    kind: "input",
-                    profile: p.id,
-                    target: "",
-                    label: `切换到 ${p.label}`,
-                  });
-                } else if (e.target.value.startsWith("command:")) {
-                  const c = commands.find(
-                    (c) => c.id === e.target.value.slice(8),
-                  )!;
-                  setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
-                  setAction({ kind: "command", target: c.id, label: c.label });
-                } else if (["app", "web"].includes(e.target.value)) {
-                  setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
-                  setAction({
-                    kind: e.target.value as Action["kind"],
-                    target: "",
-                    label: "",
-                  });
-                } else
-                  setMap({
-                    ...map,
-                    kind: Number(e.target.value),
-                    modifiers: 0,
-                    value: Number(e.target.value) === 1 ? 40 : 0,
-                  });
-              }}
-            >
-              <option value="default">原来的功能</option>
-              {allowActions && (
-                <>
-                  <optgroup label="应用">
-                    {inputProfiles.map((p) => (
-                      <option
-                        key={p.id}
-                        value={`input:${p.id}`}
-                        disabled={!desktop}
-                      >
-                        切换到 {p.label}
-                      </option>
-                    ))}
-                    <option value="app">其他应用…</option>
-                    <option value="web">打开网页</option>
-                  </optgroup>
-                  <optgroup label="窗口与桌面">
-                    {commands.map((c) => (
-                      <option
-                        key={c.id}
-                        value={`command:${c.id}`}
-                        disabled={!desktop}
-                      >
-                        {c.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                </>
-              )}
-              <optgroup label="按键">
-                <option value="1">快捷键</option>
-                <option value="2">音量与媒体</option>
-              </optgroup>
-              <option value="0">不使用</option>
-            </select>
-          </label>
-          {map.kind === 1 && keyboard}
-          {map.kind === 2 && (
+      <fieldset
+        disabled={saving}
+        style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+      >
+        {voice ? (
+          <>
             <label className="field">
-              媒体功能
+              语音输入
               <select
-                value={map.value}
-                onChange={(e) =>
-                  setMap({ ...map, value: Number(e.target.value) })
-                }
+                value={profile}
+                onChange={(e) => {
+                  setProfile(e.target.value);
+                  const preset =
+                    voicePresets[e.target.value as keyof typeof voicePresets];
+                  if (e.target.value === "meeting")
+                    setMap({ ...map, kind: 3, ...voicePresets.meeting });
+                  else if (preset)
+                    setMap({
+                      ...map,
+                      kind: 5,
+                      modifiers: 0,
+                      value: e.target.value === "doubao" ? 1 : 2,
+                    });
+                  else if (map.kind === 5)
+                    setMap({
+                      ...map,
+                      kind: 3,
+                      ...(map.value === 2
+                        ? voicePresets.wechat
+                        : voicePresets.doubao),
+                    });
+                }}
               >
-                {media.map((n, i) => (
-                  <option key={i} value={i}>
-                    {n}
-                  </option>
-                ))}
+                <option value="doubao">豆包输入法</option>
+                <option value="custom">自定义</option>
+                <option value="wechat">微信输入法</option>
+                <option value="meeting">视频会议</option>
               </select>
             </label>
-          )}
-          {map.kind === 4 && (
-            <ActionFields
-              action={action}
-              change={setAction}
-              disabled={saving}
-            />
-          )}
-        </>
-      )}
+            <p className="muted">按住说话，松开结束。</p>
+            {profile === "custom" ? (
+              keyboard
+            ) : profile === "meeting" ? (
+              <p className="muted">长按空格开麦</p>
+            ) : (
+              <p className="muted">默认快捷键 · 随系统调整</p>
+            )}
+          </>
+        ) : (
+          <>
+            <label className="field">
+              功能
+              <select
+                aria-label="功能"
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value);
+                  if (e.target.value === "default")
+                    setMap({
+                      ...entry.map,
+                      kind: entry.catalog.kind,
+                      modifiers: entry.catalog.modifiers,
+                      value: entry.catalog.value,
+                    });
+                  else if (e.target.value.startsWith("input:")) {
+                    const p = inputProfiles.find(
+                      (p) => p.id === e.target.value.slice(6),
+                    )!;
+                    setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
+                    setAction({
+                      kind: "input",
+                      profile: p.id,
+                      target: "",
+                      label: `切换到 ${p.label}`,
+                    });
+                  } else if (e.target.value.startsWith("command:")) {
+                    const c = commands.find(
+                      (c) => c.id === e.target.value.slice(8),
+                    )!;
+                    setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
+                    setAction({
+                      kind: "command",
+                      target: c.id,
+                      label: c.label,
+                    });
+                  } else if (["app", "web"].includes(e.target.value)) {
+                    setMap({ ...map, kind: 4, modifiers: 0, value: 0 });
+                    setAction({
+                      kind: e.target.value as Action["kind"],
+                      target: "",
+                      label: "",
+                    });
+                  } else
+                    setMap({
+                      ...map,
+                      kind: Number(e.target.value),
+                      modifiers: 0,
+                      value: Number(e.target.value) === 1 ? 40 : 0,
+                    });
+                }}
+              >
+                <option value="default">原来的功能</option>
+                {allowActions && (
+                  <>
+                    <optgroup label="应用">
+                      {inputProfiles.map((p) => (
+                        <option
+                          key={p.id}
+                          value={`input:${p.id}`}
+                          disabled={!desktop}
+                        >
+                          切换到 {p.label}
+                        </option>
+                      ))}
+                      <option value="app">其他应用…</option>
+                      <option value="web">打开网页</option>
+                    </optgroup>
+                    <optgroup label="窗口与桌面">
+                      {commands.map((c) => (
+                        <option
+                          key={c.id}
+                          value={`command:${c.id}`}
+                          disabled={!desktop}
+                        >
+                          {c.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </>
+                )}
+                <optgroup label="按键">
+                  <option value="1">快捷键</option>
+                  <option value="2">音量与媒体</option>
+                </optgroup>
+                <option value="0">不使用</option>
+              </select>
+            </label>
+            {map.kind === 1 && keyboard}
+            {map.kind === 2 && (
+              <label className="field">
+                媒体功能
+                <select
+                  value={map.value}
+                  onChange={(e) =>
+                    setMap({ ...map, value: Number(e.target.value) })
+                  }
+                >
+                  {media.map((n, i) => (
+                    <option key={i} value={i}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {map.kind === 4 && (
+              <ActionFields
+                action={action}
+                change={setAction}
+                disabled={saving}
+              />
+            )}
+          </>
+        )}
+      </fieldset>
       {error && (
         <p className="error" role="alert">
           {error}
@@ -1498,34 +1605,41 @@ function Editor({
       {disabled && <p className="muted">连接可用且录音结束后可保存</p>}
       <footer>
         <button disabled={saving} onClick={requestClose}>
-          取消
+          {autoSave ? "完成" : "取消"}
         </button>
-        <button
-          className="primary"
-          disabled={
-            disabled ||
-            saving ||
-            !dirty ||
-            (map.kind === 4 && !validAction(action)) ||
-            (map.kind === 1 && !map.value && !map.modifiers)
-          }
-          onClick={() => {
-            setSaving(true);
-            setError("");
-            void save(map, map.kind === 4 ? action : undefined)
-              .catch((e) => setError(service.report(e)))
-              .finally(() => setSaving(false));
-          }}
-        >
-          {saving ? (
-            <>
-              <Spinner />
-              保存中…
-            </>
-          ) : (
-            "保存"
-          )}
-        </button>
+        {(!autoSave || !!error) && (
+          <button
+            className="primary"
+            disabled={
+              disabled ||
+              saving ||
+              !dirty ||
+              (map.kind === 4 && !validAction(action)) ||
+              (map.kind === 1 && !map.value && !map.modifiers)
+            }
+            onClick={() => {
+              setSaving(true);
+              setError("");
+              void save(map, map.kind === 4 ? action : undefined)
+                .catch((e) => setError(service.report(e)))
+                .finally(() => setSaving(false));
+            }}
+          >
+            {saving ? (
+              <>
+                <Spinner />
+                保存中…
+              </>
+            ) : (
+              "保存"
+            )}
+          </button>
+        )}
+        {autoSave && !error && (
+          <span role="status">
+            {saving || dirty ? "保存中…" : "已保存到接收器"}
+          </span>
+        )}
       </footer>
     </Dialog>
   );

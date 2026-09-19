@@ -211,6 +211,61 @@ export class ProbeCandidates {
   }
 }
 export class ProbeClient {
+  private audio = new Map<
+    number,
+    { chunks: Uint8Array[]; size: number; error: string }
+  >();
+  clearAudio() {
+    this.audio.clear();
+  }
+  receiveAudio(body: Record<string, unknown>) {
+    const capture = body.capture,
+      offset = body.offset;
+    if (!Number.isInteger(capture) || (capture as number) < 1) return;
+    let stream = this.audio.get(capture as number);
+    if (!stream) {
+      if (this.audio.size >= 2)
+        this.audio.delete(this.audio.keys().next().value!);
+      stream = { chunks: [], size: 0, error: "" };
+      this.audio.set(capture as number, stream);
+    }
+    if (stream.error) return;
+    try {
+      if (
+        !Number.isInteger(offset) ||
+        offset !== stream.size ||
+        typeof body.hex !== "string"
+      )
+        throw Error("录音数据序号不连续");
+      const data = bytes(body.hex);
+      if (!data.length || data.length > 192 || data.length % 2)
+        throw Error("录音数据格式错误");
+      if (stream.size + data.length > 16000 * 2 * 600)
+        throw Error("测试录音已达 10 分钟");
+      stream.chunks.push(data);
+      stream.size += data.length;
+    } catch (e) {
+      stream.error = String(e);
+    }
+  }
+  audioError(capture: number) {
+    return this.audio.get(capture)?.error ?? "";
+  }
+  audioSize(capture: number) {
+    return this.audio.get(capture)?.size ?? 0;
+  }
+  audioWav(capture: number, expected: number, rate: number) {
+    const stream = this.audio.get(capture);
+    if (!stream || stream.error || stream.size !== expected)
+      throw Error(stream?.error || "录音数据不完整");
+    const pcm = new Uint8Array(expected);
+    let offset = 0;
+    for (const chunk of stream.chunks) {
+      pcm.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return pcmWav(pcm, rate);
+  }
   private scanItems = new ProbeCandidates();
   readonly trace: {
     time: string;
@@ -650,29 +705,19 @@ export async function readProbeAudio(
     s.error ||
     s.decode_error ||
     !s.samples ||
-    s.samples > 160000 ||
+    s.samples > 16000 * 600 ||
     s.rate !== 16000
   )
     throw Error("语音测试未完成");
-  const pcm = new Uint8Array(s.samples * 2);
-  for (let offset = 0; offset < pcm.length;) {
+  const expected = s.samples * 2;
+  const deadline = performance.now() + 2000;
+  while (client.audioSize(s.capture) < expected) {
     if (cancelled()) throw Error("读取已取消");
-    const r = await client.command<{
-      capture: number;
-      offset: number;
-      hex: string;
-    }>(OP.PROBE_VOICE_READ, { capture: s.capture, offset });
-    const part = bytes(r.hex);
-    if (
-      r.capture !== s.capture ||
-      r.offset !== offset ||
-      !part.length ||
-      part.length > pcm.length - offset
-    )
-      throw Error("音频读取结果不一致");
-    pcm.set(part, offset);
-    offset += part.length;
-    progress(offset / pcm.length);
+    if (client.audioError(s.capture)) throw Error(client.audioError(s.capture));
+    if (performance.now() > deadline) throw Error("录音数据不完整");
+    progress(client.audioSize(s.capture) / expected);
+    await sleep(20);
   }
-  return pcmWav(pcm, s.rate);
+  if (cancelled()) throw Error("读取已取消");
+  return client.audioWav(s.capture, expected, s.rate);
 }

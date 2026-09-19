@@ -203,3 +203,13 @@ describe("per-remote input method", () => {
     expect(mocks.call.mock.calls).toEqual([["show_window_picker"]]);
   });
 });
+
+it("meeting voice shortcut does not select an input method", () => {
+  expect(
+    inputMethodForVoice({
+      kind: 3,
+      modifiers: 0,
+      value: 44,
+    } as import("../src/core/types").Mapping),
+  ).toBeUndefined();
+});

@@ -52,6 +52,7 @@ export function validAction(a: Action): boolean {
 export const voicePresets = {
   doubao: { modifiers: 64, value: 0 },
   wechat: { modifiers: 9, value: 0 },
+  meeting: { modifiers: 0, value: 44 },
 };
 export function voicePreset(modifiers: number, value: number) {
   return (

@@ -170,17 +170,20 @@ bonds. Normal management mutations are BUSY until cleanup completes. Do not shar
 an adaptation client across management sessions. Full NimBLE SDK errors remain
 available in STATUS and command error details.
 
-## 适配向导语音验证（固件 0.8.0）
+## 适配向导语音验证（固件 0.8.4）
 
-`INFO.probe_voice_api=1` 表示支持同一探测连接上的真实语音验证。
+`INFO.probe_voice_api=2` 表示支持同一探测连接上的真实语音验证。
 
 | 命令 | 请求 | 返回/用途 |
 | --- | --- | --- |
 | 0x44a PROBE_VOICE_ARM | family, map_crc, report, usage | 新 capture；复用协议族初始化与解码 |
 | 0x44b PROBE_VOICE_STATUS | 无 | active/ready/idle/armed/recording/released、capture/samples/rate/codec/peak、error/sdk_error/decode_error/end_reason |
-| 0x44c PROBE_VOICE_READ | capture, offset（字节） | 同 capture/offset 和最多192字节小端 PCM hex；仅正常结束并松开后可读 |
+| 0x44c PROBE_VOICE_READ | diagnostic（0–63） | 停止后的分片诊断元数据；不再下载 PCM |
+| 0x483 PROBE_AUDIO（事件） | 无 | capture、offset（字节）、hex；最多 192 字节小端 PCM |
 | 0x44d PROBE_VOICE_CANCEL | 无 | 撤销本轮录制并停麦；idle 后才可重试 |
 
 family=1 为 ATVV，family=2 为 HID/ICO。普通键 report=1/3；联通专用语音 report=248、usage=1，不写入普通键表。ARM 需要加密连接和已完整读取的 Report Map CRC，同一连接更换协议或语音键码需要重新建联。客户端先采集键码再准备协议，准备完成后用户再次按住说话。
 
-录音为16kHz mono s16，最长10秒。客户端读取后封装 WAV，试听并确认后才标记语音通过；截断、缺包导致不可恢复错误、未松开或解码失败均不算通过。测试音频不输出 USB HID/UAC，不触发输入法。此为诊断快照读回，不是实时音频接口。
+录音为 16kHz mono s16，边录边发送到电脑，电脑收齐后封装 WAV；默认测试上限为电脑端 10 分钟。板子仅分配固定 16 KB 发送环，满时明确结束本轮并报 host audio buffer overrun。音频事件为管理队列保留四个控制消息位置；不会因接收不及时扩容或覆盖旧音频。
+
+事件由 RBP/3 会话序号及 capture/offset 隔离和校验；客户端不得跨 capture 拼接，不得接受重复、跳号、奇数字节或超长块。正常结束、物理松开且接收字节数等于 samples×2 后才可试听通过。尾部未到齐最多等待两秒。取消清理发送环，断线清理会话。测试音频不输出 USB HID/UAC，不触发输入法；旧整段录音下载接口已删除，无兼容分支。

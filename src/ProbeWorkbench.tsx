@@ -98,6 +98,7 @@ export function ProbeWorkbench({
     setCapture(c);
   }
   function clearAudio() {
+    client.current?.clearAudio();
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = "";
     setAudio("");
@@ -176,7 +177,11 @@ export function ProbeWorkbench({
     let started: ProbeClient | undefined;
     void (async () => {
       try {
-        started = new ProbeClient(await service.beginProbe());
+        started = new ProbeClient(
+          await service.beginProbe((body) =>
+            client.current?.receiveAudio(body),
+          ),
+        );
         client.current = started;
         if (!alive.current) {
           await started.end();
@@ -295,6 +300,12 @@ export function ProbeWorkbench({
                   )
                     continue;
                   const previousVoice = lastVoice.current;
+                  const streamError = started.audioError(v.capture);
+                  if (streamError && !v.error) {
+                    v.error = streamError;
+                    if (previousVoice?.error !== streamError)
+                      await started.command(OP.PROBE_VOICE_CANCEL);
+                  }
                   lastVoice.current = v;
                   setVoice(v);
                   if (
@@ -332,13 +343,12 @@ export function ProbeWorkbench({
                     audioFetching.current = true;
                     const generation = epoch.current;
                     void run(async () => {
-                      setProgress("读取测试录音");
+                      setProgress("完成录音");
                       try {
                         const wav = await readProbeAudio(
                           started!,
                           v,
-                          (n) =>
-                            setProgress(`读取测试录音 ${Math.round(n * 100)}%`),
+                          () => {},
                           () => !alive.current || epoch.current !== generation,
                         );
                         if (!alive.current || epoch.current !== generation)
@@ -526,7 +536,7 @@ export function ProbeWorkbench({
     await run(async () => {
       const c = captureRef.current!;
       checkProof(c);
-      if (service.snapshot.info?.probe_voice_api !== 1)
+      if (service.snapshot.info?.probe_voice_api !== 2)
         throw Error("请更新接收器固件以支持语音验证");
       epoch.current++;
       audioFetching.current = false;
@@ -1129,7 +1139,7 @@ function voiceError(s: string) {
     "audio stalled": "语音数据中断",
     "audio decode failed": "音频解码失败",
     "unsupported audio format": "音频格式不支持",
-    "recording exceeds 10 seconds": "测试录音超过 10 秒，请缩短后重试",
+    "host audio buffer overrun": "电脑接收音频不及时，请重新录音",
     "no decoded audio": "没有可试听的音频",
     "voice protocol fault": "语音协议报错",
     "voice ended abnormally": "语音异常结束",

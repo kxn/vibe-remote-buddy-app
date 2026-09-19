@@ -58,6 +58,7 @@ export class BuddyService {
   private connecting = false;
   private updating = false;
   private cancelUpdate = false;
+  private probeAudio?: (body: Record<string, unknown>) => void;
   private manualSerial?: string;
   private settingsTail: Promise<unknown> = Promise.resolve();
   constructor(private platform: Platform) {}
@@ -185,6 +186,8 @@ export class BuddyService {
         void s.close(false).catch((e) => this.report(e));
       };
       s.onEvent = (f) => {
+        if (this.session === s && f.opcode === OP.PROBE_AUDIO)
+          this.probeAudio?.(f.body);
         if (this.session === s && f.opcode === OP.ACTION)
           void this.action(f.body);
       };
@@ -277,17 +280,18 @@ export class BuddyService {
       throw Error("遥控器已变化，请重新选择");
     return { slot: slot.slot, peer_id: slot.peer_id };
   }
-  async beginProbe() {
+  async beginProbe(onAudio?: (body: Record<string, unknown>) => void) {
     this.ensureMutable();
     if (
       this.snapshot.info?.probe_api !== 1 ||
-      this.snapshot.info?.probe_voice_api !== 1
+      this.snapshot.info?.probe_voice_api !== 2
     )
       throw Error("接收器固件不支持适配工具，请先更新固件");
     this.update({ busy: true });
     const session = this.require();
     try {
       await session.command(OP.PROBE_BEGIN);
+      this.probeAudio = onAudio;
     } catch (e) {
       this.update({ busy: false });
       throw e;
@@ -302,6 +306,7 @@ export class BuddyService {
     };
   }
   releaseProbe() {
+    this.probeAudio = undefined;
     this.update({ busy: false });
   }
   async reloadModels() {
@@ -419,6 +424,9 @@ export class BuddyService {
   async keys(slot: Slot): Promise<KeyEntry[]> {
     const id = this.identity(slot),
       s = this.require();
+    const before = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
+    if (before.peer_id !== slot.peer_id || before.state !== 5)
+      throw Error("请先唤醒遥控器");
     const keys: KeyEntry[] = [];
     for (let index = 0; index < 64; index++) {
       let catalog: Catalog;
@@ -436,6 +444,14 @@ export class BuddyService {
       if (index + 1 >= catalog.count) break;
     }
     this.identity(slot);
+    const after = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
+    if (
+      this.require() !== s ||
+      after.peer_id !== before.peer_id ||
+      after.generation !== before.generation ||
+      after.state !== 5
+    )
+      throw Error("遥控器连接已变化，请重新打开按键设置");
     return keys;
   }
   async saveMap(slot: Slot, desired: Mapping, action?: Action) {
@@ -448,6 +464,9 @@ export class BuddyService {
       board = this.snapshot.board!.serial;
     this.update({ busy: true });
     try {
+      const live = await s.command<Slot>(OP.SLOT, { slot: slot.slot });
+      if (live.peer_id !== slot.peer_id || live.state !== 5)
+        throw Error("请先唤醒遥控器，再保存设置");
       const before = await s.command<Mapping>(OP.MAP_GET, {
         ...id,
         key: desired.key,
