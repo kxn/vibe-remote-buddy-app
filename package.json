@@ -9,7 +9,9 @@
     "test": "vitest run",
     "tauri": "tauri",
     "release": "tauri build --no-bundle --features custom-protocol && node scripts/package.mjs",
-    "release:archive": "tauri build --no-bundle --features custom-protocol && node scripts/package.mjs --archive"
+    "release:archive": "tauri build --no-bundle --features custom-protocol && node scripts/package.mjs --archive",
+    "prerelease": "python scripts/build-setup-helper.py",
+    "prerelease:archive": "python scripts/build-setup-helper.py"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

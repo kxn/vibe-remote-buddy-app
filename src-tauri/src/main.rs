@@ -11,6 +11,7 @@ use std::{
 use tauri::{Manager, State};
 mod models;
 mod platform;
+mod receiver_setup;
 use platform::{activate, desktop, ime, installed_apps};
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -225,6 +226,7 @@ struct Native {
     port: Mutex<Option<Box<dyn serialport::SerialPort>>>,
     background: AtomicBool,
     updating: AtomicBool,
+    initializing: AtomicBool,
 }
 #[derive(Serialize)]
 struct Port {
@@ -253,10 +255,16 @@ fn ports() -> Result<Vec<Port>, String> {
 }
 #[tauri::command]
 fn serial_open(path: String, state: State<Native>) -> Result<(), String> {
+    if state.initializing.load(Ordering::SeqCst) {
+        return Err("接收器正在初始化".into());
+    }
     if !ports()?.iter().any(|p| p.path == path) {
         return Err("不是受支持的接收器".into());
     }
     let mut guard = state.port.lock().map_err(|e| e.to_string())?;
+    if state.initializing.load(Ordering::SeqCst) {
+        return Err("接收器正在初始化".into());
+    }
     if guard.is_some() {
         return Err("管理端口已经打开".into());
     }
@@ -430,8 +438,12 @@ fn firmware_package() -> Result<Option<serde_json::Value>, String> {
     ))
 }
 #[tauri::command]
-fn firmware_lock(enabled: bool, state: State<Native>) {
+fn firmware_lock(enabled: bool, state: State<Native>) -> Result<(), String> {
+    if state.initializing.load(Ordering::SeqCst) {
+        return Err("接收器正在初始化".into());
+    }
     state.updating.store(enabled, Ordering::Relaxed);
+    Ok(())
 }
 fn main() {
     tauri::Builder::default()
@@ -440,9 +452,16 @@ fn main() {
         }))
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .manage(Native::default())
+        .manage(receiver_setup::Setup::default())
         .invoke_handler(tauri::generate_handler![
             models::remote_model_resources,
             models::save_remote_model,
+            receiver_setup::setup_candidates,
+            receiver_setup::setup_package,
+            receiver_setup::setup_check,
+            receiver_setup::setup_status,
+            receiver_setup::setup_install,
+            receiver_setup::setup_release,
             firmware_package,
             firmware_lock,
             ports,

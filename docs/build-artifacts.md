@@ -19,3 +19,6 @@
 通过 `node scripts/package.mjs --import-existing <旧目录>` 可迁移已验证的旧包到固定入口；其原构建版本和提交记为 unknown，不能把当前源码提交冒充旧包来源。此选项只用于历史整理，不替代构建。
 
 Windows 当前经过验证；新增平台需要先扩展打包脚本并验证，不能把 Windows 便携包改名为 macOS/Linux 包。公开应用仓库不得混入内部固件。
+
+
+Windows 便携包还包含 `resources/installer/`：独立烧录助手、运行库、许可证及源码。`BUDDY_FIRMWARE_DIR` 中存在 `install.json` 时才复制完整安装镜像；否则仍可管理接收器，但不能首次安装。禁止单独发布助手 EXE 或删除其 `_internal` 目录。正式构建需 Python 来构建助手，终端用户不需要 Python。

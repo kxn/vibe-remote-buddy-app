@@ -1,3 +1,4 @@
+import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
 import { remoteModels, loadModels } from "./core/models";
 import { isNewer, type FirmwarePackage } from "./core/firmware";
@@ -137,6 +138,7 @@ function App() {
       | "remove"
       | "edit"
       | "probe"
+      | "setup"
       | "diagnostics"
       | "shared"
       | "backup"
@@ -170,6 +172,30 @@ function App() {
       void service.stop();
     };
   }, []);
+  const [setupCandidates, setSetupCandidates] = useState<SetupCandidate[]>([]);
+  useEffect(() => {
+    if (!native || connected || modal === "setup") return;
+    let cancelled = false,
+      polling = false;
+    const tick = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const found = await call<SetupCandidate[]>("setup_candidates");
+        if (!cancelled) setSetupCandidates(found);
+      } catch {
+        if (!cancelled) setSetupCandidates([]);
+      } finally {
+        polling = false;
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [connected, modal]);
   useEffect(() => {
     if (!notice) return;
     const t = setTimeout(() => setNotice(""), 3000);
@@ -260,6 +286,14 @@ function App() {
                 ? "正在连接…"
                 : "未找到接收器"}
           </span>
+          {!connected && setupCandidates.length > 0 && (
+            <button
+              disabled={busy || !!modal}
+              onClick={() => setModal("setup")}
+            >
+              初始化接收器
+            </button>
+          )}
           <ProjectLinks onError={(e) => service.report(e)} />
           <button
             className="icon quiet"
@@ -550,6 +584,15 @@ function App() {
             <details>
               <summary>高级</summary>
               <div className="setting">
+                <span>初始化接收器</span>
+                <button
+                  disabled={!native || busy || recording}
+                  onClick={() => setModal("setup")}
+                >
+                  打开
+                </button>
+              </div>
+              <div className="setting">
                 <span>遥控器适配工具</span>
                 <button
                   disabled={!connected || busy}
@@ -604,6 +647,16 @@ function App() {
           </>
         )}
       </main>
+      {modal === "setup" && (
+        <ReceiverSetup
+          service={service}
+          done={(add) => {
+            setRepairPeer(undefined);
+            setPage("home");
+            setModal(add ? "add" : null);
+          }}
+        />
+      )}
       {modal === "probe" && (
         <ProbeWorkbench service={service} close={() => setModal(null)} />
       )}
