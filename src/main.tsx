@@ -890,15 +890,19 @@ function ModelRemote({
   const buttons = layout.buttons.filter((b) =>
     drawnKeys.some((k) => k.id === b.key),
   );
-  const artwork = mini
-    ? renderRemoteArtwork({
-        ...resource,
-        keys: drawnKeys,
-        layout: { ...layout, buttons },
-      })
-    : layout.artworkButtons
-      ? undefined
-      : resource.image;
+  // Built-in artwork contains structural pieces (direction ring / volume rocker).
+  // Its transparent hit areas must remain transparent, including thumbnails.
+  const generated = !resource.image || layout.artworkButtons;
+  const artwork =
+    mini && generated
+      ? renderRemoteArtwork({
+          ...resource,
+          keys: drawnKeys,
+          layout: { ...layout, buttons },
+        })
+      : !generated
+        ? resource.image
+        : undefined;
   const image = artwork
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(artwork)}`
     : undefined;
@@ -917,7 +921,7 @@ function ModelRemote({
       {image && (
         <img className="model-artwork" src={image} alt="" draggable={false} />
       )}
-      {!mini &&
+      {(!mini || !generated) &&
         buttons.map((b) => {
           const definition = resource.keys.find((k) => k.id === b.key)!;
           const props = {
@@ -946,7 +950,7 @@ function ModelRemote({
           );
           return mini ? (
             <span key={b.key} {...props}>
-              {layout.thumbnailSymbols ? symbol : null}
+              {symbol}
             </span>
           ) : (
             <button

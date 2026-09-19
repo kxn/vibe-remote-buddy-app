@@ -12,17 +12,47 @@ const escape = (s: string) =>
         "'": "&apos;",
       })[c]!,
   );
-/** Deterministic, self-contained artwork; coordinates match the editable layout. */
-export function renderRemoteArtwork(model: RemoteModel): string {
+/** Keep complete button boxes inside the rounded shell, with a visible gutter. */
+export function artworkPlacement(model: RemoteModel) {
   const { width: w, height: h, buttons } = model.layout;
   const minX = Math.min(0, ...buttons.map((b) => b.x - b.width / 2));
   const maxX = Math.max(100, ...buttons.map((b) => b.x + b.width / 2));
   const minY = Math.min(0, ...buttons.map((b) => b.y - b.height / 2));
   const maxY = Math.max(100, ...buttons.map((b) => b.y + b.height / 2));
-  const sx = 84 / (maxX - minX),
+  let sx = 84 / (maxX - minX),
     sy = 86 / (maxY - minY);
-  const tx = w * 0.08 - ((minX * w) / 100) * sx,
-    ty = h * 0.07 - ((minY * h) / 100) * sy;
+  const margin = Math.min(w, h) * 0.045;
+  const radius = Math.min(w * 0.18, (h - 4) / 2);
+  const inside = (x: number, y: number) => {
+    if (x < margin || x > w - margin || y < margin || y > h - margin)
+      return false;
+    const cx = Math.max(radius, Math.min(w - radius, x));
+    const cy = Math.max(radius, Math.min(h - radius, y));
+    return Math.hypot(x - cx, y - cy) <= radius - margin;
+  };
+  for (let i = 0; i < 150; i++) {
+    const tx = w / 2 - (((minX + maxX) * w) / 200) * sx;
+    const ty = h / 2 - (((minY + maxY) * h) / 200) * sy;
+    const fits = buttons.every((b) =>
+      [-1, 1].every((dx) =>
+        [-1, 1].every((dy) =>
+          inside(
+            tx + (((b.x + (dx * b.width) / 2) * w) / 100) * sx,
+            ty + (((b.y + (dy * b.height) / 2) * h) / 100) * sy,
+          ),
+        ),
+      ),
+    );
+    if (fits) return { tx, ty, sx, sy };
+    sx *= 0.98;
+    sy *= 0.98;
+  }
+  throw Error("按键布局无法放入遥控器边界");
+}
+/** Deterministic, self-contained artwork; coordinates match the editable layout. */
+export function renderRemoteArtwork(model: RemoteModel): string {
+  const { width: w, height: h, buttons } = model.layout;
+  const { tx, ty, sx, sy } = artworkPlacement(model);
   const symbols: Record<number, string> = {
     1: "⏻",
     2: "●",

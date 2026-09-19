@@ -99,7 +99,7 @@ with sync_playwright() as p:
   page.screenshot(path=str(out/f'probe-real-{width}.png'),full_page=True)
   assert d.evaluate('(e)=>e.scrollWidth<=e.clientWidth+1')
   d.get_by_role('button',name='添加这只遥控器',exact=True).click();d.wait_for(state='hidden');page.get_by_role('dialog',name='添加遥控器').wait_for();page.wait_for_timeout(200)
-  assert page.evaluate('window.fixture.writes.filter(x=>x===0x441).length')==3
+  assert page.evaluate('window.fixture.writes.filter(x=>x===0x441).length')==2
   assert not errors,errors;c.close()
  b.close()
 print('PASS: real wizard scan/connect, grid, per-key capture, voice decode retrieval/playback confirmation, export and cleanup at 150% DPI')

@@ -345,6 +345,15 @@ fn save_settings(value: serde_json::Value, app: tauri::AppHandle) -> Result<(), 
     file.sync_all().map_err(|e| e.to_string())?;
     std::fs::rename(p, dir.join("settings.json")).map_err(|e| e.to_string())
 }
+// Bounded local diagnostic snapshot; never contains recorded PCM or credentials.
+#[tauri::command]
+fn save_probe_diagnostic(value: serde_json::Value, app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("diagnostics");
+    let bytes = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
+    if bytes.len() > 2 * 1024 * 1024 { return Err("诊断记录过大".into()); }
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::write(dir.join("probe-latest.json"), bytes).map_err(|e| e.to_string())
+}
 #[tauri::command]
 fn set_background(enabled: bool, state: State<Native>) {
     state.background.store(enabled, Ordering::Relaxed);
@@ -465,6 +474,7 @@ fn main() {
             serial_open,
             serial_close,
             serial_read,
+            save_probe_diagnostic,
             serial_write,
             load_settings,
             save_settings,

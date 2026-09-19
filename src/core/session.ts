@@ -194,7 +194,8 @@ export class Session {
   private async readLoop() {
     while (this.active) {
       try {
-        for (const f of this.parser.feed(await this.transport.read())) {
+        const data = await this.transport.read();
+        for (const f of this.parser.feed(data)) {
           if (this.session && f.session !== this.session) continue;
           if (!f.session || f.seq !== this.rx + 1)
             throw Error(`接收序号不连续：${this.rx} → ${f.seq}`);
@@ -214,7 +215,7 @@ export class Session {
           if (p.opcode === OP.HELLO && f.status === 0) this.session = f.session;
           p.resolve(f);
         }
-        await sleep(15);
+        if (!data.length) await sleep(this.pending ? 2 : 15);
       } catch (e) {
         if (this.active) this.fail(e);
         break;

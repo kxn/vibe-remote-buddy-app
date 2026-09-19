@@ -56,7 +56,6 @@ export function ProbeWorkbench({
     attrsRef = useRef<ProbeAttribute[]>([]),
     modelRef = useRef<RemoteModel | undefined>(undefined),
     voicePrepared = useRef(false),
-    reconnectNeeded = useRef(false),
     audioFetching = useRef(false),
     urlRef = useRef(""),
     lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
@@ -110,6 +109,18 @@ export function ProbeWorkbench({
       e instanceof DeviceError
         ? ` [opcode=0x${e.opcode.toString(16)} status=${e.status} ${JSON.stringify(e.detail)}]`
         : "";
+    if (native)
+      void call("save_probe_diagnostic", {
+        value: {
+          time: new Date().toISOString(),
+          failure: message + detail,
+          model: modelRef.current,
+          attributes: attrsRef.current,
+          capture: captureRef.current,
+          voice: lastVoice.current,
+          trace: client.current?.trace,
+        },
+      }).catch((e) => service.report(e));
     setError(message);
     setFailures((old) => [...old, message + detail].slice(-64));
   }
@@ -278,10 +289,16 @@ export function ProbeWorkbench({
                     captureRef.current?.phase !== "voice"
                   )
                     continue;
+                  const previousVoice = lastVoice.current;
                   lastVoice.current = v;
                   setVoice(v);
-                  if (v.error || v.decode_error)
-                    setError(
+                  if (
+                    (v.error || v.decode_error) &&
+                    (v.error !== previousVoice?.error ||
+                      v.decode_error !== previousVoice?.decode_error ||
+                      v.sdk_error !== previousVoice?.sdk_error)
+                  )
+                    fail(
                       `${voiceError(v.error || "audio decode failed")}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}${v.decode_error ? " · 解码错误 " + v.decode_error : ""}`,
                     );
                   if (
@@ -364,7 +381,6 @@ export function ProbeWorkbench({
       await client.current!.command(OP.PROBE_BEGIN);
       client.current!.resetCandidates();
       voicePrepared.current = false;
-      reconnectNeeded.current = false;
       ended.current = false;
       epoch.current++;
       attrsRef.current = [];
@@ -495,44 +511,9 @@ export function ProbeWorkbench({
       audioFetching.current = false;
       clearAudio();
       setProgress("准备语音协议");
-      if (voicePrepared.current && !reconnectNeeded.current) {
-        try {
-          await client.current!.command(OP.PROBE_VOICE_CANCEL);
-          let idle = false;
-          for (let i = 0; i < 30; i++) {
-            const v = await client.current!.command<ProbeVoiceStatus>(
-              OP.PROBE_VOICE_STATUS,
-            );
-            if (v.idle && !v.error && !v.decode_error) {
-              idle = true;
-              break;
-            }
-            if (v.error || v.decode_error) break;
-            await sleep(100);
-          }
-          reconnectNeeded.current = !idle;
-        } catch (e) {
-          fail(e);
-          reconnectNeeded.current = true;
-        }
-      }
-      if (reconnectNeeded.current) {
-        const recovered = await client.current!.reconnect(
-          selected!,
-          model!,
-          setProgress,
-        );
-        setSelected(recovered.candidate);
-        attrsRef.current = recovered.attrs;
-        setAttrs(recovered.attrs);
-        after.current = baseline.current = 0;
-        pending.current = undefined;
-        setStatus(await client.current!.status());
-        voicePrepared.current = false;
-        reconnectNeeded.current = false;
-        setError("");
-      }
-      reconnectNeeded.current = true;
+      // Capture errors are cleared by ARM. They do not imply a broken link.
+      // Never delete the temporary bond as an implicit retry of a recording.
+      if (voicePrepared.current) await client.current!.cancelVoice();
       await client.current!.command(OP.PROBE_VOICE_ARM, {
         family: model!.family,
         map_crc: model!.map_crc,
@@ -540,8 +521,26 @@ export function ProbeWorkbench({
         usage: c.proof!.usage,
       });
       voicePrepared.current = true;
-      reconnectNeeded.current = false;
       capturing({ ...c, phase: "voice", listened: false });
+    });
+  }
+  async function reconnectVoice() {
+    await run(async () => {
+      epoch.current++;
+      const recovered = await client.current!.reconnect(
+        selected!,
+        model!,
+        setProgress,
+      );
+      setSelected(recovered.candidate);
+      attrsRef.current = recovered.attrs;
+      setAttrs(recovered.attrs);
+      after.current = baseline.current = 0;
+      pending.current = undefined;
+      voicePrepared.current = false;
+      clearAudio();
+      const c = captureRef.current;
+      if (c) capturing({ ...c, phase: "key", listened: false });
     });
   }
   async function cancelCapture(remove = false) {
@@ -599,6 +598,7 @@ export function ProbeWorkbench({
       candidate: selected,
       attributes: attrs,
       reports,
+      timings: client.current?.trace,
       failures,
       status,
       proofs,
@@ -1039,7 +1039,15 @@ export function ProbeWorkbench({
                       }
                     />
                   )}
-                  {(audio || error) && (
+                  {voice?.adapter_error && (
+                    <button
+                      disabled={busy}
+                      onClick={() => void reconnectVoice()}
+                    >
+                      重新连接
+                    </button>
+                  )}
+                  {(audio || error) && !voice?.adapter_error && (
                     <button disabled={busy} onClick={() => void testVoice()}>
                       重新录音
                     </button>

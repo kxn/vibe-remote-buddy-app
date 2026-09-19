@@ -212,7 +212,57 @@ export class ProbeCandidates {
 }
 export class ProbeClient {
   private scanItems = new ProbeCandidates();
-  constructor(readonly command: ProbeCommand) {}
+  readonly trace: {
+    time: string;
+    opcode: number;
+    ms: number;
+    result: unknown;
+  }[] = [];
+  readonly command: ProbeCommand;
+  constructor(command: ProbeCommand) {
+    this.command = async <T = Record<string, unknown>>(
+      op: number,
+      body?: Record<string, unknown>,
+    ) => {
+      const start = performance.now();
+      const record = (result: unknown) => {
+        this.trace.push({
+          time: new Date().toISOString(),
+          opcode: op,
+          ms: Math.round(performance.now() - start),
+          result,
+        });
+        if (this.trace.length > 2048) this.trace.shift();
+      };
+      try {
+        const result = await command<T>(op, body);
+        // Audio content does not belong in diagnostic logs.
+        record(op === OP.PROBE_VOICE_READ ? { offset: body?.offset } : result);
+        return result;
+      } catch (e) {
+        record({
+          error: String(e),
+          ...(e instanceof DeviceError
+            ? { status: e.status, detail: e.detail }
+            : {}),
+        });
+        throw e;
+      }
+    };
+  }
+  async cancelVoice() {
+    await this.command(OP.PROBE_VOICE_CANCEL);
+    for (let i = 0; i < 40; i++) {
+      const v = await this.command<ProbeVoiceStatus>(OP.PROBE_VOICE_STATUS);
+      if (v.adapter_error)
+        throw Error(
+          `语音协议初始化失败：${v.adapter_error}${v.sdk_error ? " · " + sdkError(v.sdk_error) : ""}`,
+        );
+      if (v.idle) return;
+      await sleep(100);
+    }
+    throw Error("上一段录音尚未结束，请松开语音键后重试");
+  }
   resetCandidates() {
     this.scanItems.clear();
   }
@@ -342,7 +392,7 @@ export class ProbeClient {
         a.kind === 2 &&
         isUuid(a, 0x2a4d) &&
         a.properties & 16 &&
-        reportId(attrs, a.handle) !== undefined
+        [1, 3, 248].includes(reportId(attrs, a.handle) ?? -1)
       ) {
         await this.send(OP.PROBE_SUBSCRIBE, { index: a.index }, "订阅按键");
         await this.wait("订阅按键");
@@ -378,7 +428,7 @@ export class ProbeClient {
     const attrs = await this.identity(await this.discover());
     const detected = makeVariant(
       expected,
-      found,
+      { ...found, name: found.name || candidate.name },
       attrs,
       expected.id,
       expected.title,
@@ -499,6 +549,9 @@ export interface ProbeVoiceStatus {
   sdk_error: number;
   end_reason: number;
   error: string;
+  adapter_error?: string;
+  adapter_state?: number;
+  prepare_ms?: number;
 }
 export function pcmWav(pcm: Uint8Array, rate: number) {
   if (rate !== 16000 || pcm.length % 2) throw Error("音频格式无效");

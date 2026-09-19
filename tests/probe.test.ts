@@ -156,7 +156,12 @@ describe("probe discovery usability", () => {
   it("filters weak and invalid signals while retaining unknown nearby devices", () => {
     const list = new ProbeCandidates();
     expect(
-      list.update([candidate(1, -90), candidate(2, -50), candidate(3, 127), {...candidate(4,-25),connectable:false}]),
+      list.update([
+        candidate(1, -90),
+        candidate(2, -50),
+        candidate(3, 127),
+        { ...candidate(4, -25), connectable: false },
+      ]),
     ).toEqual([candidate(2, -50)]);
   });
   it("preserves row order across signal fluctuations and candidate ID replacement", () => {
@@ -205,5 +210,40 @@ describe("probe discovery usability", () => {
     await expect(client.wait("发现服务与特征")).rejects.toThrow(
       /发现服务与特征.*BLE_HS_ENOTCONN.*发现特征.*对端主动断开/,
     );
+  });
+});
+
+describe("voice retry ownership", () => {
+  it("rearms an idle failed recording without disconnecting or deleting its bond", async () => {
+    const ops: number[] = [];
+    const client = new ProbeClient((async (op: number) => {
+      ops.push(op);
+      return op === OP.PROBE_VOICE_STATUS
+        ? { idle: true, error: "audio decode failed", decode_error: 2 }
+        : {};
+    }) as ProbeCommand);
+    await client.cancelVoice();
+    expect(ops).toEqual([OP.PROBE_VOICE_CANCEL, OP.PROBE_VOICE_STATUS]);
+    expect(client.trace).toHaveLength(2);
+  });
+  it("reports a failed adapter distinctly without silently reconnecting", async () => {
+    const client = new ProbeClient((async (op: number) =>
+      op === OP.PROBE_VOICE_STATUS
+        ? { idle: true, adapter_error: "timeout", sdk_error: 13 }
+        : {}) as ProbeCommand);
+    await expect(client.cancelVoice()).rejects.toThrow("SDK 13");
+  });
+  it("only subscribes key reports before starting the voice adapter", async () => {
+    const subscribed: number[] = [];
+    const client = new ProbeClient((async (op: number, q: any) => {
+      if (op === OP.PROBE_SUBSCRIBE) subscribed.push(q.index);
+      return { active: true, pending: false, sdk_error: 0 };
+    }) as ProbeCommand);
+    const attrs = [1, 3, 248, 252, 253].flatMap((id, i) => [
+      attr({ kind: 2, index: i, handle: i + 10, uuid: "2a4d", properties: 16 }),
+      attr({ parent: i + 10, hex: id.toString(16).padStart(2, "0") + "01" }),
+    ]);
+    await client.subscribe(attrs);
+    expect(subscribed).toEqual([0, 1, 2]);
   });
 });
