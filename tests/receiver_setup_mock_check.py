@@ -12,6 +12,9 @@ with sync_playwright() as p:
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto((root / 'docs/mock/receiver-setup.html').as_uri())
+    assert page.locator('.preview').inner_text().startswith('仅预览 · 不会出现在成品中')
+    assert page.locator('.preview').evaluate('(e)=>getComputedStyle(e).color') == 'rgb(112, 81, 143)'
+    assert '遥控器、语音和按键设置会显示在这里' not in page.locator('#main').inner_text()
 
     def open_scenario(mode):
         page.evaluate("if(document.querySelector('#wizard').open)document.querySelector('#wizard').close()")
