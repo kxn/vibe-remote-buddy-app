@@ -2,7 +2,7 @@ import type { Candidate } from "./types";
 
 export const SCAN_DURATION_MS = 30000;
 // A proximity filter, not a distance estimate or a protocol identifier.
-export const PAIR_MIN_RSSI = -65;
+export const PAIR_MIN_RSSI = -55;
 export function isBoundCandidate(c: Candidate): boolean {
   return (
     Number.isInteger(c.bound_slot) && c.bound_slot >= 0 && c.bound_slot < 4
@@ -11,6 +11,7 @@ export function isBoundCandidate(c: Candidate): boolean {
 export function visibleCandidates(items: Candidate[]): Candidate[] {
   return items.filter(
     (c) =>
+      c.connectable &&
       (c.known || isBoundCandidate(c)) &&
       c.rssi >= PAIR_MIN_RSSI &&
       c.rssi <= 0 &&
@@ -26,6 +27,7 @@ export class PairCandidates {
       list
         .filter(
           (c) =>
+            c.connectable &&
             (c.known || isBoundCandidate(c)) &&
             Number.isFinite(c.rssi) &&
             c.rssi <= 0 &&

@@ -10,6 +10,7 @@ export interface ModelLayout {
   height: number;
   artwork?: string;
   thumbnailSymbols?: boolean;
+  artworkButtons?: boolean;
   angle?: number;
   buttons: {
     key: number;
@@ -151,6 +152,8 @@ export function validateModel(v: unknown): RemoteModel {
     (typeof l.angle === "number" &&
       Number.isFinite(l.angle) &&
       Math.abs(l.angle) <= 30), "缩略图角度无效");
+  require(l.artworkButtons === undefined ||
+    typeof l.artworkButtons === "boolean", "图片按键设置无效");
   require(l.thumbnailSymbols === undefined ||
     typeof l.thumbnailSymbols === "boolean", "缩略图设置无效");
   const placed = new Set<number>();

@@ -63,6 +63,7 @@ export interface KeyEntry {
   map: Mapping;
 }
 export interface Candidate {
+  connectable: boolean;
   candidate_id: number;
   scan_epoch: number;
   name: string;

@@ -900,48 +900,49 @@ function ModelRemote({
       {image && (
         <img className="model-artwork" src={image} alt="" draggable={false} />
       )}
-      {layout.buttons.map((b) => {
-        const definition = resource.keys.find((k) => k.id === b.key)!;
-        const props = {
-          className: `model-button ${b.key === 2 ? "voice" : ""}`,
-          style: {
-            left: `${b.x}%`,
-            top: `${b.y}%`,
-            width: `${b.width}%`,
-            height: `${b.height}%`,
-            borderRadius: `${b.radius}%`,
-            background: b.fill,
-            color: b.color,
-            borderColor: b.border,
-          },
-        };
-        const symbol = b.symbol ? (
-          <span>{b.symbol}</span>
-        ) : b.key === 11 ? (
-          <span>TV</span>
-        ) : b.key === 12 ? (
-          <span>+</span>
-        ) : b.key === 13 ? (
-          <span>−</span>
-        ) : (
-          <KeyIcon id={b.key} />
-        );
-        return mini ? (
-          <span key={b.key} {...props}>
-            {layout.thumbnailSymbols ? symbol : null}
-          </span>
-        ) : (
-          <button
-            key={b.key}
-            {...props}
-            aria-label={definition.label}
-            disabled={keys && !keys.includes(b.key)}
-            onClick={() => onKey?.(b.key)}
-          >
-            {symbol}
-          </button>
-        );
-      })}
+      {!(mini && image && layout.artworkButtons) &&
+        layout.buttons.map((b) => {
+          const definition = resource.keys.find((k) => k.id === b.key)!;
+          const props = {
+            className: `model-button ${b.key === 2 ? "voice" : ""}`,
+            style: {
+              left: `${b.x}%`,
+              top: `${b.y}%`,
+              width: `${b.width}%`,
+              height: `${b.height}%`,
+              borderRadius: `${b.radius}%`,
+              background: b.fill,
+              color: b.color,
+              borderColor: b.border,
+            },
+          };
+          const symbol = b.symbol ? (
+            <span>{b.symbol}</span>
+          ) : b.key === 11 ? (
+            <span>TV</span>
+          ) : b.key === 12 ? (
+            <span>+</span>
+          ) : b.key === 13 ? (
+            <span>−</span>
+          ) : (
+            <KeyIcon id={b.key} />
+          );
+          return mini ? (
+            <span key={b.key} {...props}>
+              {layout.thumbnailSymbols ? symbol : null}
+            </span>
+          ) : (
+            <button
+              key={b.key}
+              {...props}
+              aria-label={definition.label}
+              disabled={keys && !keys.includes(b.key)}
+              onClick={() => onKey?.(b.key)}
+            >
+              {symbol}
+            </button>
+          );
+        })}
     </div>
   );
 }

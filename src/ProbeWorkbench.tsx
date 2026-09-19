@@ -17,6 +17,7 @@ import {
   type ProbeVoiceStatus,
 } from "./core/probe";
 import { verifiedModel, removeKey, type KeyProof } from "./core/probe-layout";
+import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ProbeLayout } from "./ProbeLayout";
 import { OP, sleep, DeviceError } from "./core/session";
 import { call, native } from "./native";
@@ -559,24 +560,24 @@ export function ProbeWorkbench({
       voice: lastVoice.current,
     };
   }
-  async function save(install: boolean) {
+  async function save() {
     await run(async () => {
       const m = verifiedModel(model!, proofs);
+      m.layout.artworkButtons = true;
       if (remoteModels.has(m.id) && localSaved.current !== m.id)
         throw Error("型号标识已存在");
       setProgress("保存型号");
       let result: string | null = localSaved.current;
-      if (!install || !result) {
+      if (!result) {
         result = await call<string | null>("save_remote_model", {
           model: m,
-          image: null,
+          image: renderRemoteArtwork(m),
           evidence: JSON.stringify(evidence()),
-          install,
         });
         if (!result) return;
-        if (install) localSaved.current = m.id;
+        localSaved.current = m.id;
       }
-      if (install) {
+      {
         if (!ended.current) {
           await client.current!.end();
           ended.current = true;
@@ -585,7 +586,7 @@ export function ProbeWorkbench({
         await service.reloadModels();
         setStep(3);
         setNotice("型号已保存");
-      } else setNotice(`已导出：${result}`);
+      }
     });
   }
   const complete =
@@ -801,7 +802,7 @@ export function ProbeWorkbench({
                 <button
                   className="primary"
                   disabled={busy || !!capture || !complete}
-                  onClick={() => void save(true)}
+                  onClick={() => void save()}
                 >
                   {localSaved.current ? "重试同步" : "保存并使用"}
                 </button>
@@ -814,9 +815,6 @@ export function ProbeWorkbench({
             <h3>{model.title}</h3>
             <p>{model.keys.length} 个按键 · 语音已验证</p>
             <div className="probe-footer">
-              <button disabled={busy} onClick={() => void save(false)}>
-                导出型号
-              </button>
               <button
                 className="primary"
                 disabled={busy}
@@ -940,12 +938,14 @@ export function ProbeWorkbench({
                 <p role="status">{progress}</p>
               )}
               <div className="probe-actions">
-                <button
-                  disabled={busy}
-                  onClick={() => void cancelCapture(true)}
-                >
-                  移除按键
-                </button>
+                {capture.key !== 2 && (
+                  <button
+                    disabled={busy}
+                    onClick={() => void cancelCapture(true)}
+                  >
+                    移除按键
+                  </button>
+                )}
                 <button disabled={busy} onClick={() => void cancelCapture()}>
                   取消
                 </button>

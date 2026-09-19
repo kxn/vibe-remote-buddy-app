@@ -181,7 +181,11 @@ export class ProbeCandidates {
     const fresh = new Map(
       list
         .filter(
-          (c) => Number.isFinite(c.rssi) && c.rssi <= 0 && c.age_ms < 5000,
+          (c) =>
+            c.connectable &&
+            Number.isFinite(c.rssi) &&
+            c.rssi <= 0 &&
+            c.age_ms < 5000,
         )
         .map((c) => [`${c.address_type}:${c.address || c.candidate_id}`, c]),
     );

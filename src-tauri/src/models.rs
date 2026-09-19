@@ -185,23 +185,11 @@ pub async fn save_remote_model(
     model: Value,
     image: Option<String>,
     evidence: String,
-    install: bool,
 ) -> Result<Option<String>, String> {
-    let root = if install {
-        std::env::current_exe()
-            .map_err(|e| e.to_string())?
-            .parent()
-            .ok_or("程序目录无效")?
-            .join("resources/remotes")
-    } else {
-        match rfd::AsyncFileDialog::new()
-            .set_title("选择型号资源的保存目录")
-            .pick_folder()
-            .await
-        {
-            Some(dir) => dir.path().to_path_buf(),
-            None => return Ok(None),
-        }
-    };
+    let root = std::env::current_exe()
+        .map_err(|e| e.to_string())?
+        .parent()
+        .ok_or("程序目录无效")?
+        .join("resources/remotes");
     write_model_package(&root, model, image, &evidence).map(Some)
 }

@@ -146,6 +146,7 @@ import { ProbeCandidates, sdkError } from "../src/core/probe";
 describe("probe discovery usability", () => {
   const candidate = (id: number, rssi: number, age_ms = 0) =>
     ({
+      connectable: true,
       candidate_id: id,
       address: `remote-${id}`,
       address_type: 1,
@@ -155,38 +156,38 @@ describe("probe discovery usability", () => {
   it("filters weak and invalid signals while retaining unknown nearby devices", () => {
     const list = new ProbeCandidates();
     expect(
-      list.update([candidate(1, -90), candidate(2, -50), candidate(3, 127)]),
+      list.update([candidate(1, -90), candidate(2, -50), candidate(3, 127), {...candidate(4,-25),connectable:false}]),
     ).toEqual([candidate(2, -50)]);
   });
   it("preserves row order across signal fluctuations and candidate ID replacement", () => {
     const list = new ProbeCandidates();
     list.update([candidate(1, -40), candidate(2, -55)]);
     expect(
-      list.update([candidate(2, -30), candidate(1, -60)]).map((c) => c.address),
+      list.update([candidate(2, -30), candidate(1, -50)]).map((c) => c.address),
     ).toEqual(["remote-1", "remote-2"]);
     expect(
       list
-        .update([{ ...candidate(1, -60), candidate_id: 44 }, candidate(2, -30)])
+        .update([{ ...candidate(1, -50), candidate_id: 44 }, candidate(2, -30)])
         .map((c) => c.candidate_id),
     ).toEqual([44, 2]);
   });
   it("inserts a stronger newcomer ahead without reranking existing devices", () => {
     const list = new ProbeCandidates();
-    list.update([candidate(1, -45), candidate(2, -60)]);
+    list.update([candidate(1, -45), candidate(2, -50)]);
     expect(
       list
-        .update([candidate(1, -65), candidate(2, -30), candidate(3, -35)])
+        .update([candidate(1, -55), candidate(2, -30), candidate(3, -35)])
         .map((c) => c.candidate_id),
     ).toEqual([3, 1, 2]);
   });
   it("uses hysteresis and ages devices out without constantly reordering", () => {
     const list = new ProbeCandidates();
-    list.update([candidate(1, -64)]);
-    expect(list.update([candidate(1, -67)])).toHaveLength(1);
-    expect(list.update([candidate(1, -71)])).toHaveLength(0);
-    expect(list.update([candidate(1, -67)])).toHaveLength(0);
-    list.update([candidate(1, -60)]);
-    expect(list.update([candidate(1, -60, 5000)])).toHaveLength(0);
+    list.update([candidate(1, -54)]);
+    expect(list.update([candidate(1, -57)])).toHaveLength(1);
+    expect(list.update([candidate(1, -61)])).toHaveLength(0);
+    expect(list.update([candidate(1, -57)])).toHaveLength(0);
+    list.update([candidate(1, -50)]);
+    expect(list.update([candidate(1, -50, 5000)])).toHaveLength(0);
   });
   it("distinguishes the NimBLE host domain from ATT and HCI errors", () => {
     expect(sdkError(7)).toContain("BLE_HS_ENOTCONN");

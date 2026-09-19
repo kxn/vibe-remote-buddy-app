@@ -136,6 +136,16 @@ try {
       force: false,
     });
   }
+  // Keep locally adapted models across development updates, after producing a clean archive.
+  // User models are not bundled into distributable archives or build provenance.
+  const localModels = path.join(latest, "resources/remotes");
+  if (fs.existsSync(localModels)) {
+    for (const entry of fs.readdirSync(localModels, { withFileTypes: true })) {
+      const dest = path.join(stage, "resources/remotes", entry.name);
+      if (entry.isDirectory() && !fs.existsSync(dest))
+        fs.cpSync(path.join(localModels, entry.name), dest, { recursive: true });
+    }
+  }
   if (fs.existsSync(latest)) fs.renameSync(latest, previous);
   try {
     fs.renameSync(stage, latest);

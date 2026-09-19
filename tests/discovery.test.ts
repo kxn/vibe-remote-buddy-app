@@ -7,6 +7,7 @@ import {
 } from "../src/core/discovery";
 import type { Candidate } from "../src/core/types";
 const candidate = (patch: Partial<Candidate> = {}): Candidate => ({
+  connectable: true,
   candidate_id: 1,
   scan_epoch: 1,
   name: "remote",
@@ -30,7 +31,7 @@ describe("discovery", () => {
       candidate(),
       candidate({ candidate_id: 2 }),
       candidate({ known: false, name: "" }),
-      candidate({ rssi: -66 }),
+      candidate({ rssi: -56 }),
       candidate({ age_ms: 5000 }),
       candidate({ rssi: 127 }),
       candidate({ known: false, bound_slot: 0 }),
@@ -88,7 +89,7 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
   expect(
     ids(
       list.update([
-        candidate({ candidate_id: 1, rssi: -60 }),
+        candidate({ candidate_id: 1, rssi: -50 }),
         candidate({ candidate_id: 2, rssi: -40 }),
         candidate({ candidate_id: 3, rssi: -80 }),
       ]),
@@ -98,7 +99,7 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
     ids(
       list.update([
         candidate({ candidate_id: 1, rssi: -35 }),
-        candidate({ candidate_id: 2, rssi: -68 }),
+        candidate({ candidate_id: 2, rssi: -58 }),
         candidate({ candidate_id: 4, rssi: -30 }),
       ]),
     ),
@@ -106,9 +107,15 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
   expect(
     ids(
       list.update([
-        candidate({ candidate_id: 1, rssi: -71 }),
+        candidate({ candidate_id: 1, rssi: -61 }),
         candidate({ candidate_id: 4, rssi: -35 }),
       ]),
     ),
   ).toEqual([4]);
+});
+
+it("hides nonconnectable advertisements even with a strong signal", () => {
+ const c=candidate({connectable:false,rssi:-25});
+ expect(visibleCandidates([c])).toEqual([]);
+ expect(new PairCandidates().update([c])).toEqual([]);
 });
