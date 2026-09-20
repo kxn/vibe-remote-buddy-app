@@ -150,10 +150,10 @@
     {
       "kind": "fingerprint",
       "id": "cmcc.sample-28",
-      "revision": 1,
+      "revision": 2,
       "path": "fingerprints/operators/cmcc-28-key.json",
-      "sha256": "43902fbe1d041d2adc1a202b7300200d7ec9a3e39e6fe0c2be5a740f67a4e265",
-      "size": 1433
+      "sha256": "cf6c7cb3c88c74d5691350e257f89107b1b3357c9a3bd4d5ed68fd1ac74cd3d6",
+      "size": 1175
     },
     {
       "kind": "fingerprint",
