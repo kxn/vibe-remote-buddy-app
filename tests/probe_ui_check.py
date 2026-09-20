@@ -38,7 +38,7 @@ with sync_playwright() as p:
   # Preset copies require replacement confirmation and discard all borrowed proofs.
   d.get_by_label('布局预设').select_option('xiaomi.rc003');d.get_by_role('button',name='加载布局',exact=True).click()
   assert d.locator('.probe-grid button:not(.empty)').count()>2
-  d.get_by_label('布局预设').select_option('unicom.hid_ico.v1');d.get_by_role('button',name='加载布局',exact=True).click()
+  d.get_by_label('布局预设').select_option('unicom.sample-28');d.get_by_role('button',name='加载布局',exact=True).click()
   page.get_by_role('dialog',name='替换当前布局').get_by_role('button',name='取消',exact=True).click()
   d.get_by_role('button',name='加载布局',exact=True).click();page.get_by_role('dialog',name='替换当前布局').get_by_role('button',name='替换',exact=True).click()
   assert d.locator('.probe-grid button:not(.empty)').count()==28

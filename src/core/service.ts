@@ -1,6 +1,7 @@
 import { candidateStream } from "./candidates";
 import {
   resolveCatalog,
+  mergeCatalogCopies,
   matchingArtwork,
   compileCatalog,
   uploadCatalog,
@@ -443,8 +444,16 @@ export class BuddyService {
         })),
       };
     });
+    this.catalogModels = mergeCatalogCopies(
+      this.catalogModels, new Set(defaults.keys()),
+      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)),
+    );
+    // Keep legacy IDs available to render existing binding snapshots, while
+    // publishing only canonical identities to discovery and the board catalog.
+    for (const entry of this.catalogModels) remoteModels.set(entry.model.id, entry.model);
     this.catalogVersion = current?.version ?? "";
   }
+  get pairingModels() { return this.catalogModels.map(m => m.model); }
   async installCatalog() {
     const session = this.require();
     await uploadCatalog(

@@ -173,6 +173,47 @@ export function resolveCatalog(resources: Resource[]): CatalogModel[] {
     });
 }
 
+/** Collapse migrated local copies only when full identity AND wire keys agree.
+ * Labels/default actions/layout are personal data, never device identity. */
+export function mergeCatalogCopies(
+  models: CatalogModel[], officialIds: Set<string>, editedIds = new Set<string>(),
+): CatalogModel[] {
+  const sorted = (values: unknown[]) => [...new Set(values.map(v => JSON.stringify(v)))].sort();
+  const identity = (m: CatalogModel) => m.fingerprints.length ? JSON.stringify({
+    family: m.model.family,
+    raw: sorted(m.model.raw.map(r => [r.report, r.usage, r.key])),
+    fingerprints: sorted(m.fingerprints.map(f => {
+      const r = f.required;
+      return {
+        map: r.report_map?.hex?.toLowerCase(),
+        pnp: Object.entries(r.pnp ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+        services: sorted(r.services ?? []),
+        reports: sorted((r.reports ?? []).map((v: any) => [v.id, v.type])),
+      };
+    })),
+  }) : undefined;
+  const official = models.filter(m => officialIds.has(m.model.id));
+  const replacements = new Map<string, CatalogModel>();
+  const aliases = new Set<string>();
+  for (const local of models.filter(m => !officialIds.has(m.model.id))) {
+    const id = identity(local);
+    const matches = id ? official.filter(m => identity(m) === id) : [];
+    if (matches.length !== 1) continue;
+    const canonical = matches[0];
+    if (editedIds.has(local.model.id)) {
+      if (editedIds.has(canonical.model.id) || replacements.has(canonical.model.id))
+        throw Error("同一机型存在多份个人修改，请在机型管理中合并");
+      replacements.set(canonical.model.id, {
+        ...canonical,
+        model: { ...local.model, id: canonical.model.id },
+      });
+    }
+    aliases.add(local.model.id);
+  }
+  return models.filter(m => !aliases.has(m.model.id))
+    .map(m => replacements.get(m.model.id) ?? m);
+}
+
 class Bytes {
   data: number[] = [];
   put(n: number, width: number) {

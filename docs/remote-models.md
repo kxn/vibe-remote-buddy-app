@@ -9,8 +9,8 @@ Vibe Remote Buddy.exe
 resources/remotes/
   xiaomi.rc003/model.json
   xiaomi.rc003/artwork.svg
-  unicom.hid_ico.v1/model.json
-  unicom.hid_ico.v1/artwork.svg
+  unicom.sample-28/model.json
+  unicom.sample-28/artwork.svg
   example.voice/model.json
 ```
 
@@ -24,7 +24,7 @@ resources/remotes/
 {
   "schema": 1,
   "id": "example.voice",
-  "extends": "unicom.hid_ico.v1",
+  "extends": "unicom.sample-28",
   "title": "我的语音遥控器",
   "revision": 1,
   "matches": [{ "name": "实际广播中的完整名称" }]

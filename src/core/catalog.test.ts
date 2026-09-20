@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import {
   compileCatalog,
+  mergeCatalogCopies,
   matchingArtwork,
   resolveCatalog,
   packModel,
@@ -87,4 +88,40 @@ it("preserves shipped artwork only for unchanged public geometry", () => {
   expect(
     matchingArtwork(changed, { model: original, image: "svg" }),
   ).toBeUndefined();
+});
+
+
+describe("migrated catalog copies", () => {
+  it("publishes four canonical models when an old CMCC copy is still present", () => {
+    const base = fixture();
+    const cmcc = base.find(m => m.model.id === "cmcc.sample-28")!;
+    const local = structuredClone(cmcc);
+    local.model.id = "remote.old-copy";
+    for (const f of local.fingerprints) {
+      delete f.required.report_map.sha256;
+      delete f.required.report_map.length;
+      f.required.services.reverse(); f.required.reports.reverse();
+    }
+    const result = mergeCatalogCopies([...base, local], new Set(base.map(m => m.model.id)));
+    expect(result.map(m => m.model.id)).toEqual(base.map(m => m.model.id));
+    expect(compileCatalog(result, 1).count).toBe(4);
+    expect(local.model.id).toBe("remote.old-copy");
+  });
+  it("preserves explicit personal edits under the canonical identity", () => {
+    const base=fixture(), local=structuredClone(base[0]);local.model.id="remote.edited";
+    local.model.keys[0].label="My label";
+    const result=mergeCatalogCopies([...base,local],new Set(base.map(m=>m.model.id)),new Set([local.model.id]));
+    expect(result).toHaveLength(4);expect(result[0].model.keys[0].label).toBe("My label");
+    expect(base[0].model.keys[0].label).not.toBe("My label");
+  });
+  it("never merges a different map, PnP identity or physical key mapping", () => {
+    for(const change of [
+      (m:CatalogModel)=>{m.fingerprints[0].required.report_map.hex += "00"},
+      (m:CatalogModel)=>{m.fingerprints[0].required.pnp={source:1,vendor:1,product:2}},
+      (m:CatalogModel)=>{m.model.raw[0].usage += 1},
+    ]) {
+      const base=fixture(),local=structuredClone(base[0]);local.model.id="remote.other";change(local);
+      expect(mergeCatalogCopies([...base,local],new Set(base.map(m=>m.model.id)))).toHaveLength(5);
+    }
+  });
 });

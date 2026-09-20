@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn packaged_models_include_external_artwork() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/remotes");
-        for id in ["xiaomi.rc003", "unicom.hid_ico.v1"] {
+        for id in ["xiaomi.rc003", "unicom.sample-28"] {
             let (model, image) = read_package(&root.join(id)).unwrap();
             assert_eq!(model["id"], id);
             assert!(image.unwrap().contains("<svg"));

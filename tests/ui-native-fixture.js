@@ -13,7 +13,7 @@ window.fixture = {
 window.__TAURI_INTERNALS__ = {
   invoke: async (cmd, args = {}) => {
     const f = window.fixture;
-    if(cmd === "remote_model_resources") return f.models=await Promise.all(["xiaomi.rc003","unicom.hid_ico.v1"].map(async id=>({source:id, model:await (await fetch(`/resources/remotes/${id}/model.json`)).json(), image:await (await fetch(`/resources/remotes/${id}/artwork.svg`)).text()})));
+    if(cmd === "remote_model_resources") return f.models=await Promise.all(["xiaomi.rc003","unicom.sample-28"].map(async id=>({source:id, model:await (await fetch(`/resources/remotes/${id}/model.json`)).json(), image:await (await fetch(`/resources/remotes/${id}/artwork.svg`)).text()})));
     if (cmd === "save_remote_model") { f.exported=args; return "test/exported-model"; }
     if (cmd === "save_probe_diagnostic") return "test/diagnostic.json";
     if (cmd === "desktop_platform") return "windows";
@@ -50,7 +50,7 @@ window.__TAURI_INTERNALS__ = {
       let body = {},
         status = 0;
       const slot = q.body.slot ?? 0,
-        model = slot % 2 ? "unicom.hid_ico.v1" : "xiaomi.rc003";
+        model = slot % 2 ? "unicom.sample-28" : "xiaomi.rc003";
       if(q.opcode===f.failProbeOpcode) status=7;
       else if(q.opcode===0x440) {f.probeReports=[];f.probe={active:true,connected:false,pending:false,phase:"scanning",encrypted:false,sdk_error:0,cleanup_error:0,attributes:f.probeFamily===2?10:6,sequence:0};}
       else if(q.opcode===0x441) f.probe={...f.probe,active:false,connected:false,phase:"idle"};

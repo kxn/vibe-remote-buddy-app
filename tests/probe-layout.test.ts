@@ -1,4 +1,4 @@
-import unicom from "../resources/remotes/unicom.hid_ico.v1/model.json";
+import unicom from "../resources/remotes/unicom.sample-28/model.json";
 import { renderRemoteArtwork } from "../src/core/remote-artwork";
 import tauriConfig from "../src-tauri/tauri.conf.json";
 import { it, expect } from "vitest";

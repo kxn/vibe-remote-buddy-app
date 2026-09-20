@@ -1396,7 +1396,7 @@ function PairDialog({
           }}
         >
           <option value="">自动识别</option>
-          {[...remoteModels.values()].map((m) => (
+          {service.pairingModels.map((m) => (
             <option key={m.id} value={m.id}>
               {m.title}
             </option>

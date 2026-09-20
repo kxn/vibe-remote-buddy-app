@@ -7,7 +7,7 @@ import {
   syncModels,
 } from "../src/core/models";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
-import unicom from "../resources/remotes/unicom.hid_ico.v1/model.json";
+import unicom from "../resources/remotes/unicom.sample-28/model.json";
 import { crc32c } from "../src/core/wire";
 const source = (model: unknown) => ({ model, source: "fixture" });
 beforeEach(() => remoteModels.clear());
