@@ -1,142 +1,137 @@
 {
-  "format_version": 2,
-  "kind": "fingerprint",
-  "id": "xiaomi.legacy-32ba",
-  "revision": 1,
-  "scan_hints": [
-    {
-      "company": 0,
-      "name": "小米蓝牙语音遥控器"
-    }
-  ],
-  "required": {
-    "report_map": {
-      "length": 147,
-      "crc32c": "2c56d124",
-      "hex": "05010906a1018501050719e029e71500250175019508810295017508810195057501050819012905910295017503910195067508152825fe0507192829fe8100050c0901a10185f1150025017501951809b509b609b709cd09e209e509e709e909ea0a52010a53010a54010a55010a83010a8a010a92010a94010a21020a23020a24020a25020a26020a27020a2a028102c0c0",
-      "sha256": "e3deaf049bd359b5062acc69544ffca72dabb20d67cb53c5da57efa6b5e1ae41"
-    },
-    "pnp": {
-      "source": 1,
-      "vendor": 10007,
-      "product": 12986
-    },
-    "services": [
-      "0000d0ff-3c17-d293-8e48-14fe2e4da212",
-      "0000d1ff-3c17-d293-8e48-14fe2e4da212",
-      "0x1800",
-      "0x1801",
-      "0x180a",
-      "0x180f",
-      "0x1812"
-    ],
-    "reports": [
-      {
-        "id": 1,
-        "type": 1
-      },
-      {
-        "id": 2,
-        "type": 2
-      },
-      {
-        "id": 3,
-        "type": 1
-      },
-      {
-        "id": 4,
-        "type": 3
-      },
-      {
-        "id": 5,
-        "type": 3
-      },
-      {
-        "id": 6,
-        "type": 3
-      },
-      {
-        "id": 7,
-        "type": 3
-      },
-      {
-        "id": 8,
-        "type": 3
-      },
-      {
-        "id": 9,
-        "type": 2
-      },
-      {
-        "id": 10,
-        "type": 3
-      },
-      {
-        "id": 224,
-        "type": 3
-      },
-      {
-        "id": 225,
-        "type": 3
-      },
-      {
-        "id": 226,
-        "type": 3
-      },
-      {
-        "id": 227,
-        "type": 3
-      },
-      {
-        "id": 228,
-        "type": 3
-      },
-      {
-        "id": 229,
-        "type": 3
-      },
-      {
-        "id": 230,
-        "type": 3
-      },
-      {
-        "id": 231,
-        "type": 3
-      },
-      {
-        "id": 232,
-        "type": 3
-      },
-      {
-        "id": 233,
-        "type": 3
-      },
-      {
-        "id": 234,
-        "type": 3
-      },
-      {
-        "id": 235,
-        "type": 3
-      },
-      {
-        "id": 236,
-        "type": 3
-      },
-      {
-        "id": 237,
-        "type": 3
-      },
-      {
-        "id": 238,
-        "type": 3
-      },
-      {
-        "id": 241,
-        "type": 1
-      }
-    ]
+ "format_version": 2,
+ "kind": "fingerprint",
+ "id": "xiaomi.legacy-32ba",
+ "revision": 2,
+ "scan_hints": [
+  {
+   "company": 0,
+   "name": "小米蓝牙语音遥控器"
+  }
+ ],
+ "required": {
+  "report_map": {
+   "length": 147,
+   "crc32c": "2c56d124",
+   "hex": "05010906a1018501050719e029e71500250175019508810295017508810195057501050819012905910295017503910195067508152825fe0507192829fe8100050c0901a10185f1150025017501951809b509b609b709cd09e209e509e709e909ea0a52010a53010a54010a55010a83010a8a010a92010a94010a21020a23020a24020a25020a26020a27020a2a028102c0c0",
+   "sha256": "e3deaf049bd359b5062acc69544ffca72dabb20d67cb53c5da57efa6b5e1ae41"
   },
-  "model": "xiaomi.legacy-32ba",
-  "confidence": "captured-map"
+  "pnp": {
+   "source": 1,
+   "vendor": 10007
+  },
+  "services": [
+   "0x1812",
+   "0000d0ff-3c17-d293-8e48-14fe2e4da212",
+   "0000d1ff-3c17-d293-8e48-14fe2e4da212"
+  ],
+  "reports": [
+   {
+    "id": 1,
+    "type": 1
+   },
+   {
+    "id": 2,
+    "type": 2
+   },
+   {
+    "id": 3,
+    "type": 1
+   },
+   {
+    "id": 4,
+    "type": 3
+   },
+   {
+    "id": 5,
+    "type": 3
+   },
+   {
+    "id": 6,
+    "type": 3
+   },
+   {
+    "id": 7,
+    "type": 3
+   },
+   {
+    "id": 8,
+    "type": 3
+   },
+   {
+    "id": 9,
+    "type": 2
+   },
+   {
+    "id": 10,
+    "type": 3
+   },
+   {
+    "id": 224,
+    "type": 3
+   },
+   {
+    "id": 225,
+    "type": 3
+   },
+   {
+    "id": 226,
+    "type": 3
+   },
+   {
+    "id": 227,
+    "type": 3
+   },
+   {
+    "id": 228,
+    "type": 3
+   },
+   {
+    "id": 229,
+    "type": 3
+   },
+   {
+    "id": 230,
+    "type": 3
+   },
+   {
+    "id": 231,
+    "type": 3
+   },
+   {
+    "id": 232,
+    "type": 3
+   },
+   {
+    "id": 233,
+    "type": 3
+   },
+   {
+    "id": 234,
+    "type": 3
+   },
+   {
+    "id": 235,
+    "type": 3
+   },
+   {
+    "id": 236,
+    "type": 3
+   },
+   {
+    "id": 237,
+    "type": 3
+   },
+   {
+    "id": 238,
+    "type": 3
+   },
+   {
+    "id": 241,
+    "type": 1
+   }
+  ]
+ },
+ "model": "xiaomi.legacy-32ba",
+ "confidence": "captured-map"
 }

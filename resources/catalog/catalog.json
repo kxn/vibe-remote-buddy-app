@@ -166,10 +166,10 @@
     {
       "kind": "fingerprint",
       "id": "xiaomi.legacy-32ba",
-      "revision": 1,
+      "revision": 2,
       "path": "fingerprints/xiaomi/legacy-2717-32ba.json",
-      "sha256": "c70aca97409d8a09c1b01eea7bdd620208a781418e6b7a3898f3eec7ffa7f98c",
-      "size": 2441
+      "sha256": "e182712182d1639ab0a0aebecbe10ec464b8a98e1d0fdfce943b3a589b276073",
+      "size": 1926
     },
     {
       "kind": "fingerprint",
