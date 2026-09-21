@@ -69,3 +69,11 @@ it("renders deterministic black, silver and white shells", () => {
   });
   expect(new Set(images).size).toBe(3);
 });
+
+it("renders all slider endpoints including nearly square shell corners",()=>{
+ for(const ratio of [.18,.5]) for(const radius of [.04,.45]) for(const top of [.04,.3]) for(const bottom of [.04,.5]) {
+  const m=withAppearance(base(),{ratio,radius,top,bottom});
+  expect(()=>validateModel(m)).not.toThrow();
+  expect(()=>renderRemoteArtwork(m)).not.toThrow();
+ }
+});

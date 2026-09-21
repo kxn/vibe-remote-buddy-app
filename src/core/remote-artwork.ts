@@ -81,9 +81,10 @@ export function artworkPlacement(model: RemoteModel) {
   const inside = (x: number, y: number) => {
     if (x < margin || x > w - margin || y < margin || y > h - margin)
       return false;
-    const cx = Math.max(radius, Math.min(w - radius, x));
-    const cy = Math.max(radius, Math.min(h - radius, y));
-    return Math.hypot(x - cx, y - cy) <= radius - margin;
+    const insetRadius = Math.max(radius, margin);
+    const cx = Math.max(insetRadius, Math.min(w - insetRadius, x));
+    const cy = Math.max(insetRadius, Math.min(h - insetRadius, y));
+    return Math.hypot(x - cx, y - cy) <= insetRadius - margin;
   };
   for (let i = 0; i < 150; i++) {
     const tx = w / 2 - (((minX + maxX) * w) / 200) * sx;
