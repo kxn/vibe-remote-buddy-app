@@ -5,7 +5,16 @@ export interface ModelKey {
   label: string;
   default: [number, number, number];
 }
+export interface RemoteAppearance {
+  version: 1;
+  color: "black" | "silver" | "white";
+  ratio: number;
+  radius: number;
+  top: number;
+  bottom: number;
+}
 export interface ModelLayout {
+  appearance?: RemoteAppearance;
   width: number;
   height: number;
   artwork?: string;
@@ -171,6 +180,13 @@ export function validateModel(v: unknown): RemoteModel {
     typeof l.artworkButtons === "boolean", "图片按键设置无效");
   require(l.thumbnailSymbols === undefined ||
     typeof l.thumbnailSymbols === "boolean", "缩略图设置无效");
+  if (l.appearance !== undefined) {
+    const a = l.appearance;
+    require(object(a) && a.version === 1 && ["black", "silver", "white"].includes(a.color), "外观格式无效");
+    for (const [key, min, max] of [["ratio", .18, .5], ["radius", .04, .45], ["top", .04, .3], ["bottom", .04, .5]] as const)
+      require(typeof a[key] === "number" && Number.isFinite(a[key]) && a[key] >= min && a[key] <= max, "外观参数无效");
+    require(a.top + a.bottom <= .7, "按键区域过小");
+  }
   const placed = new Set<number>();
   const cells = new Set<number>();
   for (const b of l.buttons) {

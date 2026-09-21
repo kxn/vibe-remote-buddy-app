@@ -1096,7 +1096,7 @@ function ModelRemote({
   );
   // Built-in artwork contains structural pieces (direction ring / volume rocker).
   // Its transparent hit areas must remain transparent, including thumbnails.
-  const generated = !resource.image || layout.artworkButtons;
+  const generated = !resource.image || layout.artworkButtons || !!layout.appearance;
   const artwork =
     mini && generated
       ? renderRemoteArtwork({

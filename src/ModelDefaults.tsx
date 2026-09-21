@@ -1,3 +1,4 @@
+import { AppearanceControls } from "./AppearanceControls";
 import { RemotePreview } from "./RemotePreview";
 import { makeOverride } from "./core/model-overrides";
 import React, { useState } from "react";
@@ -81,6 +82,7 @@ export function ModelDefaults({
                 <option value="skip">不需要</option>
               </select>
             </label>
+            <details><summary>外观</summary><AppearanceControls model={draft} change={setDraft} disabled={busy}/></details>
             <ModelEditor model={draft} update={setDraft} existing />
           </fieldset>
           <div className="defaults-preview">

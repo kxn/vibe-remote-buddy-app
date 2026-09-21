@@ -503,6 +503,7 @@ export function matchingArtwork(
     old.id !== model.id ||
     !old.layout ||
     old.layout.artworkButtons ||
+    model.layout.appearance ||
     old.layout.width !== model.layout.width ||
     old.layout.height !== model.layout.height ||
     old.layout.buttons.length !== model.layout.buttons.length

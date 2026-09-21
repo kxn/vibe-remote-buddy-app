@@ -572,6 +572,7 @@ export function ProbeWorkbench({
           height: 560,
           thumbnailSymbols: true,
           editorColumns: 3,
+          appearance: {version:1,color:"black",ratio:.28,radius:.18,top:.08,bottom:.18},
           editorRows: 8,
           buttons: [],
         };
