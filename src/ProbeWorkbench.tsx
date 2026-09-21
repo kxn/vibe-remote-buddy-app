@@ -553,6 +553,7 @@ export function ProbeWorkbench({
       update(copyLayoutPreset(model, preset));
       setProofs({});
       setReplacePreset(false);
+      setPresetId("");
       setError("");
     } catch (e) {
       fail(e);
