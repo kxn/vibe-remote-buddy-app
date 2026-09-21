@@ -615,7 +615,14 @@ export class BuddyService {
       const { operation_id } = await this.require().command<{
         operation_id: number;
       }>(OP.UNBIND, id);
-      await this.waitOperation(operation_id);
+      // A failed cleanup may already have removed the durable binding. Refresh
+      // even on failure, but never turn an uncertain operation into success.
+      try {
+        await this.waitOperation(operation_id);
+      } catch (error) {
+        await this.refresh().catch((refreshError) => this.log(String(refreshError)));
+        throw error;
+      }
       await this.refresh();
       if (this.snapshot.slots.some((s) => s.peer_id === slot.peer_id))
         throw Error("尚未确认解绑结果");
