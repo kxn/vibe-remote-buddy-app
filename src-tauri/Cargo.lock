@@ -4719,6 +4719,7 @@ dependencies = [
  "open",
  "reqwest 0.12.28",
  "rfd",
+ "semver",
  "serde",
  "serde_json",
  "serialport",

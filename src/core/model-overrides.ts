@@ -58,3 +58,13 @@ export function applyOverride(
     image: layout.artworkButtons ? undefined : base.image,
   });
 }
+
+// Historical edited packages stored an entire model. Treat them as presentation
+// defaults too, so an old snapshot cannot replace updated protocol/key evidence.
+export function applyEditedModel(base: RemoteModel, edited: RemoteModel): RemoteModel {
+  return applyOverride(base, {
+    format_version: 1, id: edited.id, revision: edited.revision,
+    title: edited.title, keys: edited.keys, layout: edited.layout,
+    onboarding: edited.onboarding,
+  });
+}

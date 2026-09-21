@@ -7,7 +7,7 @@ import {
   KeyConfirmation,
   scanKnown,
 } from "./onboarding";
-import { makeOverride, applyOverride } from "./model-overrides";
+import { makeOverride, applyOverride, applyEditedModel } from "./model-overrides";
 import type { ProbeAttribute, ProbeCandidate, ProbeReport } from "./probe";
 const root = "resources/catalog/";
 const catalog = resolveCatalog(
@@ -176,6 +176,23 @@ describe("unified onboarding", () => {
   });
 });
 describe("local defaults are independent of identity and bindings", () => {
+  it("keeps repaired Xiaomi voice evidence when importing old edited layouts", () => {
+    for (const id of ["xiaomi.rc003", "xiaomi.legacy-32ba"]) {
+      const base = catalog.find(c => c.model.id === id)!.model;
+      const old = structuredClone(base);
+      old.raw = old.raw.filter(r => r.key !== 2);
+      old.title = "My layout";
+      old.keys.find(k => k.id === 2)!.label = "Talk";
+      const result = applyEditedModel(base, old);
+      expect(result.raw).toEqual(base.raw);
+      expect(result.raw).toContainEqual({ report: 1, usage: 62, key: 2 });
+      expect(result.title).toBe("My layout");
+      expect(result.keys.find(k => k.id === 2)?.label).toBe("Talk");
+      for (const button of old.layout.buttons)
+        expect(result.layout.buttons).toContainEqual(button);
+      expect(result.layout.appearance).toEqual(old.layout.appearance);
+    }
+  });
   it("overlays editable defaults without changing the base or fingerprint", () => {
     const base = catalog[0].model,
       draft = structuredClone(base);

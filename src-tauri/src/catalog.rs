@@ -29,7 +29,9 @@ fn read_snapshot(root: &Path, commit: String) -> Result<Snapshot, String> {
         if value["id"]!=entry["id"] || value["kind"]!=entry["kind"] || value["revision"]!=entry["revision"] { return Err("机型资源与索引不符".into()); }
         resources.push(value);
     }
-    Ok(Snapshot { commit, version:index["catalog_version"].as_str().ok_or("缺少机型库版本")?.into(),resources })
+    let version=index["catalog_version"].as_str().ok_or("缺少机型库版本")?;
+    semver::Version::parse(version).map_err(|_|"机型库版本无效")?;
+    Ok(Snapshot { commit, version:version.into(),resources })
 }
 fn root(app:&tauri::AppHandle)->Result<PathBuf,String>{Ok(app.path().app_config_dir().map_err(|e|e.to_string())?.join("catalog"))}
 fn bundled(app:&tauri::AppHandle)->Result<PathBuf,String>{
@@ -42,8 +44,23 @@ fn valid_commit(commit:&str)->bool{commit.len()==40&&commit.bytes().all(|b|b.is_
 #[tauri::command]
 pub fn catalog_resources(app:tauri::AppHandle)->Result<Snapshot,String>{
     let r=root(&app)?;
-    if let Ok(commit)=fs::read_to_string(r.join("active")) {if valid_commit(&commit){return read_snapshot(&r.join(&commit),commit)}}
-    read_snapshot(&bundled(&app)?,"bundled".into())
+    load_current(&bundled(&app)?,&r)
+}
+fn load_current(bundle:&Path,cache:&Path)->Result<Snapshot,String>{
+    let shipped=read_snapshot(bundle,"bundled".into());
+    let downloaded=fs::read_to_string(cache.join("active")).ok()
+        .filter(|c|valid_commit(c))
+        .map(|c|read_snapshot(&cache.join(&c),c));
+    match (shipped,downloaded) {
+        (Ok(a),Some(Ok(b))) => {
+            // Compare complete, verified releases. Never merge resource graphs or
+            // let an old cached snapshot hide a newer application's bundled fixes.
+            if semver::Version::parse(&b.version).unwrap()>semver::Version::parse(&a.version).unwrap(){Ok(b)}else{Ok(a)}
+        },
+        (Ok(a),_) => Ok(a),
+        (Err(_),Some(Ok(b))) => Ok(b),
+        (Err(e),_) => Err(e),
+    }
 }
 fn download(client:&reqwest::blocking::Client,url:&str,limit:usize)->Result<Vec<u8>,String>{
     let response=client.get(url).send().map_err(|e|e.to_string())?.error_for_status().map_err(|e|e.to_string())?;
@@ -80,7 +97,10 @@ pub async fn catalog_stage(app:tauri::AppHandle)->Result<Snapshot,String>{
 }
 #[tauri::command]
 pub fn catalog_activate(app:tauri::AppHandle,commit:String)->Result<(),String>{
-    if !valid_commit(&commit){return Err("机型库版本无效".into())}let r=root(&app)?;read_snapshot(&r.join(&commit),commit.clone())?;
+    if !valid_commit(&commit){return Err("机型库版本无效".into())}let r=root(&app)?;let next=read_snapshot(&r.join(&commit),commit.clone())?;
+    if let Ok(current)=load_current(&bundled(&app)?,&r) {
+        if semver::Version::parse(&next.version).unwrap()<semver::Version::parse(&current.version).unwrap(){return Err("不能启用旧版本机型库".into())}
+    }
     let previous=fs::read_to_string(r.join("active")).ok();
     let temporary=r.join("active.next");fs::write(&temporary,&commit).map_err(|e|e.to_string())?;
     fs::rename(temporary,r.join("active")).map_err(|e|e.to_string())?;
@@ -97,6 +117,20 @@ pub fn catalog_activate(app:tauri::AppHandle,commit:String)->Result<(),String>{
 }
 #[cfg(test)] mod tests {
     use super::*;
+    #[test] fn cached_releases_cannot_hide_bundled_fixes(){
+        let root=std::env::temp_dir().join(format!("buddy-catalog-selection-{}",std::process::id()));
+        let bundle=root.join("bundle");let cache=root.join("cache");let commit="a".repeat(40);let downloaded=cache.join(&commit);
+        fs::create_dir_all(&bundle).unwrap();fs::create_dir_all(&downloaded).unwrap();
+        let write=|p:&Path,v:&str| fs::write(p.join("catalog.json"),serde_json::json!({"format_version":2,"minimum_catalog_api":2,"catalog_version":v,"resources":[]}).to_string()).unwrap();
+        write(&bundle,"0.2.3");write(&downloaded,"0.2.0");fs::write(cache.join("active"),&commit).unwrap();
+        assert_eq!(load_current(&bundle,&cache).unwrap().commit,"bundled");
+        write(&downloaded,"0.2.10");assert_eq!(load_current(&bundle,&cache).unwrap().commit,commit);
+        write(&downloaded,"0.2.3");assert_eq!(load_current(&bundle,&cache).unwrap().commit,"bundled");
+        write(&downloaded,"invalid");assert_eq!(load_current(&bundle,&cache).unwrap().version,"0.2.3");
+        fs::remove_file(bundle.join("catalog.json")).unwrap();assert!(load_current(&bundle,&cache).is_err());
+        write(&downloaded,"0.2.10");assert_eq!(load_current(&bundle,&cache).unwrap().version,"0.2.10");
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test] fn bundled_manifest_verifies_exact_bytes(){
         let snapshot=read_snapshot(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/catalog"),"bundled".into()).unwrap();
         assert_eq!(snapshot.resources.iter().filter(|r|r["kind"]=="model").count(),6);

@@ -1,4 +1,4 @@
-import { applyOverride, type ModelOverride } from "./model-overrides";
+import { applyOverride, applyEditedModel, type ModelOverride } from "./model-overrides";
 import { candidateStream } from "./candidates";
 import {
   resolveCatalog,
@@ -364,11 +364,9 @@ export class BuddyService {
     }
     this.update();
   }
-  private async loadModelResources(snapshot?: CatalogSnapshot) {
+  private async loadModelResources() {
     const sources = this.platform.models ? await this.platform.models() : [];
-    const current =
-      snapshot ??
-      (this.platform.catalog ? await this.platform.catalog() : undefined);
+    const current = this.platform.catalog ? await this.platform.catalog() : undefined;
     const resolved = current ? resolveCatalog(current.resources) : [];
     const defaults = new Map(resolved.map((m) => [m.model.id, m]));
     const local = sources.filter(
@@ -389,10 +387,8 @@ export class BuddyService {
     // A locally edited model is a private default definition; the official
     // resource graph remains immutable and does not acquire personal changes.
     for (const s of local.filter((s) => defaults.has((s.model as any)?.id)))
-      remoteModels.set((s.model as any).id, {
-        ...validateModel(s.model),
-        image: s.image,
-      });
+      remoteModels.set((s.model as any).id,
+        applyEditedModel({ ...defaults.get((s.model as any).id)!.model, image: s.image }, validateModel(s.model)));
     this.catalogModels = [...remoteModels.values()].map((model) => {
       const official = defaults.get(model.id);
       if (official) return { ...official, model };
@@ -506,7 +502,7 @@ export class BuddyService {
     // Validate and compile before publishing the downloaded directory.
     compileCatalog(resolveCatalog(next.resources), 1);
     await this.platform.activateCatalog(next.commit);
-    await this.loadModelResources(next);
+    await this.loadModelResources();
     if (this.snapshot.info?.catalog_api === 2) await this.installCatalog();
     this.update();
   }
