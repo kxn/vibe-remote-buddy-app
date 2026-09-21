@@ -286,6 +286,9 @@ export class BuddyService {
         slot.peer_id
       ] ||
       slot.name ||
+      /* Some remotes advertise their name intermittently and bind during a
+       * nameless window; the model title beats a bare model id. */
+      remoteModels.get(slot.model)?.title ||
       slot.model ||
       "遥控器"
     );
