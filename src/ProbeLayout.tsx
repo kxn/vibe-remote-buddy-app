@@ -4,6 +4,7 @@ import { type RemoteModel } from "./core/models";
 import {
   standardKeys,
   gridColumns,
+  resizeGrid,
   cellOf,
   placeKey,
   removeKey,
@@ -46,12 +47,31 @@ export function ProbeLayout({
   };
   return (
     <>
-      <div className="probe-layout-tip">
-        <strong>将右侧常用按键拖入网格</strong>
-        <span>已有按键优先使用常用类型；也可单击空格选择按键。</span>
-      </div>
       <div className="probe-designer">
-        <section>
+        <section className="layout-canvas-panel">
+          <div className="layout-grid-toolbar">
+            <strong>按键布局</strong>
+            <div className="grid-dimensions">
+              {(["列", "行"] as const).map((label, index) => {
+                const value = index ? (model.layout.editorRows ?? 8) : gridColumns(model);
+                const minimum = index ? 8 : 2, maximum = index ? 16 : 5;
+                const resize = (delta: number) => {
+                  try {
+                    change(resizeGrid(model, index ? gridColumns(model) : value + delta,
+                      index ? value + delta : (model.layout.editorRows ?? 8)));
+                    setError("");
+                  } catch (e) { setError(String(e)); }
+                };
+                return <div className="grid-stepper" key={label}>
+                  <button aria-label={`减少${label}`} disabled={disabled || value <= minimum} onClick={() => resize(-1)}>−</button>
+                  <span>{value} {label}</span>
+                  <button aria-label={`增加${label}`} disabled={disabled || value >= maximum} onClick={() => resize(1)}>+</button>
+                </div>;
+              })}
+            </div>
+          </div>
+          <p className="muted layout-instruction">拖入右侧按键，或点击空格添加；点击按键验证。</p>
+          <div className="layout-canvas-scroll">
           <div
             className="probe-grid"
             style={{
@@ -122,9 +142,9 @@ export function ProbeLayout({
               },
             )}
           </div>
-          <small>单击空格添加 · 单击按键验证 · 拖动调整位置</small>
+          </div>
         </section>
-        <aside>
+        <aside className="layout-palette-panel">
           <strong>常用按键</strong>
           <div className="probe-palette">
             {standardKeys.map((k) => (

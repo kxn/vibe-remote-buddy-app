@@ -48,7 +48,7 @@ export function gridColumns(m: RemoteModel): number {
       2,
       Math.min(
         5,
-        new Set(m.layout.buttons.map((b) => b.x.toFixed(1))).size || 5,
+        new Set(m.layout.buttons.map((b) => b.x.toFixed(1))).size || 3,
       ),
     )
   );
@@ -64,6 +64,29 @@ export function cellOf(m: RemoteModel, id: number) {
         gridColumns(m) +
         Math.min(gridColumns(m) - 1, Math.floor(b.x / (100 / gridColumns(m))))
     : -1;
+}
+/** Resize by grid coordinates, never reinterpret existing cell indices. */
+export function resizeGrid(model: RemoteModel, columns: number, rows: number) {
+  if (!Number.isInteger(columns) || columns < 2 || columns > 5 ||
+      !Number.isInteger(rows) || rows < 8 || rows > 16)
+    throw Error("列数需为 2–5，行数需为 8–16");
+  const oldColumns = gridColumns(model), oldRows = model.layout.editorRows ?? 8;
+  const m = structuredClone(model);
+  for (const b of m.layout.buttons) {
+    const cell = cellOf(model, b.key), col = cell % oldColumns, row = Math.floor(cell / oldColumns);
+    if (col >= columns || row >= rows) throw Error("请先移走边缘的按键，再缩减网格");
+    b.cell = row * columns + col;
+    b.x = (col + .5) * 100 / columns;
+    b.y = (row + .5) * 100 / rows;
+    b.width *= oldColumns / columns;
+    b.height *= oldRows / rows;
+  }
+  m.layout.editorColumns = columns;
+  m.layout.editorRows = rows;
+  delete m.layout.artwork;
+  m.layout.artworkButtons = true;
+  delete m.image;
+  return m;
 }
 export function placeKey(
   model: RemoteModel,

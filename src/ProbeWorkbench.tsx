@@ -10,7 +10,7 @@ import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
-import { modelOrigins, remoteModels, type RemoteModel } from "./core/models";
+import { remoteModels, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
   decodeProbeKey,
@@ -28,8 +28,6 @@ import {
   copyLayoutPreset,
   verifiedModel,
   removeKey,
-  gridColumns,
-  cellOf,
   type KeyProof,
 } from "./core/probe-layout";
 import { renderRemoteArtwork } from "./core/remote-artwork";
@@ -573,6 +571,8 @@ export function ProbeWorkbench({
           width: 320,
           height: 560,
           thumbnailSymbols: true,
+          editorColumns: 3,
+          editorRows: 8,
           buttons: [],
         };
         delete m.image;
@@ -970,7 +970,7 @@ export function ProbeWorkbench({
         {identified && !ended.current && !status?.connected && !error && (
           <Feedback>遥控器已断开，验证按键前请重新连接。</Feedback>
         )}
-        <div className={`onboarding-content ${step === 5 ? "voice-step" : ""}`}>
+        <div className={`onboarding-content ${step === 5 ? "voice-step" : ""} ${step === 2 ? "layout-step" : ""}`}>
           {step === 0 && (
             <>
               <div className="probe-actions">
@@ -1080,111 +1080,28 @@ export function ProbeWorkbench({
           )}
           {step === 2 && model && (
             <>
-              <div className="probe-name-fields">
-                <label>
-                  型号名称
-                  <input
-                    value={model.title}
-                    disabled={modalBusy}
-                    onChange={(e) =>
-                      update({ ...model, title: e.target.value })
-                    }
-                  />
+              <div className="layout-settings">
+                <label>型号名称
+                  <input value={model.title} disabled={modalBusy}
+                    onChange={e => update({...model, title:e.target.value})} />
                 </label>
-                <details>
-                  <summary>高级信息</summary>
-                  <label>
-                    型号标识
-                    <input
-                      value={model.id}
-                      disabled={modalBusy}
-                      onChange={(e) => update({ ...model, id: e.target.value })}
-                    />
-                  </label>
+                <label>复制布局
+                  <div className="layout-preset-control">
+                    <select aria-label="布局预设" value={presetId} disabled={modalBusy}
+                      onChange={e => setPresetId(e.target.value)}>
+                      <option value="">选择型号</option>
+                      {[...remoteModels.values()].map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+                    </select>
+                    <button disabled={modalBusy || !preset}
+                      onClick={() => model.keys.length ? setReplacePreset(true) : applyPreset()}>加载</button>
+                  </div>
+                </label>
+                <details className="layout-identity">
+                  <summary>高级</summary>
+                  <label>型号标识<input value={model.id} disabled={modalBusy}
+                    onChange={e => update({...model,id:e.target.value})} /></label>
                 </details>
               </div>
-              <div className="probe-actions">
-                <label>
-                  从已有布局复制
-                  <select
-                    aria-label="布局预设"
-                    value={presetId}
-                    disabled={modalBusy}
-                    onChange={(e) => setPresetId(e.target.value)}
-                  >
-                    <option value="">选择型号</option>
-                    {[...remoteModels.values()].map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              {preset && (
-                <>
-                  <div className="probe-layout-tip">
-                    <div className="probe-footer">
-                      <strong>
-                        {preset.title}（
-                        {modelOrigins.get(preset.id) === "catalog"
-                          ? "内置"
-                          : "适配"}
-                        {" · "}
-                        {familyLabel(preset.family)} · {preset.keys.length} 键）
-                      </strong>
-                      <button
-                        disabled={modalBusy}
-                        onClick={() =>
-                          model.keys.length
-                            ? setReplacePreset(true)
-                            : applyPreset()
-                        }
-                      >
-                        加载此布局
-                      </button>
-                    </div>
-                    <span>
-                      Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
-                      {preset.matches
-                        .map((h) => h.name ?? h.prefix)
-                        .join(" / ")}
-                    </span>
-                  </div>
-                  <div
-                    className="probe-grid"
-                    style={{
-                      gridTemplateColumns: `repeat(${gridColumns(preset)}, minmax(0, 1fr))`,
-                    }}
-                    aria-label="布局预览"
-                  >
-                    {Array.from(
-                      {
-                        length:
-                          gridColumns(preset) * (preset.layout.editorRows ?? 8),
-                      },
-                      (_, cell) => {
-                        const k = preset.keys.find(
-                          (k) => cellOf(preset, k.id) === cell,
-                        );
-                        return (
-                          <div key={cell} className="probe-cell">
-                            {k ? (
-                              <button disabled>{k.label}</button>
-                            ) : (
-                              <button
-                                disabled
-                                className="empty"
-                                aria-label="空"
-                              />
-                            )}
-                          </div>
-                        );
-                      },
-                    )}
-                  </div>
-                </>
-              )}
               <ProbeLayout
                 model={model}
                 proofs={proofs}

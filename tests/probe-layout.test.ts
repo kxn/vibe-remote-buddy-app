@@ -3,9 +3,11 @@ import { renderRemoteArtwork } from "../src/core/remote-artwork";
 import tauriConfig from "../src-tauri/tauri.conf.json";
 import { it, expect } from "vitest";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
-import { validateModel } from "../src/core/models";
+import { validateModel, type RemoteModel } from "../src/core/models";
 import {
   copyLayoutPreset,
+  resizeGrid,
+  gridColumns,
   placeKey,
   removeKey,
   cellOf,
@@ -251,4 +253,22 @@ it("ATVV control-only voice proof is not exported as a fake HID key", () => {
   expect(() =>
     verifiedModel(m, { 2: { report: 0, usage: 8, voice: true } }),
   ).toThrow();
+});
+
+it("new canvas uses three columns; growing preserves physical cells and proofs", () => {
+  let m: RemoteModel = blank();
+  expect(gridColumns(m)).toBe(3);
+  m = placeKey(m, 7, 2);
+  const bigger = resizeGrid(m, 4, 9);
+  expect(cellOf(bigger, 2)).toBe(9);
+  expect(bigger.keys).toEqual(m.keys);
+  expect(bigger.raw).toEqual(m.raw);
+  expect(cellOf(resizeGrid(bigger, 3, 8), 2)).toBe(7);
+  expect(m.layout.editorRows).toBeUndefined();
+});
+it("shrinking never silently discards edge keys", () => {
+  const m = placeKey(resizeGrid(blank(), 4, 9), 35, 2);
+  expect(() => resizeGrid(m, 3, 9)).toThrow("移走边缘");
+  expect(() => resizeGrid(m, 4, 8)).toThrow("移走边缘");
+  expect(cellOf(m, 2)).toBe(35);
 });
