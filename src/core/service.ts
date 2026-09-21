@@ -1,3 +1,4 @@
+import { applyOverride, type ModelOverride } from "./model-overrides";
 import { candidateStream } from "./candidates";
 import {
   resolveCatalog,
@@ -44,6 +45,7 @@ import type {
   Action,
 } from "./types";
 export interface Platform {
+  overrides?(): Promise<ModelOverride[]>;
   catalog?(): Promise<CatalogSnapshot>;
   stageCatalog?(): Promise<CatalogSnapshot>;
   activateCatalog?(commit: string): Promise<void>;
@@ -79,7 +81,9 @@ export class BuddyService {
   private manualSerial?: string;
   private settingsTail: Promise<unknown> = Promise.resolve();
   private catalogModels: CatalogModel[] = [];
+  private modelAliases = new Map<string,string>();
   catalogVersion = "";
+  readonly overriddenModels = new Set<string>();
   constructor(private platform: Platform) {}
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -346,12 +350,12 @@ export class BuddyService {
     this.probeAudio = undefined;
     this.update({ busy: false });
   }
-  async reloadModels() {
+  async reloadModels(sync = true) {
     if (!this.platform.models) return;
     await this.loadModelResources();
-    if (this.snapshot.info?.catalog_api === 2) {
+    if (sync && this.snapshot.info?.catalog_api === 2) {
       await this.installCatalog();
-    } else if (this.snapshot.info?.model_api === 1) {
+    } else if (sync && this.snapshot.info?.model_api === 1) {
       const session = this.require();
       await syncModels(
         (op, body) => session.command(op, body),
@@ -447,15 +451,25 @@ export class BuddyService {
         })),
       };
     });
+    this.modelAliases.clear();
     this.catalogModels = mergeCatalogCopies(
       this.catalogModels, new Set(defaults.keys()),
-      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)),
+      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)), this.modelAliases,
     );
     // Keep legacy IDs available to render existing binding snapshots, while
     // publishing only canonical identities to discovery and the board catalog.
     for (const entry of this.catalogModels) remoteModels.set(entry.model.id, entry.model);
+    this.overriddenModels.clear();
+    for (const override of await this.platform.overrides?.() ?? []) {
+      const entry=this.catalogModels.find(e=>e.model.id===override.id);
+      if (!entry) continue;
+      entry.model=applyOverride(entry.model,override);
+      remoteModels.set(entry.model.id,entry.model);
+      this.overriddenModels.add(entry.model.id);
+    }
     this.catalogVersion = current?.version ?? "";
   }
+  get modelCatalog() { return this.catalogModels; }
   get pairingModels() { return this.catalogModels.map(m => m.model); }
   async installCatalog() {
     const session = this.require();
@@ -497,6 +511,7 @@ export class BuddyService {
     this.update();
   }
   async adoptProbe(modelId: string, transferred: () => void) {
+    modelId = this.modelAliases.get(modelId) ?? modelId;
     if (!this.adoption) {
       const { operation_id } = await this.require().command<{
         operation_id: number;

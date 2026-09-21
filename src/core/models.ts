@@ -40,6 +40,7 @@ export interface RemoteModel {
   map_crc: number;
   layout: ModelLayout;
   image?: string;
+  onboarding?: { keyConfirmation: "required" | "skip" };
 }
 export interface ModelSource {
   evidence?: any;
@@ -87,6 +88,7 @@ export function validateModel(v: unknown): RemoteModel {
       "map_crc",
       "layout",
       "image",
+      "onboarding",
     ].includes(k),
   ), "未知型号字段");
   require(v.schema === 1 &&
@@ -95,6 +97,7 @@ export function validateModel(v: unknown): RemoteModel {
   require(text(v.title, 120) &&
     integer(v.revision, 0xffffffff, 1) &&
     (v.family === 1 || v.family === 2 || v.family === 3), "型号名称、版本或协议无效");
+  require(v.onboarding === undefined || (object(v.onboarding) && Object.keys(v.onboarding).every(k => k === "keyConfirmation") && ["required", "skip"].includes(v.onboarding.keyConfirmation)), "添加策略无效");
   require(integer(v.map_crc, 0xffffffff), "map_crc 无效");
   require(Array.isArray(v.matches) &&
     v.matches.length > 0 &&

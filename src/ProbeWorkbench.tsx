@@ -1,13 +1,16 @@
+import { RemotePreview } from "./RemotePreview";
+import {
+  modelCandidates,
+  scanKnown,
+  KeyConfirmation,
+  type ModelCandidate,
+} from "./core/onboarding";
 import { ProbeMicrophone } from "./core/probe-microphone";
 import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
-import {
-  modelOrigins,
-  remoteModels,
-  type RemoteModel,
-} from "./core/models";
+import { modelOrigins, remoteModels, type RemoteModel } from "./core/models";
 import {
   ProbeClient,
   decodeProbeKey,
@@ -40,17 +43,26 @@ type Capture = {
   down?: boolean;
   listened: boolean;
 };
-const steps = ["发现设备", "连接与识别", "按键与布局", "完成"];
+const steps = ["连接设备", "选择机型", "确认与布局", "完成"];
 /* Voice protocol family of a model; display only, matching never uses it. */
 const familyLabel = (f: number) =>
   f === 2 ? "联通 ICO" : f === 3 ? "旧版 mSBC" : "ATVV";
 export function ProbeWorkbench({
   service,
   close,
+  preferredModel,
 }: {
   service: BuddyService;
   close: () => void;
+  preferredModel?: string;
 }) {
+  const confirmation = useRef<KeyConfirmation | undefined>(undefined);
+  const stageRef = useRef(0);
+  const [showAll, setShowAll] = useState(false),
+    [choices, setChoices] = useState<ModelCandidate[]>([]),
+    [choice, setChoice] = useState(""),
+    [confirmed, setConfirmed] = useState<number[]>([]);
+  const choiceRef = useRef<ModelCandidate | undefined>(undefined);
   const client = useRef<ProbeClient | undefined>(undefined),
     alive = useRef(true),
     locked = useRef(false),
@@ -95,6 +107,7 @@ export function ProbeWorkbench({
     [identified, setIdentified] = useState(false),
     [presetId, setPresetId] = useState(""),
     [replacePreset, setReplacePreset] = useState(false);
+  stageRef.current = step;
   function update(m: RemoteModel) {
     modelRef.current = m;
     setModel(m);
@@ -224,6 +237,7 @@ export function ProbeWorkbench({
               setStatus(s);
               if (!s.connected && captureRef.current) {
                 capturing(undefined);
+                if (stageRef.current === 5) setStep(1);
                 clearAudio();
                 voicePrepared.current = false;
                 setError("连接已断开，请返回连接步骤重试");
@@ -251,6 +265,20 @@ export function ProbeWorkbench({
                 if (pollEpoch !== epoch.current) continue;
                 for (const r of batch) {
                   after.current = Math.max(after.current, r.sequence);
+                  if (
+                    stageRef.current === 4 &&
+                    confirmation.current &&
+                    !locked.current
+                  ) {
+                    const result = confirmation.current.accept(
+                      r,
+                      attrsRef.current,
+                    );
+                    setConfirmed([...confirmation.current.verified]);
+                    if (result.error) setError(result.error);
+                    else if (result.key) setError("");
+                    continue;
+                  }
                   const c = captureRef.current;
                   if (
                     locked.current ||
@@ -463,6 +491,12 @@ export function ProbeWorkbench({
       clearAudio();
       setNotice("");
       localSaved.current = "";
+      confirmation.current = undefined;
+      choiceRef.current = undefined;
+      setChoices([]);
+      setChoice("");
+      setConfirmed([]);
+      voiceProof.current = undefined;
       setStep(0);
     });
   }
@@ -480,7 +514,7 @@ export function ProbeWorkbench({
       );
       setSelected(fresh);
       setProgress("配对并加密");
-      await c.security();
+      if (!(await c.status()).encrypted) await c.security();
       setProgress("读取服务与设备信息");
       const a = await c.identity(await c.discover());
       attrsRef.current = a;
@@ -488,7 +522,7 @@ export function ProbeWorkbench({
       let s = await c.status();
       setStatus(s);
       const family = familyEvidence(a);
-      if (!family) throw Error("未识别出受支持的语音协议，请保存诊断");
+      if (!family) throw Error("此设备的语音协议暂不支持，请保存诊断");
       if (protocol && family !== protocol)
         throw Error("设备协议特征与所选协议不一致");
       setProgress("订阅按键通道");
@@ -497,14 +531,16 @@ export function ProbeWorkbench({
       setStatus(s);
       if (!s.connected) throw Error("连接已断开，请重新连接");
       setIdentified(true);
-      beginLayout(a, fresh);
+      const found = modelCandidates(a, service.modelCatalog);
+      setChoices(found);
+      const preferred =
+        found.find((x) => x.model.id === preferredModel) ?? found[0];
+      setChoice(preferred?.model.id ?? "");
+      choiceRef.current = preferred;
       setStep(1);
-      preflight.current = true;
       voiceProof.current = undefined;
       baseline.current = after.current = s.sequence;
       pending.current = undefined;
-      capturing({ key: 2, phase: "voice", listened: false });
-      await prepareVoice();
     });
   }
   function beginLayout(attributes: ProbeAttribute[], candidate = selected) {
@@ -516,10 +552,14 @@ export function ProbeWorkbench({
       const existing = catalog.find((m) => m.family === family);
       // Protocol 3 has no factory key layout yet; reuse a valid seed, then
       // clear all bindings below. Never install a guessed name-only match.
-      const seed = existing ?? (family === 3 ? catalog.find(m => m.family === 1) : undefined);
-      const base = seed ? { ...seed, family: family as RemoteModel["family"] } : undefined;
+      const seed =
+        existing ??
+        (family === 3 ? catalog.find((m) => m.family === 1) : undefined);
+      const base = seed
+        ? { ...seed, family: family as RemoteModel["family"] }
+        : undefined;
       if (!base || !candidate) throw Error("缺少协议模板");
-      if (!model) {
+      if (!modelRef.current) {
         const m = makeVariant(
           base,
           candidate,
@@ -545,6 +585,90 @@ export function ProbeWorkbench({
     } catch (e) {
       fail(e);
     }
+  }
+  async function chooseModel() {
+    await run(async () => {
+      if (ended.current && modelRef.current) {
+        await addKnown(modelRef.current);
+        return;
+      }
+      if (!status?.connected) throw Error("连接已断开，请重新连接");
+      const selectedChoice = choices.find((c) => c.model.id === choice);
+      choiceRef.current = selectedChoice;
+      setProofs({});
+      setConfirmed([]);
+      confirmation.current = undefined;
+      if (selectedChoice && !selectedChoice.variant) {
+        update(structuredClone(selectedChoice.model));
+        if (!selectedChoice.confirmKeys) {
+          await addKnown(selectedChoice.model);
+          return;
+        }
+        if (selectedChoice.model.family === 1) {
+          preflight.current = true;
+          voiceProof.current = undefined;
+          setStep(5);
+          capturing({ key: 2, phase: "voice", listened: false });
+          await prepareVoice();
+          return;
+        }
+        confirmation.current = new KeyConfirmation(selectedChoice.model);
+        baseline.current = after.current = (
+          await client.current!.status()
+        ).sequence;
+        setStep(4);
+        return;
+      }
+      modelRef.current = undefined;
+      setModel(undefined);
+      if (selectedChoice) {
+        update(
+          makeVariant(
+            selectedChoice.model,
+            selected!,
+            attrsRef.current,
+            `remote.${Date.now().toString(36)}`,
+            selectedChoice.model.title,
+          ),
+        );
+      } else beginLayout(attrsRef.current);
+      if (!modelRef.current) throw Error("无法建立适配配置");
+      preflight.current = true;
+      voiceProof.current = undefined;
+      setStep(5);
+      capturing({ key: 2, phase: "voice", listened: false });
+      await prepareVoice();
+    });
+  }
+  async function addKnown(m: RemoteModel) {
+    setProgress("保存到接收器");
+    if (!ended.current) await service.installCatalog();
+    await service.adoptProbe(m.id, () => {
+      ended.current = true;
+    });
+    update(m);
+    setStep(3);
+    setNotice("遥控器已添加");
+  }
+  async function finishKeys() {
+    if (!model || !model.keys.every((k) => confirmed.includes(k.id))) return;
+    if (choiceRef.current && !choiceRef.current.variant) {
+      await run(() => addKnown(model));
+      return;
+    }
+    const collected: Record<number, KeyProof> = {};
+    for (const key of model.keys) {
+      if (key.id === 2 && voiceProof.current) collected[2] = voiceProof.current;
+      else {
+        const raw = confirmation.current?.proofs.get(key.id);
+        if (!raw) {
+          fail("按键缺少映射，请重新适配");
+          return;
+        }
+        collected[key.id] = { report: raw.report, usage: raw.usage };
+      }
+    }
+    await save(collected);
   }
   function applyPreset() {
     const preset = remoteModels.get(presetId);
@@ -657,6 +781,10 @@ export function ProbeWorkbench({
       pending.current = undefined;
       capturing(undefined);
       clearAudio();
+      if (stageRef.current === 5) {
+        preflight.current = false;
+        setStep(1);
+      }
     });
   }
   function confirmCapture() {
@@ -676,7 +804,12 @@ export function ProbeWorkbench({
       if (c.key === 2) voiceProof.current = { ...c.proof!, voice: true };
       if (preflight.current) {
         preflight.current = false;
-        setStep(2);
+        if (choiceRef.current) {
+          confirmation.current = new KeyConfirmation(modelRef.current!);
+          confirmation.current.verified.add(2);
+          setConfirmed([2]);
+          setStep(4);
+        } else setStep(2);
       }
       setProofs((old) => ({
         ...old,
@@ -725,18 +858,15 @@ export function ProbeWorkbench({
       voice: lastVoice.current,
     };
   }
-  async function save() {
+  async function save(verified = proofs) {
     await run(async () => {
-      const m = verifiedModel(model!, proofs);
+      const m = verifiedModel(model!, verified);
       m.layout.artworkButtons = true;
       if (remoteModels.has(m.id) && localSaved.current !== m.id)
         throw Error("型号标识已存在");
       /* Same-named models are distinguished by fingerprint evidence, but the
        * operator must see that choice was made. Auto titles also gain the key
        * count so identical broadcast names stop colliding in pickers. */
-      const duplicateTitle = [...remoteModels.values()].some(
-        (x) => x.id !== m.id && x.title === m.title,
-      );
       if (m.title === autoTitle.current && m.keys.length)
         m.title = `${m.title} · ${m.keys.length}键`;
       setProgress("保存型号");
@@ -753,14 +883,12 @@ export function ProbeWorkbench({
       {
         setProgress("保存到接收器");
         await service.reloadModels();
-        await service.adoptProbe(m.id, () => { ended.current = true; });
+        await service.adoptProbe(m.id, () => {
+          ended.current = true;
+        });
         ended.current = true;
         setStep(3);
-        setNotice(
-          duplicateTitle
-            ? "型号已保存（目录中存在同名机型，以 Map 指纹区分）"
-            : "型号已保存",
-        );
+        setNotice("遥控器已添加");
       }
     });
   }
@@ -787,18 +915,23 @@ export function ProbeWorkbench({
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="遥控器适配工具"
+        aria-label="添加遥控器"
         className="dialog probe-workbench"
       >
         <header>
-          <h2>适配新遥控器</h2>
+          <h2>添加遥控器</h2>
           <button disabled={busy || !!capture} onClick={() => void finish()}>
             关闭
           </button>
         </header>
         <nav className="probe-steps">
           {steps.map((s, i) => (
-            <span key={s} className={step === i ? "active" : ""}>
+            <span
+              key={s}
+              className={
+                (step === 4 || step === 5 ? 2 : step) === i ? "active" : ""
+              }
+            >
               {i < step ? "✓" : i + 1} {s}
             </span>
           ))}
@@ -834,266 +967,324 @@ export function ProbeWorkbench({
             {notice}
           </Feedback>
         )}
-        {identified && !status?.connected && !error && (
+        {identified && !ended.current && !status?.connected && !error && (
           <Feedback>遥控器已断开，验证按键前请重新连接。</Feedback>
         )}
-        {step === 0 && (
-          <>
-            <div className="probe-actions">
-              <h3>附近的设备</h3>
-              <LoaderCircle className="spin" size={16} />
-              <span>正在搜索</span>
-            </div>
-            <p>将遥控器置于配对模式，并放在接收器旁。</p>
-            <div className="probe-devices">
-              {candidates.map((c) => (
-                <div
-                  key={`${c.address_type}:${c.address}`}
-                  className="probe-device"
-                >
-                  <div>
-                    <strong>{c.name || "未命名设备"}</strong>
-                    <small>
-                      {c.address} · {c.rssi} dBm
-                    </small>
-                  </div>
-                  <button
-                    disabled={busy || !c.connectable || c.bound_slot >= 0}
-                    onClick={() => {
-                      setSelected(c);
-                      setStep(1);
+        <div className={`onboarding-content ${step === 5 ? "voice-step" : ""}`}>
+          {step === 0 && (
+            <>
+              <div className="probe-actions">
+                <LoaderCircle className="spin" size={16} />
+                <span>搜索附近的遥控器</span>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showAll}
+                    onChange={(e) => {
+                      setShowAll(e.target.checked);
+                      if (
+                        !e.target.checked &&
+                        selected &&
+                        !scanKnown(selected, service.pairingModels)
+                      )
+                        setSelected(undefined);
+                    }}
+                  />
+                  显示所有机型
+                </label>
+              </div>
+              <div className="probe-devices">
+                {candidates
+                  .filter(
+                    (c) =>
+                      c.bound_slot < 0 &&
+                      (showAll || scanKnown(c, service.pairingModels)),
+                  )
+                  .map((c) => (
+                    <button
+                      key={`${c.address_type}:${c.address}`}
+                      className={`probe-device ${selected?.address === c.address ? "selected" : ""}`}
+                      disabled={busy}
+                      onClick={() => setSelected(c)}
+                    >
+                      <span>
+                        <strong>{c.name || "未命名设备"}</strong>
+                        {!scanKnown(c, service.pairingModels) && (
+                          <small>需适配</small>
+                        )}
+                      </span>
+                      <small>信号良好</small>
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
+          {step === 1 && (
+            <div className="onboarding-columns">
+              <div>
+                <h3>{selected?.name}</h3>
+                <label>
+                  机型
+                  <select
+                    disabled={busy}
+                    value={choice}
+                    onChange={(e) => {
+                      setChoice(e.target.value);
                       setError("");
                     }}
                   >
-                    {c.bound_slot >= 0
-                      ? "已添加"
-                      : c.connectable
-                        ? "选择"
-                        : "不可连接"}
-                  </button>
-                </div>
-              ))}
-              {!candidates.length && <p className="muted">暂未发现附近设备</p>}
-            </div>
-          </>
-        )}
-        {step === 1 && (
-          <>
-            <h3>{selected?.name || selected?.address}</h3>
-            <div>
-              <label className="probe-form">
-                协议类型
-                <select
-                  value={protocol}
-                  disabled={busy || !!model}
-                  onChange={(e) => {
-                    setProtocol(Number(e.target.value));
-                    setIdentified(false);
-                    setNotice("");
-                  }}
-                >
-                  <option value={0}>自动识别</option>
-                  <option value={1}>ATVV（小米等）</option>
-                  <option value={2}>HID/ICO（联通、移动等）</option>
-                  <option value={3}>HID/mSBC（小米旧款）</option>
-                </select>
-              </label>
-            </div>
-            {error && (
-              <details>
-                <summary>设备信息与诊断</summary>
-                <p>
-                  {status?.encrypted ? "已加密" : "未加密"} ·{" "}
-                  {probeStages[status?.phase ?? ""] ?? status?.phase}
-                </p>
-                <div className="probe-scroll">
-                  <pre>
-                    {JSON.stringify(
-                      { attributes: attrs, status, failures },
-                      null,
-                      2,
-                    )}
-                  </pre>
-                </div>
-              </details>
-            )}
-            <div className="probe-footer">
-              <button disabled={busy} onClick={() => void backToScan()}>
-                返回
-              </button>
-              <button
-                disabled={busy || voicePrepared.current}
-                className="primary"
-                onClick={() => {
-                  if (identified && status?.connected) {
-                    if (voiceProof.current) setStep(2);
-                    else void verify(2);
-                  } else void connect();
-                }}
-              >
-                {identified && status?.connected
-                  ? voiceProof.current
-                    ? "配置按键"
-                    : "验证语音"
-                  : error
-                    ? "重试识别"
-                    : "识别"}
-              </button>
-            </div>
-          </>
-        )}
-        {step === 2 && model && (
-          <>
-            <div className="probe-name-fields">
-              <label>
-                型号名称
-                <input
-                  value={model.title}
-                  disabled={modalBusy}
-                  onChange={(e) => update({ ...model, title: e.target.value })}
-                />
-              </label>
-              <details>
-                <summary>高级信息</summary>
-                <label>
-                  型号标识
-                  <input
-                    value={model.id}
-                    disabled={modalBusy}
-                    onChange={(e) => update({ ...model, id: e.target.value })}
-                  />
+                    {choices.map((c) => (
+                      <option key={c.model.id} value={c.model.id}>
+                        {c.model.title}
+                        {c.match === "compatible" ? "（需确认）" : ""}
+                      </option>
+                    ))}
+                    <option value="">未知遥控器需要适配</option>
+                  </select>
                 </label>
-              </details>
-            </div>
-            <div className="probe-actions">
-              <label>
-                从已有布局复制
-                <select
-                  aria-label="布局预设"
-                  value={presetId}
-                  disabled={modalBusy}
-                  onChange={(e) => setPresetId(e.target.value)}
-                >
-                  <option value="">选择型号</option>
-                  {[...remoteModels.values()].map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {preset && (
-              <>
-                <div className="probe-layout-tip">
-                  <div className="probe-footer">
-                    <strong>
-                      {preset.title}
-                      （
-                      {modelOrigins.get(preset.id) === "catalog"
-                        ? "内置"
-                        : "适配"}
-                      {" · "}
-                      {familyLabel(preset.family)} · {preset.keys.length} 键）
-                    </strong>
-                    <button
-                      disabled={modalBusy}
-                      onClick={() =>
-                        model.keys.length
-                          ? setReplacePreset(true)
-                          : applyPreset()
-                      }
-                    >
-                      加载此布局
-                    </button>
-                  </div>
-                  <span>
-                    Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
-                    {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
-                  </span>
-                </div>
-                <div
-                  className="probe-grid"
-                  style={{
-                    gridTemplateColumns: `repeat(${gridColumns(preset)}, minmax(0, 1fr))`,
-                  }}
-                  aria-label="布局预览"
-                >
-                  {Array.from(
-                    {
-                      length:
-                        gridColumns(preset) * (preset.layout.editorRows ?? 8),
-                    },
-                    (_, cell) => {
-                      const k = preset.keys.find(
-                        (k) => cellOf(preset, k.id) === cell,
-                      );
-                      return (
-                        <div key={cell} className="probe-cell">
-                          {k ? (
-                            <button disabled>{k.label}</button>
-                          ) : (
-                            <button disabled className="empty" aria-label="空" />
-                          )}
-                        </div>
-                      );
-                    },
-                  )}
-                </div>
-              </>
-            )}
-            <ProbeLayout
-              model={model}
-              proofs={proofs}
-              change={update}
-              verify={(key) => void verify(key)}
-              disabled={modalBusy}
-            />
-            <div className="probe-footer">
-              <button disabled={modalBusy} onClick={() => setStep(1)}>
-                返回
-              </button>
-              <div className="probe-actions">
-                <small>
-                  已验证{" "}
-                  {
-                    model.keys.filter(
-                      (k) => proofs[k.id] && (k.id !== 2 || proofs[k.id].voice),
-                    ).length
-                  }{" "}
-                  / {model.keys.length}
-                  {!model.keys.some((k) => k.id === 2) ? " · 需要语音键" : ""}
-                </small>
-                <button
-                  className="primary"
-                  disabled={busy || !!capture || !complete}
-                  onClick={() => void save()}
-                >
-                  {localSaved.current ? (ended.current ? "重试绑定" : "重试保存") : "保存并使用"}
-                </button>
+              </div>
+              <div className="onboarding-preview">
+                {choices.find((c) => c.model.id === choice) ? (
+                  <RemotePreview
+                    model={choices.find((c) => c.model.id === choice)!.model}
+                  />
+                ) : (
+                  <span>创建新的遥控器配置</span>
+                )}
               </div>
             </div>
-          </>
-        )}
-        {step === 3 && model && (
-          <>
-            <h3>{model.title}</h3>
-            <p>{model.keys.length} 个按键 · 语音已验证</p>
-            <div className="probe-footer">
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() =>
-                  void run(async () => {
-                    service.releaseProbe();
-                    close();
-                  })
-                }
-              >
-                完成
-              </button>
+          )}
+          {step === 4 && model && (
+            <div className="onboarding-columns">
+              <div>
+                <h3>依次按下并松开每个按键</h3>
+                <p>
+                  {confirmed.length} / {model.keys.length}
+                </p>
+                <div className="confirmation-keys">
+                  {model.keys.map((k) => (
+                    <span
+                      key={k.id}
+                      className={confirmed.includes(k.id) ? "verified" : ""}
+                    >
+                      {k.label}
+                      {confirmed.includes(k.id) ? " ✓" : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="onboarding-preview">
+                <RemotePreview model={model} verified={confirmed} />
+              </div>
             </div>
-          </>
+          )}
+          {step === 2 && model && (
+            <>
+              <div className="probe-name-fields">
+                <label>
+                  型号名称
+                  <input
+                    value={model.title}
+                    disabled={modalBusy}
+                    onChange={(e) =>
+                      update({ ...model, title: e.target.value })
+                    }
+                  />
+                </label>
+                <details>
+                  <summary>高级信息</summary>
+                  <label>
+                    型号标识
+                    <input
+                      value={model.id}
+                      disabled={modalBusy}
+                      onChange={(e) => update({ ...model, id: e.target.value })}
+                    />
+                  </label>
+                </details>
+              </div>
+              <div className="probe-actions">
+                <label>
+                  从已有布局复制
+                  <select
+                    aria-label="布局预设"
+                    value={presetId}
+                    disabled={modalBusy}
+                    onChange={(e) => setPresetId(e.target.value)}
+                  >
+                    <option value="">选择型号</option>
+                    {[...remoteModels.values()].map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {preset && (
+                <>
+                  <div className="probe-layout-tip">
+                    <div className="probe-footer">
+                      <strong>
+                        {preset.title}（
+                        {modelOrigins.get(preset.id) === "catalog"
+                          ? "内置"
+                          : "适配"}
+                        {" · "}
+                        {familyLabel(preset.family)} · {preset.keys.length} 键）
+                      </strong>
+                      <button
+                        disabled={modalBusy}
+                        onClick={() =>
+                          model.keys.length
+                            ? setReplacePreset(true)
+                            : applyPreset()
+                        }
+                      >
+                        加载此布局
+                      </button>
+                    </div>
+                    <span>
+                      Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
+                      {preset.matches
+                        .map((h) => h.name ?? h.prefix)
+                        .join(" / ")}
+                    </span>
+                  </div>
+                  <div
+                    className="probe-grid"
+                    style={{
+                      gridTemplateColumns: `repeat(${gridColumns(preset)}, minmax(0, 1fr))`,
+                    }}
+                    aria-label="布局预览"
+                  >
+                    {Array.from(
+                      {
+                        length:
+                          gridColumns(preset) * (preset.layout.editorRows ?? 8),
+                      },
+                      (_, cell) => {
+                        const k = preset.keys.find(
+                          (k) => cellOf(preset, k.id) === cell,
+                        );
+                        return (
+                          <div key={cell} className="probe-cell">
+                            {k ? (
+                              <button disabled>{k.label}</button>
+                            ) : (
+                              <button
+                                disabled
+                                className="empty"
+                                aria-label="空"
+                              />
+                            )}
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+                </>
+              )}
+              <ProbeLayout
+                model={model}
+                proofs={proofs}
+                change={update}
+                verify={(key) => void verify(key)}
+                disabled={modalBusy}
+              />
+              <div className="probe-footer">
+                <button disabled={modalBusy} onClick={() => setStep(1)}>
+                  返回
+                </button>
+                <div className="probe-actions">
+                  <small>
+                    已验证{" "}
+                    {
+                      model.keys.filter(
+                        (k) =>
+                          proofs[k.id] && (k.id !== 2 || proofs[k.id].voice),
+                      ).length
+                    }{" "}
+                    / {model.keys.length}
+                    {!model.keys.some((k) => k.id === 2) ? " · 需要语音键" : ""}
+                  </small>
+                  <button
+                    className="primary"
+                    disabled={busy || !!capture || !complete}
+                    onClick={() => void save()}
+                  >
+                    {localSaved.current
+                      ? ended.current
+                        ? "重试绑定"
+                        : "重试保存"
+                      : "保存并使用"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+          {step === 3 && model && (
+            <>
+              <h3>{model.title}</h3>
+              <p>{model.keys.length} 个按键 · 已添加</p>
+              <div className="probe-footer">
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      service.releaseProbe();
+                      close();
+                    })
+                  }
+                >
+                  完成
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        {[0, 1, 4].includes(step) && (
+          <div className="probe-footer onboarding-footer">
+            <button
+              disabled={busy || ended.current || !!localSaved.current}
+              onClick={() =>
+                step === 0
+                  ? void finish()
+                  : step === 1
+                    ? void backToScan()
+                    : (setStep(1), setError(""))
+              }
+            >
+              {step === 0 ? "取消" : "返回"}
+            </button>
+            <button
+              className="primary"
+              disabled={
+                busy ||
+                sessionLost.current ||
+                (step === 0
+                  ? !selected
+                  : step === 4
+                    ? !model?.keys.every((k) => confirmed.includes(k.id))
+                    : !status?.connected && !ended.current)
+              }
+              onClick={() =>
+                step === 0
+                  ? void connect()
+                  : step === 1
+                    ? void chooseModel()
+                    : void finishKeys()
+              }
+            >
+              {step === 0 ? "连接" : step === 4 ? "添加" : "下一步"}
+            </button>
+            {step !== 0 && !status?.connected && !ended.current && (
+              <button disabled={busy} onClick={() => void connect()}>
+                重新连接
+              </button>
+            )}
+          </div>
         )}
         {replacePreset && (
           <div
@@ -1122,7 +1313,7 @@ export function ProbeWorkbench({
         )}
         {capture && (
           <div
-            className="probe-modal-layer"
+            className={step === 5 ? "onboarding-voice" : "probe-modal-layer"}
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Escape" && !busy) void cancelCapture();
@@ -1130,7 +1321,7 @@ export function ProbeWorkbench({
           >
             <section
               role="dialog"
-              aria-modal="true"
+              aria-modal={step === 5 ? undefined : true}
               aria-label="验证按键"
               className="probe-modal capture-modal"
             >
@@ -1138,7 +1329,7 @@ export function ProbeWorkbench({
                 验证按键 ·{" "}
                 {model?.keys.find((k) => k.id === capture.key)?.label ?? "语音"}
               </h3>
-              <label>
+              <label hidden={step === 5}>
                 按键名称
                 <input
                   maxLength={24}

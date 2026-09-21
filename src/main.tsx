@@ -1,3 +1,4 @@
+import { ModelLibrary } from "./ModelLibrary";
 import { ModelDefaults } from "./ModelDefaults";
 import { Feedback } from "./Feedback";
 import { artworkModel, renderRemoteArtwork } from "./core/remote-artwork";
@@ -87,6 +88,7 @@ if (!native) {
   );
 }
 const service = new BuddyService({
+  overrides: () => call("model_overrides"),
   catalog: () => call("catalog_resources"),
   stageCatalog: () => call("catalog_stage"),
   activateCatalog: (commit) => call("catalog_activate", { commit }),
@@ -123,6 +125,7 @@ function Spinner() {
   return <LoaderCircle className="spin" size={16} />;
 }
 function App() {
+  const [preferredModel,setPreferredModel]=useState<string>();
   const [firmware, setFirmware] = useState<FirmwarePackage | null>(null);
   const snap = useSyncExternalStore(service.subscribe, service.getSnapshot),
     [page, setPage] = useState<"home" | "keys" | "settings">("home"),
@@ -140,7 +143,7 @@ function App() {
       | "edit"
       | "reset-defaults"
       | "adopt-defaults"
-      | "probe"
+      | "library"
       | "setup"
       | "receiver"
       | "diagnostics"
@@ -691,44 +694,6 @@ function App() {
             <section className="settings-group">
               <h2>配置</h2>
               <div className="setting">
-                <span>
-                  机型库<small>{service.catalogVersion}</small>
-                </span>
-                <button
-                  disabled={!native || busy || recording}
-                  onClick={() =>
-                    void safely(async () => {
-                      await service.updateCatalog();
-                      setNotice("机型库已更新");
-                    })
-                  }
-                >
-                  检查更新
-                </button>
-              </div>
-              <div className="setting">
-                <span>
-                  接收器机型库
-                  <small>{snap.info?.catalog_count ?? 0} 个机型</small>
-                </span>
-                <button
-                  disabled={
-                    !connected ||
-                    busy ||
-                    recording ||
-                    snap.info?.catalog_api !== 2
-                  }
-                  onClick={() =>
-                    void safely(async () => {
-                      await service.installCatalog();
-                      setNotice("已同步到接收器");
-                    })
-                  }
-                >
-                  同步
-                </button>
-              </div>
-              <div className="setting">
                 <span>备份与恢复</span>
                 <button
                   disabled={!native || busy}
@@ -750,10 +715,10 @@ function App() {
                 </button>
               </div>
               <div className="setting">
-                <span>遥控器适配工具</span>
+                <span>机型库管理</span>
                 <button
-                  disabled={!connected || busy}
-                  onClick={() => setModal("probe")}
+                  disabled={busy}
+                  onClick={() => setModal("library")}
                 >
                   打开
                 </button>
@@ -839,9 +804,7 @@ function App() {
           }}
         />
       )}
-      {modal === "probe" && (
-        <ProbeWorkbench service={service} close={() => setModal(null)} />
-      )}
+      {modal === "library" && <ModelLibrary service={service} close={()=>setModal(null)} add={id=>{setPreferredModel(id);setModal("add");}}/>}
       {modal === "about" && (
         <Dialog title="关于" close={() => setModal(null)}>
           <div className="about-product">
@@ -864,7 +827,8 @@ function App() {
           </footer>
         </Dialog>
       )}
-      {modal === "add" && (
+      {modal === "add" && !repairPeer && <ProbeWorkbench service={service} preferredModel={preferredModel} close={()=>{setPreferredModel(undefined);setModal(null);}}/>}
+      {modal === "add" && repairPeer && (
         <PairDialog
           service={service}
           expectedPeer={repairPeer}

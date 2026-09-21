@@ -145,6 +145,7 @@ export function resolveCatalog(resources: Resource[]): CatalogModel[] {
           ...fps.map((f) => f.revision),
         ),
         family,
+        onboarding: m.onboarding ?? { keyConfirmation: family === 2 ? "required" : "skip" },
         matches,
         map_crc: Number.parseInt(fps[0].required.report_map.crc32c, 16),
         keys: buttons.map((b: { id: string; key: number }) => {
@@ -176,7 +177,7 @@ export function resolveCatalog(resources: Resource[]): CatalogModel[] {
 /** Collapse migrated local copies only when full identity AND wire keys agree.
  * Labels/default actions/layout are personal data, never device identity. */
 export function mergeCatalogCopies(
-  models: CatalogModel[], officialIds: Set<string>, editedIds = new Set<string>(),
+  models: CatalogModel[], officialIds: Set<string>, editedIds = new Set<string>(), aliasesOut?: Map<string,string>,
 ): CatalogModel[] {
   const sorted = (values: unknown[]) => [...new Set(values.map(v => JSON.stringify(v)))].sort();
   const identity = (m: CatalogModel) => m.fingerprints.length ? JSON.stringify({
@@ -209,6 +210,7 @@ export function mergeCatalogCopies(
       });
     }
     aliases.add(local.model.id);
+    aliasesOut?.set(local.model.id,canonical.model.id);
   }
   return models.filter(m => !aliases.has(m.model.id))
     .map(m => replacements.get(m.model.id) ?? m);

@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "model",
   "id": "xiaomi.rc003",
-  "revision": 1,
+  "revision": 2,
   "title": "小米 Remote 2 Pro",
   "buttons": [
     {
@@ -61,5 +61,8 @@
   "protocol": "atvv.rc003",
   "keymap": "xiaomi.rc003",
   "layout": "xiaomi.rc003",
-  "defaults": "xiaomi.rc003"
+  "defaults": "xiaomi.rc003",
+  "onboarding": {
+    "keyConfirmation": "skip"
+  }
 }

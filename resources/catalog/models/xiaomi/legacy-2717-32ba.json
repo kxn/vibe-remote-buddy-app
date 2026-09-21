@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "model",
   "id": "xiaomi.legacy-32ba",
-  "revision": 1,
+  "revision": 2,
   "title": "小米蓝牙语音遥控器",
   "buttons": [
     {
@@ -57,5 +57,8 @@
   "protocol": "xiaomi.hid-msbc",
   "keymap": "xiaomi.legacy-32ba",
   "layout": "xiaomi.legacy-32ba",
-  "defaults": "xiaomi.legacy-32ba"
+  "defaults": "xiaomi.legacy-32ba",
+  "onboarding": {
+    "keyConfirmation": "skip"
+  }
 }

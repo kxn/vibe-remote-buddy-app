@@ -558,6 +558,7 @@ export function makeVariant(
   model.id = id;
   model.title = title;
   model.revision = 1;
+  model.onboarding = { keyConfirmation: "required" };
   model.matches = [
     { name: c.name, ...(c.company >= 0 ? { company: c.company } : {}) },
   ];
@@ -598,7 +599,8 @@ export function familyEvidence(attrs: ProbeAttribute[]): number | undefined {
     [0xf8, 1],
     [0xfa, 2],
   ].every(([id, type]) => refs.some((r) => r[0] === id && r[1] === type));
-  const legacy = [4, 5, 6, 7, 8].every(id =>
+  // RC003 also exposes these Feature IDs. Its explicit ATVV service wins.
+  const legacy = !atvv && [4, 5, 6, 7, 8].every(id =>
     refs.filter(r => r[0] === id && r[1] === 3).length === 1) &&
     refs.some(r => r[0] === 1 && r[1] === 1);
   const candidates = [atvv ? 1 : 0, ico ? 2 : 0, legacy ? 3 : 0].filter(Boolean);

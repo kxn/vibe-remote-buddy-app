@@ -1,4 +1,5 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+mod model_overrides;
 use serde::Serialize;
 use std::{
     io::{Read, Write},
@@ -478,6 +479,8 @@ fn main() {
             catalog::catalog_activate,
             models::save_remote_model,
             models::update_remote_model,
+            model_overrides::model_overrides,
+            model_overrides::save_model_override,
             receiver_setup::setup_candidates,
             receiver_setup::setup_package,
             receiver_setup::setup_check,

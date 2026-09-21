@@ -102,9 +102,7 @@ export function ModelEditor({
             value={k.default[2]}
             onChange={(e) =>
               change((m) => {
-                m.keys.find((x) => x.id === k.id)!.default[2] = Number(
-                  e.target.value,
-                );
+                m.keys.find((x) => x.id === k.id)!.default = Number(e.target.value) === 3 ? [3,0,44] : [5,0,Number(e.target.value)];
               })
             }
           >
