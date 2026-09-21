@@ -77,3 +77,25 @@ it("renders all slider endpoints including nearly square shell corners",()=>{
   expect(()=>renderRemoteArtwork(m)).not.toThrow();
  }
 });
+
+it("appearance keeps three occupied columns centered on a five-column canvas",()=>{
+ const original=base();
+ delete original.image;
+ original.layout.editorColumns=5;
+ original.layout.editorRows=8;
+ original.layout.buttons=original.layout.buttons.slice(0,3).map((b,i)=>({...b,x:10+20*i,width:16}));
+ const before=artworkModel(original);
+ for(const bottom of [.18,.22,.34,.5]){
+  const changed=withAppearance(original,{bottom});
+  const shown=artworkModel(changed);
+  expect(shown.layout.buttons).toEqual(before.layout.buttons);
+  expect(shown.layout.width).toBeCloseTo(before.layout.width);
+  expect(artworkModel(shown).layout).toEqual(shown.layout);
+  const p=artworkPlacement(shown);
+  const left=Math.min(...shown.layout.buttons.map(b=>p.tx/shown.layout.width*100+(b.x-b.width/2)*p.sx));
+  const right=Math.max(...shown.layout.buttons.map(b=>p.tx/shown.layout.width*100+(b.x+b.width/2)*p.sx));
+  expect(left+right).toBeCloseTo(100);
+  expect(right-left).toBeGreaterThan(70);
+ }
+ expect(original.layout.buttons[0].x).toBe(10);
+});

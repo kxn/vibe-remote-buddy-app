@@ -16,18 +16,16 @@ const escape = (s: string) =>
 /** Trim only empty outer grid columns; preserve gaps and the editable canvas. */
 export function artworkModel(model: RemoteModel): RemoteModel {
   const { layout } = model;
-  if (layout.appearance)
-    return {
-      ...model,
-      layout: { ...layout, width: layout.height * layout.appearance.ratio },
-    };
+  const width = layout.appearance
+    ? layout.height * layout.appearance.ratio
+    : layout.width;
   const cols = layout.editorColumns;
   if (
     !cols ||
     !layout.buttons.length ||
-    (model.image && !layout.artworkButtons)
+    (model.image && !layout.artworkButtons && !layout.appearance)
   )
-    return model;
+    return width === layout.width ? model : {...model, layout: {...layout, width}};
   const left = Math.max(
     0,
     Math.floor(
@@ -51,7 +49,7 @@ export function artworkModel(model: RemoteModel): RemoteModel {
       // Remove grid metadata from this display-only projection so it is idempotent.
       editorColumns: undefined,
       // Grid artwork has a physical proportion independent of the editor canvas.
-      width: (layout.height * used) / ((layout.editorRows ?? 8) + 2),
+      width: layout.appearance ? width : (layout.height * used) / ((layout.editorRows ?? 8) + 2),
       buttons: layout.buttons.map((b) => ({
         ...b,
         x: ((b.x - (left * 100) / cols) * cols) / used,

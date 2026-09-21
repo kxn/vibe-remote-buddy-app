@@ -1,11 +1,12 @@
 import React from "react";
+import {artworkModel} from "./core/remote-artwork";
 import type { RemoteModel, RemoteAppearance } from "./core/models";
 export function appearanceOf(model: RemoteModel): RemoteAppearance {
   return (
     model.layout.appearance ?? {
       version: 1,
       color: "black",
-      ratio: 0.28,
+      ratio: Math.max(.18,Math.min(.5,artworkModel(model).layout.width / model.layout.height)),
       radius: 0.18,
       top: 0.08,
       bottom: 0.18,
