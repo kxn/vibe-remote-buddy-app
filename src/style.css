@@ -59,7 +59,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: -3px;
 }
 .primary {
   background: var(--accent);
@@ -143,7 +143,7 @@ header {
 }
 a:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: -3px;
 }
 .about-entry {
   width: 100%;
@@ -1504,3 +1504,25 @@ img, a { -webkit-user-drag: none; }
 }
 
 .layout-canvas-editor { display:flex; flex-direction:column; flex:1; min-height:0; }
+
+/* Fit actual key artwork into its viewport, including high-DPI/short windows. */
+.remote-preview-fit { flex:1; min-width:0; min-height:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.remote-preview-fit > .onboarding-remote { min-height:0; max-height:none; max-width:none; margin:0; }
+.onboarding-content.candidate-step { overflow:hidden; padding:6px; }
+.candidate-step > .onboarding-columns { height:100%; min-height:0; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
+.candidate-step > .onboarding-columns > div:first-child { min-width:0; overflow:auto; padding:6px; }
+.candidate-step .onboarding-preview { min-height:0; min-width:0; overflow:hidden; padding:.75rem; }
+.candidate-step select:focus-visible { outline-offset:-3px; }
+.library-detail > .remote-preview-fit { height:0; flex:1; }
+.defaults-preview { height: min(24rem, 48dvh); }
+.layout-preview-art { overflow:hidden; }
+.layout-preview-art .remote-preview-fit > .onboarding-remote { min-height:0; max-height:none; }
+@media(max-width:650px) {
+ .candidate-step > .onboarding-columns { grid-template-columns:minmax(0,1fr) minmax(0,.8fr); }
+ .candidate-step .onboarding-columns label { margin-top:.75rem; }
+}
+
+.library-list { padding:4px; min-width:0; }
+.library-list button:focus-visible { outline-offset:-3px; }
+.library-detail { min-width:0; overflow:hidden; }
+.library-detail > h3, .library-detail > small { flex-shrink:0; }

@@ -970,7 +970,7 @@ export function ProbeWorkbench({
         {identified && !ended.current && !status?.connected && !error && (
           <Feedback>遥控器已断开，验证按键前请重新连接。</Feedback>
         )}
-        <div className={`onboarding-content ${step === 5 ? "voice-step" : ""} ${step === 2 ? "layout-step" : ""}`}>
+        <div className={`onboarding-content ${step === 5 ? "voice-step" : ""} ${step === 2 ? "layout-step" : ""} ${step === 1 || step === 4 ? "candidate-step" : ""}`}>
           {step === 0 && (
             <>
               <div className="probe-actions">

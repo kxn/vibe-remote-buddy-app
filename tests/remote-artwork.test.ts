@@ -64,15 +64,27 @@ it("crops centered three-column layouts without altering the editor or internal 
     .slice(0, 3)
     .map((b, i) => ({ ...b, x: 30 + i * 20, width: 16 }));
   const shown = artworkModel(m);
-  expect(shown.layout.width).toBe(192);
+  expect(shown.layout.width).toBe(m.layout.height * 3 / ((m.layout.editorRows ?? 8) + 2));
   expect(shown.layout.buttons.map((b) => b.x)).toEqual([100 / 6, 50, 250 / 3]);
   expect(m.layout.editorColumns).toBe(5);
   expect(m.layout.buttons[0].x).toBe(30);
   expect(artworkModel(shown)).toBe(shown);
-  expect(renderRemoteArtwork(m)).toContain('viewBox="0 0 192 ');
+  expect(renderRemoteArtwork(m)).toContain(`viewBox="0 0 ${shown.layout.width} `);
   // An empty middle column is intentional spacing, not something to collapse.
   m.layout.buttons.splice(1, 1);
-  expect(artworkModel(m).layout.width).toBe(192);
+  expect(artworkModel(m).layout.width).toBe(m.layout.height * 3 / ((m.layout.editorRows ?? 8) + 2));
   m.layout.buttons[0].width = 60;
-  expect(artworkModel(m).layout.width).toBe(256);
+  expect(artworkModel(m).layout.width).toBe(m.layout.height * 4 / ((m.layout.editorRows ?? 8) + 2));
+});
+
+it("three-column artwork is slender even when the editor canvas is wide", () => {
+  const m = validateModel(structuredClone(model));
+  delete m.image;
+  m.layout.editorColumns = 3;
+  m.layout.editorRows = 8;
+  m.layout.width = 900;
+  m.layout.buttons = m.layout.buttons.slice(0, 3).map((b, i) => ({...b, x: (i + .5) * 100 / 3, width: 24}));
+  const shown = artworkModel(m);
+  expect(shown.layout.width / shown.layout.height).toBeCloseTo(.3);
+  expect(m.layout.width).toBe(900);
 });

@@ -38,14 +38,15 @@ export function artworkModel(model: RemoteModel): RemoteModel {
     ),
   );
   const used = right - left;
-  if (used <= 0 || used === cols) return model;
+  if (used <= 0) return model;
   return {
     ...model,
     layout: {
       ...layout,
       // Remove grid metadata from this display-only projection so it is idempotent.
       editorColumns: undefined,
-      width: (layout.width * used) / cols,
+      // Grid artwork has a physical proportion independent of the editor canvas.
+      width: (layout.height * used) / ((layout.editorRows ?? 8) + 2),
       buttons: layout.buttons.map((b) => ({
         ...b,
         x: ((b.x - (left * 100) / cols) * cols) / used,
