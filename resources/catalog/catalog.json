@@ -1,6 +1,6 @@
 {
   "format_version": 2,
-  "catalog_version": "0.2.1",
+  "catalog_version": "0.2.2",
   "minimum_catalog_api": 2,
   "resources": [
     {
@@ -46,18 +46,18 @@
     {
       "kind": "keymap",
       "id": "xiaomi.legacy-32ba",
-      "revision": 1,
+      "revision": 2,
       "path": "keymaps/xiaomi/legacy-2717-32ba.json",
-      "sha256": "6108e6e3b8de5c45f8f0da9c85bc919d9b5230500a208504dd6af69fcbfec2e8",
-      "size": 1048
+      "sha256": "9632595e2d57d76b96185570c1763f9421993e2560aa38c57408f690218fdf10",
+      "size": 1124
     },
     {
       "kind": "keymap",
       "id": "xiaomi.rc003",
-      "revision": 1,
+      "revision": 2,
       "path": "keymaps/xiaomi/remote-2-pro-rc003.json",
-      "sha256": "ba202753c8ae508fce25e018dc28773f1445b4a0d96e3c7d1372684fe0edeaef",
-      "size": 1126
+      "sha256": "8210d752e5cb79b3d115d1511c413854dcaa388a91ef154dedd865ad8126b054",
+      "size": 1202
     },
     {
       "kind": "layout",

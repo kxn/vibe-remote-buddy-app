@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "keymap",
   "id": "xiaomi.rc003",
-  "revision": 1,
+  "revision": 2,
   "encoding": "hid-report-usage",
   "entries": [
     {
@@ -64,6 +64,11 @@
       "button": "b13",
       "report_id": 1,
       "usage": 129
+    },
+    {
+      "button": "b02",
+      "report_id": 1,
+      "usage": 62
     }
   ],
   "voice_button": "b02",

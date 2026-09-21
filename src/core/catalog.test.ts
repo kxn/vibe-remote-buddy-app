@@ -34,6 +34,20 @@ describe("board catalog", () => {
     for (const m of models)
       expect(packModel(m.model).length).toBeLessThan(2048);
   });
+  it("keeps Xiaomi HID voice triggers and operator F8 voice events distinct", () => {
+    const models = fixture();
+    for (const id of ["xiaomi.rc003", "xiaomi.legacy-32ba"]) {
+      const m = models.find(m => m.model.id === id)!.model;
+      expect(m.raw).toContainEqual({ report: 1, usage: 62, key: 2 });
+      expect(m.raw).toHaveLength(m.keys.length);
+    }
+    for (const id of ["unicom.sample-28", "cmcc.sample-28"]) {
+      const m = models.find(m => m.model.id === id)!.model;
+      expect(m.raw).toHaveLength(27);
+      expect(m.raw.some(k => k.key === 2)).toBe(false);
+      expect(m.keys).toHaveLength(28);
+    }
+  });
   it("compiles 1024 models with bounded indexes and validates a header-covering checksum", () => {
     const base = fixture();
     const models: CatalogModel[] = Array.from({ length: 1024 }, (_, i) => ({
