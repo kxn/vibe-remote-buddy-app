@@ -316,7 +316,10 @@ export function compileCatalog(
               ["source", "vendor", "product", "version"].includes(k) &&
               Number.isInteger(v) &&
               Number(v) >= 0 &&
-              Number(v) <= (k === "source" ? 2 : 65535),
+              // Source is a u8 on the wire; devices in the wild report
+              // unassigned values (XFRCB22 measures source=5). Evidence
+              // records what the remote actually reports, not the SIG list.
+              Number(v) <= (k === "source" ? 255 : 65535),
           ),
           "PnP 指纹无效",
         );

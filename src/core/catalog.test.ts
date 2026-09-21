@@ -75,6 +75,17 @@ describe("board catalog", () => {
     expect(() => compileCatalog(Array(4097).fill(m), 1)).toThrow("条目");
     expect(() => compileCatalog([m], 0)).toThrow("代次");
   });
+  it("compiles measured unassigned PnP sources and still bounds the u8 field", () => {
+    const base = fixture()[0];
+    const withSource = (source: number) => {
+      const m = structuredClone(base);
+      m.fingerprints[0].required.pnp = { source, vendor: 1046, product: 768 };
+      return m;
+    };
+    expect(compileCatalog([withSource(5)], 1).count).toBe(1);
+    expect(compileCatalog([withSource(255)], 1).count).toBe(1);
+    expect(() => compileCatalog([withSource(256)], 1)).toThrow("PnP");
+  });
 });
 
 it("preserves shipped artwork only for unchanged public geometry", () => {
