@@ -50,7 +50,12 @@ const label = (b) =>
 const devices = [
   { name: "Xiaomi Bluetooth Remote 2 Pro", matches: [0], signal: "信号良好" },
   { name: "小米蓝牙语音遥控器", matches: [1], signal: "信号良好" },
-  { name: "CMCC_Voice_Remote", matches: [2, 3], signal: "信号良好" },
+  {
+    name: "CMCC_Voice_Remote",
+    matches: [2],
+    compatible: [3],
+    signal: "信号良好",
+  },
   { name: "Bluetooth remote", matches: [], signal: "信号良好" },
 ];
 let s,
@@ -160,7 +165,7 @@ function render() {
   $("mockHint").textContent = "选择设备体验不同分支。";
   let html = "";
   if (stage === "scan") {
-    html = `<div class="toolbar"><div class="search-state"><i class="spinner"></i>搜索附近的遥控器</div><label><input id="showAll" type="checkbox" ${s.all ? "checked" : ""}> 显示所有机型</label></div><div class="devices">${s.ready && $("outcome").value !== "empty" ? devices.map((d, i) => (!s.all && !d.matches.length ? "" : `<button class="device ${s.selected === i ? "selected" : ""}" data-device="${i}" ${s.busy ? "disabled" : ""}><span class="radio"></span><span class="device-info">${d.name}<small>${d.matches.length ? "机型库中有匹配信息" : "未找到机型信息"}</small></span><small>${d.signal}</small></button>`)).join("") : '<div class="center muted" style="height:230px">请将遥控器靠近接收器，并进入配对模式</div>'}</div>`;
+    html = `<div class="toolbar"><div class="search-state"><i class="spinner"></i>搜索附近的遥控器</div><label><input id="showAll" type="checkbox" ${s.all ? "checked" : ""}> 显示所有机型</label></div><div class="devices">${s.ready && $("outcome").value !== "empty" ? devices.map((d, i) => (!s.all && !d.matches.length ? "" : `<button class="device ${s.selected === i ? "selected" : ""}" data-device="${i}" ${s.busy ? "disabled" : ""}><span class="radio"></span><span class="device-info">${d.name}<small>${d.matches.length ? "" : "需适配"}</small></span><small>${d.signal}</small></button>`)).join("") : '<div class="center muted" style="height:230px">请将遥控器靠近接收器，并进入配对模式</div>'}</div>`;
     $("next").disabled = s.selected < 0 || s.busy;
     if (s.busy) {
       $("next").textContent = "连接中…";
@@ -169,9 +174,9 @@ function render() {
   } else if (stage === "model") {
     const d = devices[s.selected];
     const m = models[s.model];
-    html = `<div class="two"><div><label class="field">机型<select id="model">${d.matches.map((i) => `<option value="${i}" ${s.model === i ? "selected" : ""}>${esc(models[i].title)}</option>`).join("")}<option value="-1" ${s.model === -1 ? "selected" : ""}>未知遥控器需要适配</option></select></label><div class="summary"><span>✓ 已连接</span><span>${s.model < 0 ? "下一步确认语音，再设置按键布局。" : m.confirmKeys ? "下一步按一遍遥控器上的按键。" : "可以直接添加。"}</span></div></div><div class="preview">${s.model < 0 ? '<div class="symbol">?</div><p>创建新的遥控器配置</p>' : remote(m)}<small>${s.model < 0 ? "" : esc(m.title)}</small></div></div>`;
+    html = `<div class="two"><div><label class="field">机型<select id="model">${d.matches.map((i) => `<option value="${i}" ${s.model === i ? "selected" : ""}>${esc(models[i].title)}</option>`).join("")}${(d.compatible || []).map((i) => `<option value="${i}" ${s.model === i ? "selected" : ""}>${esc(models[i].title)}（需确认）</option>`).join("")}<option value="-1" ${s.model === -1 ? "selected" : ""}>未知遥控器需要适配</option></select></label><div class="summary"><span>✓ 已连接</span><span>${s.model < 0 ? "下一步确认语音，再设置按键布局。" : needsConfirmation() ? "下一步按一遍遥控器上的按键。" : "可以直接添加。"}</span></div></div><div class="preview">${s.model < 0 ? '<div class="symbol">?</div><p>创建新的遥控器配置</p>' : remote(m)}<small>${s.model < 0 ? "" : esc(m.title)}</small></div></div>`;
     $("mockHint").textContent =
-      "移动示例包含两个候选，用于体验切换预览；不代表真实指纹结果。";
+      "移动示例：Map 匹配在前，协议兼容候选在后；仅为模拟。";
   } else if (stage === "keys") {
     const m = models[s.model];
     html = `<div class="two"><div><h3>依次按下并松开每个按键</h3><p class="muted">已确认的按键会变绿。</p><div class="counter">${s.checked.size}<small> / ${m.buttons.length}</small></div><div class="fixed-message" id="keyFeedback">${s.checked.size === m.buttons.length ? "全部按键已确认" : "等待按键…"}</div><div class="check-list">${m.buttons.map((b) => `<span class="${s.checked.has(b.id) ? "verified" : ""}">${esc(label(b))}${s.checked.has(b.id) ? " ✓" : ""}</span>`).join("")}</div></div><div class="preview">${remote(m, true)}</div></div>`;
@@ -465,6 +470,12 @@ function bind() {
     };
   }
 }
+function needsConfirmation() {
+  return (
+    models[s.model]?.confirmKeys ||
+    (devices[s.selected]?.compatible || []).includes(s.model)
+  );
+}
 function finish() {
   s.busy = true;
   $("next").disabled = true;
@@ -501,7 +512,7 @@ $("next").onclick = () => {
     if (s.model < 0) {
       s.stage = "voice";
       render();
-    } else if (models[s.model].confirmKeys) {
+    } else if (needsConfirmation()) {
       s.stage = "keys";
       s.checked.clear();
       render();
