@@ -1,7 +1,7 @@
 import { ModelLibrary } from "./ModelLibrary";
 import { ModelDefaults } from "./ModelDefaults";
 import { Feedback } from "./Feedback";
-import { artworkModel, renderRemoteArtwork } from "./core/remote-artwork";
+import { artworkModel, artworkPlacement, renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
 import { remoteModels, loadModels } from "./core/models";
@@ -1098,7 +1098,7 @@ function ModelRemote({
   // Its transparent hit areas must remain transparent, including thumbnails.
   const generated = !resource.image || layout.artworkButtons || !!layout.appearance;
   const artwork =
-    mini && generated
+    generated
       ? renderRemoteArtwork({
           ...resource,
           keys: drawnKeys,
@@ -1107,6 +1107,7 @@ function ModelRemote({
       : !generated
         ? resource.image
         : undefined;
+  const placement = generated ? artworkPlacement({...resource, layout:{...layout,buttons}}) : {tx:0,ty:0,sx:1,sy:1};
   const image = artwork
     ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(artwork)}`
     : undefined;
@@ -1131,14 +1132,15 @@ function ModelRemote({
           const props = {
             className: `model-button ${b.key === 2 ? "voice" : ""}`,
             style: {
-              left: `${b.x}%`,
-              top: `${b.y}%`,
-              width: `${b.width}%`,
-              height: `${b.height}%`,
+              left: `${placement.tx / layout.width * 100 + b.x * placement.sx}%`,
+              top: `${placement.ty / layout.height * 100 + b.y * placement.sy}%`,
+              width: `${b.width * placement.sx}%`,
+              height: `${b.height * placement.sy}%`,
               borderRadius: `${b.radius}%`,
-              background: b.fill,
-              color: b.color,
-              borderColor: b.border,
+              background: generated ? "transparent" : b.fill,
+              color: generated ? "transparent" : b.color,
+              borderColor: generated ? "transparent" : b.border,
+              boxShadow: generated ? "none" : undefined,
               fontSize: mini
                 ? Math.min(
                     6,
@@ -1181,7 +1183,7 @@ function ModelRemote({
               disabled={keys && !keys.includes(b.key)}
               onClick={() => onKey?.(b.key)}
             >
-              {symbol}
+              {generated ? null : symbol}
             </button>
           );
         })}
