@@ -981,25 +981,31 @@ export function ProbeWorkbench({
                   ))}
                 </select>
               </label>
-              <button
-                disabled={modalBusy || !presetId}
-                onClick={() =>
-                  model.keys.length ? setReplacePreset(true) : applyPreset()
-                }
-              >
-                加载布局
-              </button>
             </div>
             {preset && (
               <>
                 <div className="probe-layout-tip">
-                  <strong>
-                    {preset.title}
-                    （
-                    {modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
-                    {" · "}
-                    {familyLabel(preset.family)} · {preset.keys.length} 键）
-                  </strong>
+                  <div className="probe-footer">
+                    <strong>
+                      {preset.title}
+                      （
+                      {modelOrigins.get(preset.id) === "catalog"
+                        ? "内置"
+                        : "适配"}
+                      {" · "}
+                      {familyLabel(preset.family)} · {preset.keys.length} 键）
+                    </strong>
+                    <button
+                      disabled={modalBusy}
+                      onClick={() =>
+                        model.keys.length
+                          ? setReplacePreset(true)
+                          : applyPreset()
+                      }
+                    >
+                      加载此布局
+                    </button>
+                  </div>
                   <span>
                     Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
                     {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
