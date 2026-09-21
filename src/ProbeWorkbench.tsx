@@ -28,7 +28,8 @@ import {
   type KeyProof,
 } from "./core/probe-layout";
 import { renderRemoteArtwork } from "./core/remote-artwork";
-import { ProbeLayout, LayoutPreview } from "./ProbeLayout";
+import { ProbeLayout } from "./ProbeLayout";
+import { ModelRemote } from "./ModelRemote";
 import { OP, sleep, DeviceError } from "./core/session";
 import { call, native } from "./native";
 type Capture = {
@@ -989,21 +990,18 @@ export function ProbeWorkbench({
               </button>
             </div>
             {preset && (
-              <div className="preset-preview" aria-label="布局预览">
-                <header>
-                  <strong>{preset.title}</strong>
-                  <span className="badge">
-                    {modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
-                  </span>
-                  <span>
-                    {familyLabel(preset.family)} · {preset.keys.length} 键
-                  </span>
-                </header>
-                <LayoutPreview model={preset} />
-                <small>
+              <div className="probe-layout-tip">
+                <strong>
+                  {preset.title}
+                  （{modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
+                  {" · "}
+                  {familyLabel(preset.family)} · {preset.keys.length} 键）
+                </strong>
+                <span>
                   Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
                   {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
-                </small>
+                </span>
+                <ModelRemote model={preset.id} mini />
               </div>
             )}
             <ProbeLayout
