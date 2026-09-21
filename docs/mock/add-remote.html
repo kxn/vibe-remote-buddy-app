@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <title>添加遥控器 · 交互预览</title>
+  <link rel="stylesheet" href="add-remote.css" />
+  <header class="app-head">
+    <strong><span class="logo">◉</span> Vibe Remote Buddy</strong
+    ><span class="muted">● 接收器已连接</span>
+  </header>
+  <main class="home">
+    <div class="between">
+      <h1>我的遥控器</h1>
+      <button class="primary" id="open">＋ 添加遥控器</button>
+    </div>
+    <div id="homeCards" class="cards">
+      <div class="home-empty">添加一只遥控器，开始使用</div>
+    </div>
+  </main>
+  <dialog id="wizard" aria-labelledby="title">
+    <header class="dialog-head">
+      <div>
+        <small id="deviceName"></small>
+        <h2 id="title">添加遥控器</h2>
+      </div>
+      <button id="close" aria-label="关闭">×</button>
+    </header>
+    <nav id="steps" aria-label="添加进度"></nav>
+    <section id="body" class="body"></section>
+    <footer>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+      <div class="between">
+        <button id="back">取消</button
+        ><button id="next" class="primary">连接</button>
+      </div>
+    </footer>
+    <aside class="mock">
+      <div class="between">
+        <strong>仅预览 · 不连接设备、不保存配置</strong
+        ><button id="reset">重新开始</button>
+      </div>
+      <div class="mock-tools">
+        <label
+          >连接结果
+          <select id="outcome">
+            <option value="ok">正常</option>
+            <option value="fail">连接失败</option>
+            <option value="empty">没有设备</option>
+          </select></label
+        ><span id="mockHint">选择设备体验不同分支。</span
+        ><span id="mockActions"></span>
+      </div>
+    </aside>
+  </dialog>
+  <dialog id="confirm">
+    <h3 id="confirmTitle"></h3>
+    <div id="confirmBody"></div>
+    <div class="between">
+      <button id="confirmNo">取消</button
+      ><button class="primary" id="confirmYes">确定</button>
+    </div>
+  </dialog>
+  <div id="toast" role="status" hidden></div>
+  <script src="add-remote-data.js"></script>
+  <script src="add-remote.js"></script>
+</html>
