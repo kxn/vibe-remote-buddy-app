@@ -1,3 +1,4 @@
+import { RemotePreview } from "./RemotePreview";
 import { Feedback } from "./Feedback";
 import React, { useState } from "react";
 import { type RemoteModel } from "./core/models";
@@ -17,8 +18,14 @@ export function ProbeLayout({
   change,
   verify,
   disabled,
+  preview,
+  loadPreview,
+  cancelPreview,
 }: {
   model: RemoteModel;
+  preview?: RemoteModel;
+  loadPreview?: () => void;
+  cancelPreview?: () => void;
   proofs: Record<number, KeyProof>;
   change: (m: RemoteModel) => void;
   verify: (key: number) => void;
@@ -49,6 +56,12 @@ export function ProbeLayout({
     <>
       <div className="probe-designer">
         <section className="layout-canvas-panel">
+          {preview && <div className="layout-preview-overlay" role="region" aria-label="布局预览">
+            <header><strong>布局预览</strong><button disabled={disabled} onClick={cancelPreview}>取消</button></header>
+            <div className="layout-preview-art"><RemotePreview model={preview}/></div>
+            <footer><span>{preview.title}</span><button className="primary" disabled={disabled} onClick={loadPreview}>加载此布局</button></footer>
+          </div>}
+          <div className="layout-canvas-editor" inert={!!preview}>
           <div className="layout-grid-toolbar">
             <strong>按键布局</strong>
             <div className="grid-dimensions">
@@ -141,6 +154,7 @@ export function ProbeLayout({
                 );
               },
             )}
+          </div>
           </div>
           </div>
         </section>

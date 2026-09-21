@@ -916,7 +916,7 @@ export function ProbeWorkbench({
         role="dialog"
         aria-modal="true"
         aria-label="添加遥控器"
-        className="dialog probe-workbench"
+        className={`dialog probe-workbench ${step === 2 || step === 5 ? "workspace-mode" : ""}`}
       >
         <header>
           <h2>添加遥控器</h2>
@@ -932,7 +932,7 @@ export function ProbeWorkbench({
                 (step === 4 || step === 5 ? 2 : step) === i ? "active" : ""
               }
             >
-              {i < step ? "✓" : i + 1} {s}
+              {i < (step === 4 || step === 5 ? 2 : step) ? "✓" : i + 1} {s}
             </span>
           ))}
         </nav>
@@ -1092,17 +1092,14 @@ export function ProbeWorkbench({
                       <option value="">选择型号</option>
                       {[...remoteModels.values()].map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
                     </select>
-                    <button disabled={modalBusy || !preset}
-                      onClick={() => model.keys.length ? setReplacePreset(true) : applyPreset()}>加载</button>
                   </div>
                 </label>
-                <details className="layout-identity">
-                  <summary>高级</summary>
-                  <label>型号标识<input value={model.id} disabled={modalBusy}
-                    onChange={e => update({...model,id:e.target.value})} /></label>
-                </details>
+
               </div>
               <ProbeLayout
+                preview={preset}
+                loadPreview={() => model.keys.length ? setReplacePreset(true) : applyPreset()}
+                cancelPreview={() => setPresetId("")}
                 model={model}
                 proofs={proofs}
                 change={update}
@@ -1319,10 +1316,10 @@ export function ProbeWorkbench({
                                 : "正在准备语音协议…"}
                   </p>
                   <div className="voice-media-slot">
-                    {!audio && !error && (
+                    {!audio && !error && voice?.recording && (
                       <div className="probe-voice-state">
                         <span>
-                          {(
+                          已录音 {(
                             (voice?.samples ?? 0) / (voice?.rate || 16000)
                           ).toFixed(1)}{" "}
                           秒
