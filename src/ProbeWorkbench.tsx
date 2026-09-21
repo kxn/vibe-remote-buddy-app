@@ -25,11 +25,12 @@ import {
   copyLayoutPreset,
   verifiedModel,
   removeKey,
+  gridColumns,
+  cellOf,
   type KeyProof,
 } from "./core/probe-layout";
 import { renderRemoteArtwork } from "./core/remote-artwork";
 import { ProbeLayout } from "./ProbeLayout";
-import { ModelRemote } from "./ModelRemote";
 import { OP, sleep, DeviceError } from "./core/session";
 import { call, native } from "./native";
 type Capture = {
@@ -990,19 +991,49 @@ export function ProbeWorkbench({
               </button>
             </div>
             {preset && (
-              <div className="probe-layout-tip">
-                <strong>
-                  {preset.title}
-                  （{modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
-                  {" · "}
-                  {familyLabel(preset.family)} · {preset.keys.length} 键）
-                </strong>
-                <span>
-                  Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
-                  {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
-                </span>
-                <ModelRemote model={preset.id} mini />
-              </div>
+              <>
+                <div className="probe-layout-tip">
+                  <strong>
+                    {preset.title}
+                    （
+                    {modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
+                    {" · "}
+                    {familyLabel(preset.family)} · {preset.keys.length} 键）
+                  </strong>
+                  <span>
+                    Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
+                    {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
+                  </span>
+                </div>
+                <div
+                  className="probe-grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridColumns(preset)}, minmax(0, 1fr))`,
+                  }}
+                  aria-label="布局预览"
+                >
+                  {Array.from(
+                    {
+                      length:
+                        gridColumns(preset) * (preset.layout.editorRows ?? 8),
+                    },
+                    (_, cell) => {
+                      const k = preset.keys.find(
+                        (k) => cellOf(preset, k.id) === cell,
+                      );
+                      return (
+                        <div key={cell} className="probe-cell">
+                          {k ? (
+                            <button disabled>{k.label}</button>
+                          ) : (
+                            <button disabled className="empty" aria-label="空" />
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </>
             )}
             <ProbeLayout
               model={model}
