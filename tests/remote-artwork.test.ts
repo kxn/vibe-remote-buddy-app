@@ -88,3 +88,15 @@ it("three-column artwork is slender even when the editor canvas is wide", () => 
   expect(shown.layout.width / shown.layout.height).toBeCloseTo(.3);
   expect(m.layout.width).toBe(900);
 });
+
+it("automatic artwork normalizes outer blank space while retaining key order", () => {
+  const m = validateModel(structuredClone(model));
+  m.layout.buttons = m.layout.buttons.map(b => ({...b, y: 20 + b.y * .5, height:b.height * .5}));
+  const a = artworkPlacement(m);
+  const min = Math.min(...m.layout.buttons.map(b => b.y - b.height/2));
+  const max = Math.max(...m.layout.buttons.map(b => b.y + b.height/2));
+  const top = a.ty + min / 100 * m.layout.height * a.sy;
+  const bottom = a.ty + max / 100 * m.layout.height * a.sy;
+  expect(top).toBeCloseTo(m.layout.height - bottom);
+  expect(bottom - top).toBeGreaterThan(m.layout.height * .7);
+});

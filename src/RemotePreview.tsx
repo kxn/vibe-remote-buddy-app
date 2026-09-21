@@ -1,4 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from "react";
+import { Mic, Power, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Check, Home, Menu, Undo2 } from "lucide-react";
+import { labels } from "./core/layout";
 import type { RemoteModel } from "./core/models";
 import {
   artworkModel,
@@ -14,12 +16,13 @@ export function RemotePreview({
   verified?: number[];
   onKey?: (id: number) => void;
 }) {
-  // A library illustration can be a shell-only background. Key previews must
-  // always render the actual layout, independently of the decorative image.
-  const source = {...model, image: undefined, layout: {...model.layout, artworkButtons: true}};
-  const visual = artworkModel(source);
-  const image = renderRemoteArtwork(source);
-  const placement = artworkPlacement(visual);
+  // Authored illustrations contain structural pieces; their key overlays are
+  // part of the same design and must be drawn together, at original coordinates.
+  const generated = !model.image || !!model.layout.artworkButtons;
+  const visual = artworkModel(model);
+  const image = generated ? renderRemoteArtwork(model) : model.image!;
+  const placement = generated ? artworkPlacement(visual) : {tx:0, ty:0, sx:1, sy:1};
+  const icons: Record<number, typeof Mic> = {1:Power,2:Mic,3:ArrowUp,4:ArrowDown,5:ArrowLeft,6:ArrowRight,7:Check,8:Undo2,9:Home,10:Menu};
   const container = useRef<HTMLDivElement>(null);
   const [space, setSpace] = useState({width: 0, height: 0});
   useLayoutEffect(() => {
@@ -53,13 +56,22 @@ export function RemotePreview({
             width: `${b.width * placement.sx}%`,
             height: `${b.height * placement.sy}%`,
             borderRadius: `${b.radius}%`,
+            ...(!generated ? {background: b.fill ?? "transparent", color: b.color ?? "#d5dbdc", border: `1px solid ${b.border ?? "transparent"}`,
+              fontSize: Math.max(5, Math.min(b.height * visual.layout.height * scale * .35, b.width * visual.layout.width * scale / 100 / 3))} : {}),
           }}
           aria-label={model.keys.find((k) => k.id === b.key)?.label}
           title={model.keys.find((k) => k.id === b.key)?.label}
           onClick={() => onKey?.(b.key)}
           tabIndex={onKey ? 0 : -1}
         >
-          {verified.includes(b.key) ? "✓" : ""}
+          {verified.includes(b.key) ? "✓" : !generated ? (() => {
+            const key = model.keys.find(k => k.id === b.key);
+            const Icon = icons[b.key];
+            const symbol = b.symbol || ({11:"TV",12:"+",13:"−"} as Record<number,string>)[b.key];
+            if (key && key.label !== labels[b.key]) return key.label;
+            if (symbol) return symbol;
+            return Icon ? <Icon style={{width:"55%",height:"55%"}}/> : key?.label;
+          })() : ""}
         </button>
       ))}
     </div>

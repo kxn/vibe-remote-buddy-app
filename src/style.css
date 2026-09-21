@@ -1526,3 +1526,5 @@ img, a { -webkit-user-drag: none; }
 .library-list button:focus-visible { outline-offset:-3px; }
 .library-detail { min-width:0; overflow:hidden; }
 .library-detail > h3, .library-detail > small { flex-shrink:0; }
+
+.onboarding-remote > button { min-height:0; line-height:1; }

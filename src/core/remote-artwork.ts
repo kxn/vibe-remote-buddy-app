@@ -60,8 +60,8 @@ export function artworkPlacement(model: RemoteModel) {
   const { width: w, height: h, buttons } = model.layout;
   const minX = Math.min(0, ...buttons.map((b) => b.x - b.width / 2));
   const maxX = Math.max(100, ...buttons.map((b) => b.x + b.width / 2));
-  const minY = Math.min(0, ...buttons.map((b) => b.y - b.height / 2));
-  const maxY = Math.max(100, ...buttons.map((b) => b.y + b.height / 2));
+  const minY = buttons.length ? Math.min(...buttons.map((b) => b.y - b.height / 2)) : 0;
+  const maxY = buttons.length ? Math.max(...buttons.map((b) => b.y + b.height / 2)) : 100;
   let sx = 84 / (maxX - minX),
     sy = 86 / (maxY - minY);
   const margin = Math.min(w, h) * 0.045;
