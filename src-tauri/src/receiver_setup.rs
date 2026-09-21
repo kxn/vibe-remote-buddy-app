@@ -310,7 +310,7 @@ pub fn setup_install(
     if ticket.info["psram_known"] != true && !board_confirmed {
         return Err("请核对板型规格".into());
     }
-    if !["q2", "o8"].contains(&variant.as_str()) {
+    if !["q2", "o8", "q2-f4"].contains(&variant.as_str()) {
         return Err("请选择内存规格".into());
     }
     if ticket.info["psram_known"] == true && ticket.info["variant"] != variant {

@@ -9,6 +9,6 @@ const output = resolve(process.argv[3] ?? join(root, "out/catalog/catalog.bin"))
 const generation = Number(process.argv[4] ?? 1);
 const index = JSON.parse(await readFile(join(source, "catalog.json"), "utf8"));
 const resources = await Promise.all(index.resources.map(async r => JSON.parse(await readFile(join(source, r.path), "utf8"))));
-const models = resolveCatalog(resources), image = compileCatalog(models, generation);
+const models = resolveCatalog(resources), image = compileCatalog(models, generation, Number(process.argv[5] ?? 2));
 await mkdir(dirname(output), { recursive: true }); await writeFile(output, image.bytes);
 console.log(JSON.stringify({ count: image.count, bytes: image.bytes.length, indexBytes: image.indexBytes, generation, output }));

@@ -10,14 +10,15 @@ fn main() {
     let mut arms = String::new();
     if let Some(dir) = env::var_os("BUDDY_FIRMWARE_DIR") {
         let dir = PathBuf::from(dir);
-        for variant in ["q2", "o8"] {
+        for variant in ["q2", "o8", "q2-f4"] {
             for file in ["manifest.json", "receiver.bin"] {
                 let path = dir.join(variant).join(file);
                 println!("cargo:rerun-if-changed={}", path.display());
                 fs::copy(path, out.join(format!("{variant}-{file}")))
                     .expect("firmware variant missing");
             }
-            arms.push_str(&format!(r#""s3-{variant}-ab1" => Some((include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-manifest.json")).as_slice(), include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-receiver.bin")).as_slice())),"#));
+            let target = if variant == "q2-f4" { "s3-q2-f4-ab2".to_string() } else { format!("s3-{variant}-ab1") };
+            arms.push_str(&format!(r#""{target}" => Some((include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-manifest.json")).as_slice(), include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-receiver.bin")).as_slice())),"#));
         }
     }
     fs::write(

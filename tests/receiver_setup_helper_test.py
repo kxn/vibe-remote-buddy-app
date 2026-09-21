@@ -43,8 +43,30 @@ class InstallerTests(unittest.TestCase):
         e.get_secure_boot_enabled.return_value=protected;e.get_flash_encryption_enabled.return_value=False
         e.flash_type.return_value=0;e.flash_id.return_value=0x1840ef;e.get_psram_cap.return_value=cap
         e.read_mac.return_value=bytes.fromhex('112233445566');e.get_chip_description.return_value=chip
+        e.uses_usb_jtag_serial.return_value=False
         return e
+    def test_usb_jtag_restart_leaves_download_mode(self):
+        e=self.esp();e.uses_usb_jtag_serial.return_value=True
+        helper.restart(e)
+        e.write_reg.assert_called_once_with(e.RTC_CNTL_OPTION1_REG,0,e.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK)
+        e.watchdog_reset.assert_called_once();e.hard_reset.assert_not_called()
     def test_valid(self):self.assertEqual(len(helper.load_package(self.package)[1]),4)
+    def test_factory_catalog_selector_is_in_application_data_bank(self):
+        self.manifest['format']=2
+        partitions=[('nvs',1,2,0x9000,0x6000),('otadata',1,0,0xf000,0x2000),
+                    ('ota_0',0,16,0x20000,0x200000),('ota_1',0,17,0x220000,0x200000),
+                    ('data0',1,2,0x420000,0x20000),('data1',1,2,0x440000,0x20000),
+                    ('catalog0',1,64,0x460000,0x180000),('catalog1',1,65,0x5e0000,0x180000)]
+        table=b''.join(struct.pack('<HBBII16sI',0x50aa,t,s,at,n,name.encode(),0) for name,t,s,at,n in partitions)
+        (self.package/'partition-table.bin').write_bytes(table)
+        for entry in self.manifest['files']:
+            if entry['name']=='partition-table.bin':entry.update(size=len(table),sha256=hashlib.sha256(table).hexdigest())
+        for at,name,data in [(0x420000,'factory-nvs.bin',bytes(0x20000)),(0x460000,'catalog.bin',b'VRBC'+bytes(60))]:
+            (self.package/name).write_bytes(data)
+            self.manifest['files'].append(dict(offset=at,name=name,size=len(data),sha256=hashlib.sha256(data).hexdigest()))
+        self.save();self.assertEqual(len(helper.load_package(self.package)[1]),6)
+        self.manifest['files'][-2]['offset']=0x9000;self.save()
+        with self.assertRaisesRegex(ValueError,'地址'):helper.load_package(self.package)
     def test_missing_or_duplicate(self):
         self.manifest['files'][1]=self.manifest['files'][0];self.save()
         with self.assertRaises(ValueError):helper.load_package(self.package)
@@ -84,6 +106,19 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'Octal Flash'):helper.inspect(e)
         e=self.esp();e.flash_id.return_value=0x1640ef
         with self.assertRaisesRegex(ValueError,'Flash'):helper.inspect(e)
+    def test_supermini_4mb_2mb_detects_exact_target(self):
+        e=self.esp(cap=2);e.flash_id.return_value=0x164046
+        info=helper.inspect(e)
+        self.assertEqual(info['variant'],'q2-f4')
+        self.assertEqual(info['flash_bytes'],4194304)
+        self.assertTrue(info['psram_known'])
+    def test_four_meg_unknown_psram_does_not_select_eight_meg_package(self):
+        e=self.esp(cap=0);e.flash_id.return_value=0x164046
+        self.assertEqual(helper.inspect(e)['variant'],'')
+        cmds=MagicMock();cmds.detect_chip.return_value=e
+        with patch.dict(sys.modules,{'esptool':SimpleNamespace(cmds=cmds)}),patch.object(sys,'argv',['helper','install','--package',str(self.folder),'--port','TEST','--expected-mac','112233445566','--confirm-board','--variant','q2']):
+            with self.assertRaisesRegex(ValueError,'Flash'):helper.main()
+        cmds.write_flash.assert_not_called();e.run_stub.assert_not_called()
     def test_wrong_variant_never_erases(self):
         e=self.esp(cap=2);cmds=MagicMock();cmds.detect_chip.return_value=e
         with patch.dict(sys.modules,{'esptool':SimpleNamespace(cmds=cmds)}),patch.object(sys,'argv',['helper','install','--package',str(self.folder),'--port','TEST','--expected-mac','112233445566','--variant','o8']):

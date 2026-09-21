@@ -3,7 +3,7 @@ import { validateModel, type RemoteModel } from "./models";
 import { OP } from "./session";
 
 export const CATALOG_API = 2;
-export const CATALOG_FORMAT = 1;
+export const CATALOG_FORMAT = 2;
 export const CATALOG_MAX_MODELS = 4096;
 export const CATALOG_MAX_BYTES = 1536 * 1024;
 type Resource = Record<string, any>;
@@ -260,6 +260,38 @@ export function packModel(m: RemoteModel): Uint8Array {
   }
   return w.result();
 }
+// Format 2 uses a fixed key vocabulary, binary hex fields and shared wire sections.
+const objectKeys = ["report_map", "length", "crc32c", "sha256", "hex", "pnp", "source", "vendor", "product", "version", "services", "reports", "id", "type", "name", "prefix", "company"];
+function compactObject(value: any): Uint8Array {
+  const w = new Bytes();
+  const put = (v: any, key = "") => {
+    if (typeof v === "number") { w.put(0, 1); w.put(v, 4); }
+    else if (typeof v === "string") {
+      const hex = ["hex", "crc32c", "sha256"].includes(key);
+      const b = hex ? Uint8Array.from(v.match(/../g) ?? [], (h: any) => parseInt(h, 16)) : utf8.encode(v);
+      w.put(hex ? 4 : 1, 1); w.put(b.length, 2); w.data.push(...b);
+    } else if (Array.isArray(v) && key === "reports") { w.put(5, 1); w.put(v.length, 2); for (const r of v) { w.put(r.id, 1); w.put(r.type, 1); } }
+    else if (Array.isArray(v)) { w.put(2, 1); w.put(v.length, 2); v.forEach(x => put(x)); }
+    else {
+      const entries = Object.entries(v).sort(([a], [b]) => objectKeys.indexOf(a) - objectKeys.indexOf(b));
+      w.put(3, 1); w.put(entries.length, 2);
+      for (const [k, x] of entries) { const n = objectKeys.indexOf(k); check(n >= 0, "未知指纹字段"); w.put(n, 1); put(x, k); }
+    }
+  };
+  put(value); return w.result();
+}
+function sharedModel(p: Uint8Array, intern: (data: Uint8Array, prefix: boolean) => number): Uint8Array {
+  let at = 11 + p[10];
+  const hints = p[at++], keys = p[at++], raw = p[at++];
+  const head = p.slice(0, at); head[0] = 3;
+  const sections: Uint8Array[] = [];
+  for (let i = 0; i < hints; i++) { const start = at; at += 1 + p[at]; at += 1 + p[at]; at += 4; sections.push(p.slice(start, at)); }
+  for (let i = 0; i < keys; i++) { const start = at; at += 5; at += 1 + p[at]; sections.push(p.slice(start, at)); }
+  if (raw) sections.push(p.slice(at));
+  const w = new Bytes(); w.data.push(...head); w.put(sections.length, 1);
+  for (const b of sections) { w.put(intern(b, false), 4); w.put(b.length, 2); }
+  return w.result();
+}
 export interface CompiledCatalog {
   bytes: Uint8Array;
   count: number;
@@ -271,11 +303,13 @@ export interface CompiledCatalog {
 export function compileCatalog(
   models: CatalogModel[],
   generation: number,
+  format = CATALOG_FORMAT,
 ): CompiledCatalog {
   check(
     Number.isInteger(generation) && generation > 0 && generation <= 0xffffffff,
     "无效机型库代次",
   );
+  check(format === 1 || format === 2, "不支持的机型库格式");
   check(models.length <= CATALOG_MAX_MODELS, "机型库条目过多");
   check(
     new Set(models.map((m) => m.model.id)).size === models.length,
@@ -370,13 +404,13 @@ export function compileCatalog(
       fingerprints.push({
         hash: Number.parseInt(fp.required.report_map.crc32c, 16),
         model: index,
-        data: utf8.encode(JSON.stringify(fp.required)),
+        data: format === 2 ? compactObject(fp.required) : utf8.encode(JSON.stringify(fp.required)),
       });
       for (const h of fp.scan_hints)
         hints.push({
           hash: crc32c(utf8.encode(h.name ?? h.prefix)),
           model: index,
-          data: utf8.encode(JSON.stringify(h)),
+          data: format === 2 ? compactObject(h) : utf8.encode(JSON.stringify(h)),
         });
     }
   });
@@ -399,7 +433,8 @@ export function compileCatalog(
     return at;
   };
   const entries = sorted.map((m) => {
-    const b = packModel(m.model);
+    const packed = packModel(m.model);
+    const b = format === 2 ? sharedModel(packed, intern) : packed;
     return {
       hash: crc32c(utf8.encode(m.model.id)),
       offset: intern(b, false),
@@ -413,7 +448,7 @@ export function compileCatalog(
   const w = new Bytes();
   w.data.push(...utf8.encode("VRBC"));
   for (const n of [
-    CATALOG_FORMAT,
+    format,
     64,
     objectsAt + objects.data.length,
     generation,
@@ -458,7 +493,7 @@ export async function uploadCatalog(
     "请先更新接收器固件",
   );
   const generation = (before.catalog_generation ?? 0) + 1;
-  const image = compileCatalog(models, generation);
+  const image = compileCatalog(models, generation, before.catalog_format ?? 1);
   check(
     image.count <= before.catalog_max_count &&
       image.bytes.length <= before.catalog_max_bytes,

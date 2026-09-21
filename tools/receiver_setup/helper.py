@@ -12,7 +12,8 @@ import sys
 from types import SimpleNamespace
 
 PROFILES = {'q2': ('s3-q2-ab1', 'buddy_s3_q2_ab1', 2),
-            'o8': ('s3-o8-ab1', 'buddy_s3_o8_ab1', 8)}
+            'o8': ('s3-o8-ab1', 'buddy_s3_o8_ab1', 8),
+            'q2-f4': ('s3-q2-f4-ab2', 'buddy_s3_q2_f4_ab2', 2)}
 
 EXPECTED = {0: ('bootloader.bin', 0x8000), 0x8000: ('partition-table.bin', 0x1000),
             0xf000: ('ota_data_initial.bin', 0x2000), 0x20000: ('receiver.bin', 0x200000)}
@@ -25,15 +26,21 @@ def event(**value):
 def load_package(folder):
     folder = Path(folder)
     manifest = json.loads((folder / 'install.json').read_text(encoding='utf-8'))
-    if manifest.get('format') != 1 or manifest.get('target') not in [v[0] for v in PROFILES.values()]:
+    if manifest.get('format') not in (1, 2) or manifest.get('target') not in [v[0] for v in PROFILES.values()]:
         raise ValueError('不支持的安装包目标')
-    if len(manifest.get('files', [])) != len(EXPECTED):
+    small = manifest['target'] == 's3-q2-f4-ab2'
+    expected = dict(EXPECTED)
+    expected[0x20000] = ('receiver.bin', 0x140000 if small else 0x200000)
+    if manifest['format'] == 2:
+        expected[0x2a0000 if small else 0x420000] = ('factory-nvs.bin', 0x20000)
+        expected[0x2e0000 if small else 0x460000] = ('catalog.bin', 0x90000 if small else 0x180000)
+    if len(manifest.get('files', [])) != len(expected):
         raise ValueError('安装包缺少镜像')
     images = []
     seen = set()
     for entry in manifest['files']:
         addr = entry['offset']
-        name, limit = EXPECTED.get(addr, ('', 0))
+        name, limit = expected.get(addr, ('', 0))
         if addr in seen or entry['name'] != name:
             raise ValueError('安装包地址或文件名不正确')
         seen.add(addr)
@@ -45,14 +52,25 @@ def load_package(folder):
         if name in ('receiver.bin', 'bootloader.bin'):
             if len(data) < 24 or data[0] != 0xe9 or struct.unpack_from('<H', data, 12)[0] != 9:
                 raise ValueError('不是 ESP32-S3 镜像: ' + name)
-            if data[3] >> 4 != 3:
-                raise ValueError('镜像不是 8 MB Flash 布局: ' + name)
+            if data[3] >> 4 != (2 if small else 3):
+                raise ValueError('镜像 Flash 布局不匹配: ' + name)
         if name == 'receiver.bin':
             if len(data) < 288 or struct.unpack_from('<I', data, 32)[0] != 0xabcd5432:
                 raise ValueError('缺少应用描述符')
             text = lambda off: data[off:off+32].split(b'\0')[0].decode()
             if text(80) != next(v[1] for v in PROFILES.values() if v[0] == manifest['target']) or text(48) != manifest['version']:
                 raise ValueError('固件版本或分区 ABI 不匹配')
+        if name == 'partition-table.bin' and manifest['format'] == 2:
+            table = {}
+            for off in range(0, len(data)-31, 32):
+                magic, typ, sub, start, size, label, flags = struct.unpack_from('<HBBII16sI', data, off)
+                if magic != 0x50aa: break
+                table[label.split(b'\0')[0].decode()] = (start,size)
+            base = 0x2a0000 if small else 0x420000
+            app = 0x140000 if small else 0x200000
+            bank = 0x90000 if small else 0x180000
+            required = {'nvs':(0x9000,0x6000),'otadata':(0xf000,0x2000), 'ota_0':(0x20000,app), 'ota_1':(0x20000+app,app), 'data0':(base,0x20000), 'data1':(base+0x20000,0x20000), 'catalog0':(base+0x40000,bank), 'catalog1':(base+0x40000+bank,bank)}
+            if table != required: raise ValueError('分区表与固件目标不匹配')
         images.append((addr, folder / name))
     return manifest, sorted(images)
 
@@ -65,17 +83,29 @@ def inspect(esp):
     esp.flash_spi_attach(0)
     flash_id = esp.flash_id()
     size_id = (flash_id >> 16) & 0xff
-    if size_id not in (23, 24):
-        raise ValueError(f'仅支持 8 / 16 MB Flash，检测 ID=0x{flash_id:06x}')
+    if size_id not in (22, 23, 24):
+        raise ValueError(f'仅支持 4 / 8 / 16 MB Flash，检测 ID=0x{flash_id:06x}')
     if esp.flash_type() != 0:
         raise ValueError('不支持 Octal Flash')
     cap = esp.get_psram_cap()
     if cap not in (0, 1, 2):
         capacity = {2: '2 MB', 3: '16 MB', 4: '4 MB'}.get(cap, '未知容量')
         raise ValueError(f'仅支持 2 MB Quad / 8 MB Octal PSRAM，检测到内置 {capacity}（efuse capacity={cap}）')
+    if size_id == 22 and cap == 1:
+        raise ValueError('4 MB Flash 目标仅支持 2 MB Quad PSRAM')
     return dict(chip=esp.CHIP_NAME, mac=bytes(esp.read_mac()).hex().upper(),
-                flash_bytes=1 << size_id, psram_known=cap != 0, variant={1: 'o8', 2: 'q2'}.get(cap, ''),
+                flash_bytes=1 << size_id, psram_known=cap != 0, variant=('q2-f4' if size_id == 22 and cap == 2 else {1: 'o8', 2: 'q2'}.get(cap, '')),
                 description=esp.get_chip_description())
+
+
+def restart(esp):
+    # USB Serial/JTAG's RTS reset can retain the ROM download strap. Use the
+    # SDK tool's full watchdog reset for this transport, after clearing FORCE_DL.
+    if esp.CHIP_NAME == 'ESP32-S3' and esp.uses_usb_jtag_serial():
+        esp.write_reg(esp.RTC_CNTL_OPTION1_REG, 0, esp.RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK)
+        esp.watchdog_reset()
+    else:
+        esp.hard_reset()
 
 
 def main():
@@ -89,9 +119,10 @@ def main():
     a = p.parse_args()
     folder = Path(a.package)
     catalog = json.loads((folder / 'catalog.json').read_text(encoding='utf-8'))
-    if catalog != {'format': 1, 'variants': ['q2', 'o8']}:
+    variants = catalog.get('variants', [])
+    if catalog.get('format') != 1 or variants not in (['q2','o8'], ['q2','o8','q2-f4']):
         raise ValueError('不支持的安装包目录')
-    packages = {v: load_package(folder / v) for v in PROFILES}
+    packages = {v: load_package(folder / v) for v in variants}
     for v, (m, _) in packages.items():
         if m['target'] != PROFILES[v][0]: raise ValueError('安装包类型不匹配')
     versions = {m['version'] for m, _ in packages.values()}
@@ -110,7 +141,7 @@ def main():
         if a.expected_mac and info['mac'] != a.expected_mac:
             raise ValueError('设备身份已改变，请重新选择设备')
         if a.operation == 'reset':
-            esp.hard_reset()
+            restart(esp)
             event(phase='reset')
             return
         if a.operation == 'check':
@@ -120,6 +151,8 @@ def main():
             raise ValueError('缺少设备身份或板型确认')
         if not a.variant or (info['variant'] and info['variant'] != a.variant):
             raise ValueError('固件类型与设备不匹配')
+        if a.variant not in packages or (info['flash_bytes'] == 4194304) != (a.variant == 'q2-f4'):
+            raise ValueError('安装包与 Flash 容量不匹配')
         manifest, images = packages[a.variant]
         info.update(target=manifest['target'], variant=a.variant)
         # Same live connection from identity/security inspection through erase/write.
@@ -140,14 +173,14 @@ def main():
                 f.seek(0)
             cmds.verify_flash(esp, args)
         event(phase='restarting')
-        esp.hard_reset()
+        restart(esp)
         event(phase='written', info={**info, 'version': manifest['version']})
     except Exception:
         # A rejected check must return the untouched board to its original program.
         # Do not reboot an interrupted install or a device with a mismatched identity.
         if esp and a.operation == 'check':
             try:
-                esp.hard_reset()
+                restart(esp)
             except Exception as reset_error:
                 print(f'恢复原程序失败，请按 RESET：{reset_error}', flush=True)
         raise

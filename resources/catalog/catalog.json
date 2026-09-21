@@ -1,6 +1,6 @@
 {
   "format_version": 2,
-  "catalog_version": "0.2.2",
+  "catalog_version": "0.2.3",
   "minimum_catalog_api": 2,
   "resources": [
     {
@@ -29,6 +29,14 @@
     },
     {
       "kind": "keymap",
+      "id": "remote.mubbvfjx",
+      "revision": 1,
+      "path": "keymaps/operators/cmcc-16-key.json",
+      "sha256": "763c36f70ddd5faecc7780ba1d769cd39847de92a8fc2518e34ded3f5764cd09",
+      "size": 1352
+    },
+    {
+      "kind": "keymap",
       "id": "cmcc.sample-28",
       "revision": 1,
       "path": "keymaps/operators/cmcc-28-key.json",
@@ -42,6 +50,14 @@
       "path": "keymaps/operators/unicom-28-key.json",
       "sha256": "8e7bfb3e84eb6ed16dd8689c62ebc6f26feb04dbdbfdc78453712184bdec8362",
       "size": 2278
+    },
+    {
+      "kind": "keymap",
+      "id": "remote.muawdc1x",
+      "revision": 1,
+      "path": "keymaps/operators/yyykq-17-key.json",
+      "sha256": "318674c8eefd4b30a939816f5e7c2c8a087944e5c6001c165070a4f5834b9a3e",
+      "size": 1429
     },
     {
       "kind": "keymap",
@@ -61,19 +77,35 @@
     },
     {
       "kind": "layout",
-      "id": "operator.three-column-28",
+      "id": "remote.mubbvfjx",
       "revision": 1,
+      "path": "layouts/cmcc-16-key.json",
+      "sha256": "b181a90ad744fe886da63356dddb9984e5d1dcdf82c30ccb227c40b19a235b68",
+      "size": 4273
+    },
+    {
+      "kind": "layout",
+      "id": "cmcc.three-column-28",
+      "revision": 1,
+      "path": "layouts/cmcc-28-key-three-column.json",
+      "sha256": "8a2c674faf5d2b75682fc587d8a477c0b964e0303997a2de046544971b02de87",
+      "size": 4779
+    },
+    {
+      "kind": "layout",
+      "id": "operator.three-column-28",
+      "revision": 2,
       "path": "layouts/operator-28-key-three-column.json",
-      "sha256": "2d503a9c6b962dc2ea403e53f9a6c21ac586ed6caf8468a936cc621f3ca74073",
-      "size": 4629
+      "sha256": "766daa8d4d38b61b2ac3fac8fc807144c1f846a1257094acf876fda1531600bb",
+      "size": 4783
     },
     {
       "kind": "layout",
       "id": "xiaomi.legacy-32ba",
-      "revision": 1,
+      "revision": 2,
       "path": "layouts/xiaomi-legacy-2717-32ba.json",
-      "sha256": "f8a3b067fba01e02012a23e3277acc076c3b34f6afb53f53f78363edacb33f71",
-      "size": 2828
+      "sha256": "efb96292b368a363d04b446b53884420ff166347b961e7c98bda048346069e9e",
+      "size": 2982
     },
     {
       "kind": "layout",
@@ -82,6 +114,22 @@
       "path": "layouts/xiaomi-remote-2-pro-rc003.json",
       "sha256": "d392ff0b95867c68d49aa3755c2c57223b2028ddd708c33d7bf2f04a5ad74137",
       "size": 3213
+    },
+    {
+      "kind": "layout",
+      "id": "remote.muawdc1x",
+      "revision": 1,
+      "path": "layouts/yyykq-17-key.json",
+      "sha256": "a26bebe8e1b71e19509593c5be6089e212c2bc8d7e51011c30636a59f8eea8d5",
+      "size": 4062
+    },
+    {
+      "kind": "defaults",
+      "id": "remote.mubbvfjx",
+      "revision": 1,
+      "path": "defaults/operators/cmcc-16-key.json",
+      "sha256": "8f3e84f1f7c4da11b3e21daee416f0779713e2833e9bcbaaf73508f2c2228a13",
+      "size": 2074
     },
     {
       "kind": "defaults",
@@ -101,6 +149,14 @@
     },
     {
       "kind": "defaults",
+      "id": "remote.muawdc1x",
+      "revision": 1,
+      "path": "defaults/operators/yyykq-17-key.json",
+      "sha256": "5b10ceb361ac4aba8657c25da2f9c2309547a57f546273919eaf0b7d8befd233",
+      "size": 2196
+    },
+    {
+      "kind": "defaults",
       "id": "xiaomi.legacy-32ba",
       "revision": 1,
       "path": "defaults/xiaomi/legacy-2717-32ba.json",
@@ -117,26 +173,42 @@
     },
     {
       "kind": "model",
+      "id": "remote.mubbvfjx",
+      "revision": 3,
+      "path": "models/operators/cmcc-16-key.json",
+      "sha256": "b7cf32ad5da6e3297482e81c26baf19c77de03ac31fac8644ade988e5939d440",
+      "size": 1271
+    },
+    {
+      "kind": "model",
       "id": "cmcc.sample-28",
-      "revision": 2,
+      "revision": 3,
       "path": "models/operators/cmcc-28-key.json",
-      "sha256": "4f3844b046d2ce929b67dad2a035aefc25141475a261eaf8a734111aa635b4c1",
-      "size": 1982
+      "sha256": "648e727791bf3d83619362aa825c0f5d13467e4ebac447a0ac10b5aa23b1b603",
+      "size": 1978
     },
     {
       "kind": "model",
       "id": "unicom.sample-28",
-      "revision": 2,
+      "revision": 4,
       "path": "models/operators/unicom-28-key.json",
-      "sha256": "fd3a0ff028aebc6f41a722697344844eff06ad95f0c8a423e0977fb68897f647",
+      "sha256": "eb93a1eef6a0ecc2cde730ddaff2639d0d996d4979997c7bc25801181ba4abf1",
       "size": 1991
     },
     {
       "kind": "model",
+      "id": "remote.muawdc1x",
+      "revision": 3,
+      "path": "models/operators/yyykq-17-key.json",
+      "sha256": "de4a503c2c9b9ca0031e95a297eba588da243bf2c80ce113c8d4abf3ca32b48e",
+      "size": 1316
+    },
+    {
+      "kind": "model",
       "id": "xiaomi.legacy-32ba",
-      "revision": 2,
+      "revision": 4,
       "path": "models/xiaomi/legacy-2717-32ba.json",
-      "sha256": "e8e8b8f9f5a5e101d6d5b2866abd15146cfbae5c34cc17fe818fad818570e511",
+      "sha256": "c2f40d4cc21c1d93b9e514278652168a2c7ab96a23c3a09b277ae2e233a3d8b4",
       "size": 1038
     },
     {
@@ -146,6 +218,14 @@
       "path": "models/xiaomi/remote-2-pro-rc003.json",
       "sha256": "9f4761061064e9fa0374f8fd522aa4398719ba6d794370bf9b5775ab968c3f00",
       "size": 1056
+    },
+    {
+      "kind": "fingerprint",
+      "id": "remote.mubbvfjx",
+      "revision": 1,
+      "path": "fingerprints/operators/cmcc-16-key.json",
+      "sha256": "3fb6add4865fa190610c3c79d0ccdd9b2bffe455c274af0bcc7e4bde08b54d56",
+      "size": 1437
     },
     {
       "kind": "fingerprint",
@@ -162,6 +242,14 @@
       "path": "fingerprints/operators/unicom-28-key.json",
       "sha256": "f34a16251ba0b6887327f493bfa1e83d8ce23f8bf53860c274e7414913cde633",
       "size": 825
+    },
+    {
+      "kind": "fingerprint",
+      "id": "remote.muawdc1x",
+      "revision": 1,
+      "path": "fingerprints/operators/yyykq-17-key.json",
+      "sha256": "c188e6085b74bfb6aa72e907ed34c1992bdbb38bf64d1c881a117fb0f2a514b1",
+      "size": 1425
     },
     {
       "kind": "fingerprint",

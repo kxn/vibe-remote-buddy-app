@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "model",
   "id": "cmcc.sample-28",
-  "revision": 2,
+  "revision": 3,
   "title": "CMCC_Voice_Remote",
   "buttons": [
     {
@@ -120,7 +120,7 @@
   ],
   "protocol": "hid-ico.v1",
   "keymap": "cmcc.sample-28",
-  "layout": "operator.three-column-28",
+  "layout": "cmcc.three-column-28",
   "defaults": "cmcc.sample-28",
   "onboarding": {
     "keyConfirmation": "required"

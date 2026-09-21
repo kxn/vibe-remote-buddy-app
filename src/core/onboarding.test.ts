@@ -196,7 +196,7 @@ describe("local defaults are independent of identity and bindings", () => {
     const o = makeOverride(base, base),
       next = structuredClone(base);
     next.keys.push({ id: 63, label: "New", default: [0, 0, 0] });
-    next.layout.buttons.push({ ...next.layout.buttons[0], key: 63 });
+    next.layout.buttons.push({ ...next.layout.buttons[0], key: 63, cell: undefined });
     expect(applyOverride(next, o).keys.at(-1)?.label).toBe("New");
   });
 });

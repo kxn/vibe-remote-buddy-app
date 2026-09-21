@@ -1,0 +1,91 @@
+{
+  "format_version": 2,
+  "kind": "keymap",
+  "id": "remote.muawdc1x",
+  "revision": 1,
+  "encoding": "hid-report-usage",
+  "entries": [
+    {
+      "button": "b01",
+      "report_id": 1,
+      "usage": 102
+    },
+    {
+      "button": "b14",
+      "report_id": 3,
+      "usage": 226
+    },
+    {
+      "button": "b10",
+      "report_id": 1,
+      "usage": 101
+    },
+    {
+      "button": "b19",
+      "report_id": 3,
+      "usage": 235
+    },
+    {
+      "button": "b03",
+      "report_id": 1,
+      "usage": 82
+    },
+    {
+      "button": "b04",
+      "report_id": 1,
+      "usage": 81
+    },
+    {
+      "button": "b05",
+      "report_id": 1,
+      "usage": 80
+    },
+    {
+      "button": "b06",
+      "report_id": 1,
+      "usage": 79
+    },
+    {
+      "button": "b07",
+      "report_id": 3,
+      "usage": 65
+    },
+    {
+      "button": "b09",
+      "report_id": 3,
+      "usage": 547
+    },
+    {
+      "button": "b35",
+      "report_id": 3,
+      "usage": 240
+    },
+    {
+      "button": "b08",
+      "report_id": 3,
+      "usage": 548
+    },
+    {
+      "button": "b12",
+      "report_id": 3,
+      "usage": 233
+    },
+    {
+      "button": "b13",
+      "report_id": 3,
+      "usage": 234
+    },
+    {
+      "button": "b21",
+      "report_id": 1,
+      "usage": 75
+    },
+    {
+      "button": "b22",
+      "report_id": 1,
+      "usage": 78
+    }
+  ],
+  "voice_button": "b02",
+  "provenance": "saved-key-proofs"
+}

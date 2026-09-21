@@ -1,0 +1,199 @@
+{
+  "format_version": 2,
+  "kind": "layout",
+  "id": "remote.mubbvfjx",
+  "revision": 1,
+  "geometry": {
+    "appearance": {
+      "bottom": 0.26,
+      "color": "black",
+      "radius": 0.18,
+      "ratio": 0.3,
+      "top": 0.04,
+      "version": 1
+    },
+    "buttons": [
+      {
+        "cell": 0,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 16.666666666666668,
+        "y": 6.25,
+        "button": "b01"
+      },
+      {
+        "cell": 2,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 83.33333333333333,
+        "y": 6.25,
+        "button": "b19"
+      },
+      {
+        "cell": 4,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 18.75,
+        "button": "b03"
+      },
+      {
+        "cell": 10,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 43.75,
+        "button": "b04"
+      },
+      {
+        "cell": 6,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 16.666666666666668,
+        "y": 31.25,
+        "button": "b05"
+      },
+      {
+        "cell": 8,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 83.33333333333333,
+        "y": 31.25,
+        "button": "b06"
+      },
+      {
+        "cell": 7,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 31.25,
+        "button": "b07"
+      },
+      {
+        "cell": 12,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 16.666666666666668,
+        "y": 56.25,
+        "button": "b10"
+      },
+      {
+        "cell": 13,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 56.25,
+        "button": "b02"
+      },
+      {
+        "cell": 14,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 83.33333333333333,
+        "y": 56.25,
+        "button": "b08"
+      },
+      {
+        "cell": 16,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 68.75,
+        "button": "b09"
+      },
+      {
+        "cell": 15,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 16.666666666666668,
+        "y": 68.75,
+        "button": "b12"
+      },
+      {
+        "cell": 18,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 16.666666666666668,
+        "y": 81.25,
+        "button": "b13"
+      },
+      {
+        "cell": 17,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 83.33333333333333,
+        "y": 68.75,
+        "button": "b21"
+      },
+      {
+        "cell": 20,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 83.33333333333333,
+        "y": 81.25,
+        "button": "b22"
+      },
+      {
+        "cell": 19,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 26.666666666666668,
+        "x": 50,
+        "y": 81.25,
+        "button": "b35"
+      }
+    ],
+    "editorColumns": 3,
+    "editorRows": 8,
+    "height": 560,
+    "thumbnailSymbols": true,
+    "width": 320
+  }
+}

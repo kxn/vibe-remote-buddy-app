@@ -193,9 +193,9 @@ export function ReceiverSetup({
                 info?.confirmed &&
                 info.firmware === `buddy-${device.version}` &&
                 info.target === device.target &&
-                [8388608, 16777216].includes(info.flash_bytes ?? 0) &&
+                (device.variant === "q2-f4" ? [4194304] : [8388608, 16777216]).includes(info.flash_bytes ?? 0) &&
                 (info.psram_bytes ?? 0) >=
-                  (device.variant === "q2" ? 2097152 : 8388608)
+                  (device.variant !== "o8" ? 2097152 : 8388608)
               ) {
                 if (!cancel) setStep("done");
               } else if (Date.now() - waitingSince.current > 45000) {
@@ -436,7 +436,7 @@ export function ReceiverSetup({
                     }}
                   >
                     <option value="">请选择</option>
-                    <option value="q2">2 MB Quad PSRAM</option>
+                    <option value={device?.flash_bytes === 4194304 ? "q2-f4" : "q2"}>2 MB Quad PSRAM</option>
                     <option value="o8">8 MB Octal PSRAM</option>
                   </select>
                 </label>

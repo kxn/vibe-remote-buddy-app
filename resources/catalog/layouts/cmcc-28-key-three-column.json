@@ -1,16 +1,16 @@
 {
   "format_version": 2,
   "kind": "layout",
-  "id": "operator.three-column-28",
-  "revision": 2,
+  "id": "cmcc.three-column-28",
+  "revision": 1,
   "geometry": {
     "angle": 11,
     "appearance": {
-      "bottom": 0.18,
+      "bottom": 0.14,
       "color": "black",
       "radius": 0.18,
-      "ratio": 0.28,
-      "top": 0.08,
+      "ratio": 0.27,
+      "top": 0.06,
       "version": 1
     },
     "buttons": [
@@ -50,17 +50,17 @@
         "height": 5.59,
         "radius": 50,
         "width": 24,
-        "x": 50,
-        "y": 39.25,
-        "button": "b04"
+        "x": 18,
+        "y": 32.083333333333336,
+        "button": "b05"
       },
       {
         "height": 5.59,
         "radius": 50,
         "width": 24,
-        "x": 18,
+        "x": 50,
         "y": 32.083333333333336,
-        "button": "b05"
+        "button": "b07"
       },
       {
         "height": 5.59,
@@ -75,8 +75,8 @@
         "radius": 50,
         "width": 24,
         "x": 50,
-        "y": 32.083333333333336,
-        "button": "b07"
+        "y": 39.25,
+        "button": "b04"
       },
       {
         "height": 5.59,
@@ -114,9 +114,9 @@
         "height": 5.59,
         "radius": 50,
         "width": 24,
-        "x": 18,
-        "y": 60.75,
-        "button": "b13"
+        "x": 50,
+        "y": 53.58333333333333,
+        "button": "b02"
       },
       {
         "height": 5.59,
@@ -130,19 +130,19 @@
       {
         "height": 5.59,
         "radius": 50,
+        "width": 24,
+        "x": 18,
+        "y": 60.75,
+        "button": "b13"
+      },
+      {
+        "height": 5.59,
+        "radius": 50,
         "symbol": "CH−",
         "width": 24,
         "x": 82,
         "y": 60.75,
         "button": "b22"
-      },
-      {
-        "height": 5.59,
-        "radius": 50,
-        "width": 24,
-        "x": 50,
-        "y": 53.58333333333333,
-        "button": "b02"
       },
       {
         "height": 5.59,

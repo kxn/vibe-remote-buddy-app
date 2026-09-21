@@ -1,28 +1,50 @@
 {
   "format_version": 2,
   "kind": "layout",
-  "id": "xiaomi.legacy-32ba",
-  "revision": 2,
+  "id": "remote.muawdc1x",
+  "revision": 1,
   "geometry": {
     "appearance": {
-      "bottom": 0.31,
+      "bottom": 0.27,
       "color": "black",
       "radius": 0.18,
       "ratio": 0.28,
-      "top": 0.06,
+      "top": 0.05,
       "version": 1
     },
     "buttons": [
       {
-        "cell": 2,
+        "cell": 0,
         "color": "#34332e",
         "fill": "#eee8de",
         "height": 10,
         "radius": 8,
         "width": 16,
-        "x": 50,
+        "x": 10,
         "y": 6.25,
         "button": "b01"
+      },
+      {
+        "cell": 5,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 10,
+        "y": 18.75,
+        "button": "b14"
+      },
+      {
+        "cell": 6,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 30,
+        "y": 18.75,
+        "button": "b10"
       },
       {
         "cell": 7,
@@ -33,51 +55,40 @@
         "width": 16,
         "x": 50,
         "y": 18.75,
-        "button": "b02"
+        "button": "b19"
       },
       {
-        "cell": 12,
-        "color": "#34332e",
-        "fill": "#eee8de",
-        "height": 10,
-        "radius": 8,
-        "width": 16,
-        "x": 50,
-        "y": 31.25,
-        "button": "b03"
-      },
-      {
-        "cell": 22,
-        "color": "#34332e",
-        "fill": "#eee8de",
-        "height": 10,
-        "radius": 8,
-        "width": 16,
-        "x": 50,
-        "y": 56.25,
-        "button": "b04"
-      },
-      {
-        "cell": 16,
+        "cell": 11,
         "color": "#34332e",
         "fill": "#eee8de",
         "height": 10,
         "radius": 8,
         "width": 16,
         "x": 30,
-        "y": 43.75,
-        "button": "b05"
+        "y": 31.25,
+        "button": "b03"
       },
       {
-        "cell": 18,
+        "cell": 21,
         "color": "#34332e",
         "fill": "#eee8de",
         "height": 10,
         "radius": 8,
         "width": 16,
-        "x": 70,
+        "x": 30,
+        "y": 56.25,
+        "button": "b04"
+      },
+      {
+        "cell": 15,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 10,
         "y": 43.75,
-        "button": "b06"
+        "button": "b05"
       },
       {
         "cell": 17,
@@ -88,7 +99,40 @@
         "width": 16,
         "x": 50,
         "y": 43.75,
+        "button": "b06"
+      },
+      {
+        "cell": 16,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 30,
+        "y": 43.75,
         "button": "b07"
+      },
+      {
+        "cell": 25,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 10,
+        "y": 68.75,
+        "button": "b09"
+      },
+      {
+        "cell": 26,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 30,
+        "y": 68.75,
+        "button": "b35"
       },
       {
         "cell": 27,
@@ -102,26 +146,37 @@
         "button": "b08"
       },
       {
-        "cell": 26,
+        "cell": 30,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 10,
+        "y": 81.25,
+        "button": "b12"
+      },
+      {
+        "cell": 35,
+        "color": "#34332e",
+        "fill": "#eee8de",
+        "height": 10,
+        "radius": 8,
+        "width": 16,
+        "x": 10,
+        "y": 93.75,
+        "button": "b13"
+      },
+      {
+        "cell": 31,
         "color": "#34332e",
         "fill": "#eee8de",
         "height": 10,
         "radius": 8,
         "width": 16,
         "x": 30,
-        "y": 68.75,
-        "button": "b09"
-      },
-      {
-        "cell": 28,
-        "color": "#34332e",
-        "fill": "#eee8de",
-        "height": 10,
-        "radius": 8,
-        "width": 16,
-        "x": 70,
-        "y": 68.75,
-        "button": "b10"
+        "y": 81.25,
+        "button": "b02"
       },
       {
         "cell": 32,
@@ -132,7 +187,7 @@
         "width": 16,
         "x": 50,
         "y": 81.25,
-        "button": "b12"
+        "button": "b21"
       },
       {
         "cell": 37,
@@ -143,7 +198,7 @@
         "width": 16,
         "x": 50,
         "y": 93.75,
-        "button": "b13"
+        "button": "b22"
       }
     ],
     "editorColumns": 5,

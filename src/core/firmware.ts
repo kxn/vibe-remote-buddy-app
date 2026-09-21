@@ -56,7 +56,7 @@ export async function validatePackage(
     !m ||
     m.format !== 1 ||
     m.target !== info.target ||
-    !["s3-q2-ab1", "s3-o8-ab1"].includes(m.target) ||
+    !["s3-q2-ab1", "s3-o8-ab1", "s3-q2-f4-ab2"].includes(m.target) ||
     !versionParts(m.version)
   )
     throw Error("固件与接收器不匹配");
@@ -73,15 +73,15 @@ export async function validatePackage(
     (info.bank !== 0 && info.bank !== 1) ||
     !Number.isInteger(info.flash_bytes) ||
     !Number.isInteger(info.psram_bytes) ||
-    ![8 * 1024 * 1024, 16 * 1024 * 1024].includes(info.flash_bytes!) ||
-    info.psram_bytes! < (m.target === "s3-q2-ab1" ? 2 : 8) * 1024 * 1024
+    !(m.target === "s3-q2-f4-ab2" ? [4, 8, 16] : [8, 16]).includes(info.flash_bytes! / 1048576) ||
+    info.psram_bytes! < (m.target === "s3-o8-ab1" ? 8 : 2) * 1024 * 1024
   )
     throw Error("接收器尚未就绪或硬件不支持");
   if (
     !Array.isArray(pkg.image) ||
     !Number.isInteger(m.size) ||
     m.size < 288 ||
-    m.size > 2 * 1024 * 1024 ||
+    m.size > (m.target === "s3-q2-f4-ab2" ? 0x140000 : 0x200000) ||
     pkg.image.length !== m.size ||
     pkg.image.some((v) => !Number.isInteger(v) || v < 0 || v > 255)
   )
@@ -95,7 +95,7 @@ export async function validatePackage(
   if (
     view.getUint32(32, true) !== 0xabcd5432 ||
     text(80, 32) !==
-      (m.target === "s3-q2-ab1" ? "buddy_s3_q2_ab1" : "buddy_s3_o8_ab1") ||
+      (m.target === "s3-q2-f4-ab2" ? "buddy_s3_q2_f4_ab2" : m.target === "s3-q2-ab1" ? "buddy_s3_q2_ab1" : "buddy_s3_o8_ab1") ||
     text(48, 32) !== m.version
   )
     throw Error("固件布局或版本不匹配");

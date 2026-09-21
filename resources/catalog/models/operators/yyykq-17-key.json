@@ -1,0 +1,84 @@
+{
+  "format_version": 2,
+  "kind": "model",
+  "id": "remote.muawdc1x",
+  "revision": 3,
+  "title": "YYYKQ · 17键",
+  "buttons": [
+    {
+      "id": "b01",
+      "semantic": "power"
+    },
+    {
+      "id": "b14",
+      "semantic": "mute"
+    },
+    {
+      "id": "b10",
+      "semantic": "menu"
+    },
+    {
+      "id": "b19",
+      "semantic": "settings"
+    },
+    {
+      "id": "b03",
+      "semantic": "up"
+    },
+    {
+      "id": "b04",
+      "semantic": "down"
+    },
+    {
+      "id": "b05",
+      "semantic": "left"
+    },
+    {
+      "id": "b06",
+      "semantic": "right"
+    },
+    {
+      "id": "b07",
+      "semantic": "ok"
+    },
+    {
+      "id": "b09",
+      "semantic": "home"
+    },
+    {
+      "id": "b35",
+      "semantic": "local"
+    },
+    {
+      "id": "b08",
+      "semantic": "back"
+    },
+    {
+      "id": "b12",
+      "semantic": "volume_up"
+    },
+    {
+      "id": "b13",
+      "semantic": "volume_down"
+    },
+    {
+      "id": "b02",
+      "semantic": "voice"
+    },
+    {
+      "id": "b21",
+      "semantic": "channel_up"
+    },
+    {
+      "id": "b22",
+      "semantic": "channel_down"
+    }
+  ],
+  "protocol": "hid-ico.v1",
+  "keymap": "remote.muawdc1x",
+  "layout": "remote.muawdc1x",
+  "defaults": "remote.muawdc1x",
+  "onboarding": {
+    "keyConfirmation": "required"
+  }
+}

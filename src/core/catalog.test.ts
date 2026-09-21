@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import {
   compileCatalog,
+  uploadCatalog,
   mergeCatalogCopies,
   matchingArtwork,
   resolveCatalog,
@@ -22,11 +23,11 @@ function fixture() {
 describe("board catalog", () => {
   it("resolves the captured library without conflating related keymaps", () => {
     const models = fixture();
-    expect(models.length).toBe(4);
+    expect(models.length).toBe(6);
     const unicom = models.find((m) => m.model.id === "unicom.sample-28")!,
       cmcc = models.find((m) => m.model.id === "cmcc.sample-28")!;
     expect(unicom.model.family).toBe(cmcc.model.family);
-    expect(unicom.model.layout).toEqual(cmcc.model.layout);
+    expect(unicom.model.layout).not.toEqual(cmcc.model.layout);
     expect(unicom.model.raw).not.toEqual(cmcc.model.raw);
     expect(unicom.model.keys.find((k) => k.id === 8)?.default).toEqual([
       1, 0, 42,
@@ -51,13 +52,13 @@ describe("board catalog", () => {
   it("compiles 1024 models with bounded indexes and validates a header-covering checksum", () => {
     const base = fixture();
     const models: CatalogModel[] = Array.from({ length: 1024 }, (_, i) => ({
-      ...base[i % 4],
-      model: { ...base[i % 4].model, id: `scale.model-${i}` },
+      ...base[i % base.length],
+      model: { ...base[i % base.length].model, id: `scale.model-${i}` },
     }));
     const image = compileCatalog(models, 42),
       view = new DataView(image.bytes.buffer);
     expect(image.indexBytes).toBeLessThan(64 * 1024);
-    expect(image.bytes.length).toBeLessThan(1536 * 1024);
+    expect(image.bytes.length).toBeLessThan(576 * 1024);
     expect(view.getUint32(20, true)).toBe(1024);
     const copy = image.bytes.slice(),
       expected = view.getUint32(48, true);
@@ -117,7 +118,7 @@ it("preserves shipped artwork only for unchanged public geometry", () => {
 
 
 describe("migrated catalog copies", () => {
-  it("publishes four canonical models when an old CMCC copy is still present", () => {
+  it("publishes canonical models when an old CMCC copy is still present", () => {
     const base = fixture();
     const cmcc = base.find(m => m.model.id === "cmcc.sample-28")!;
     const local = structuredClone(cmcc);
@@ -129,14 +130,14 @@ describe("migrated catalog copies", () => {
     }
     const result = mergeCatalogCopies([...base, local], new Set(base.map(m => m.model.id)));
     expect(result.map(m => m.model.id)).toEqual(base.map(m => m.model.id));
-    expect(compileCatalog(result, 1).count).toBe(4);
+    expect(compileCatalog(result, 1).count).toBe(base.length);
     expect(local.model.id).toBe("remote.old-copy");
   });
   it("preserves explicit personal edits under the canonical identity", () => {
     const base=fixture(), local=structuredClone(base[0]);local.model.id="remote.edited";
     local.model.keys[0].label="My label";
     const result=mergeCatalogCopies([...base,local],new Set(base.map(m=>m.model.id)),new Set([local.model.id]));
-    expect(result).toHaveLength(4);expect(result[0].model.keys[0].label).toBe("My label");
+    expect(result).toHaveLength(base.length);expect(result[0].model.keys[0].label).toBe("My label");
     expect(base[0].model.keys[0].label).not.toBe("My label");
   });
   it("never merges a different map, PnP identity or physical key mapping", () => {
@@ -146,7 +147,40 @@ describe("migrated catalog copies", () => {
       (m:CatalogModel)=>{m.model.raw[0].usage += 1},
     ]) {
       const base=fixture(),local=structuredClone(base[0]);local.model.id="remote.other";change(local);
-      expect(mergeCatalogCopies([...base,local],new Set(base.map(m=>m.model.id)))).toHaveLength(5);
+      expect(mergeCatalogCopies([...base,local],new Set(base.map(m=>m.model.id)))).toHaveLength(base.length + 1);
     }
   });
+});
+
+it("rejects oversized independent fingerprints before starting a Flash transaction", async () => {
+  const base = fixture();
+  const models = Array.from({length:1024}, (_, i) => {
+    const m = structuredClone(base[i % base.length]); m.model.id = `independent.${i}`;
+    const map = new Uint8Array(1024); map.fill(i & 255); new DataView(map.buffer).setUint32(0,i,true);
+    const hex = Array.from(map, b=>b.toString(16).padStart(2,"0")).join("");
+    m.fingerprints[0].required.report_map = {hex, length:map.length,crc32c:crc32c(map).toString(16).padStart(8,"0"),sha256:"0".repeat(64)};
+    return m;
+  });
+  const calls:number[]=[];
+  await expect(uploadCatalog(async op => { calls.push(op); return {catalog_api:2,catalog_available:true,catalog_format:2,catalog_max_count:4096,catalog_max_bytes:576*1024,catalog_generation:1}; },models)).rejects.toThrow("容量");
+  expect(calls).toHaveLength(1);
+});
+it("keeps format-1 compilation available for deployed receivers", () => {
+  const base=fixture();const legacy=compileCatalog(base,1,1),compact=compileCatalog(base,1,2);
+  expect(new DataView(legacy.bytes.buffer).getUint32(4,true)).toBe(1);
+  expect(new DataView(compact.bytes.buffer).getUint32(4,true)).toBe(2);
+  expect(compact.bytes.length).toBeLessThan(legacy.bytes.length);
+  expect(()=>compileCatalog(base,1,3)).toThrow("格式");
+});
+
+it("fits 1024 distinct sample-sized Maps without discarding identity evidence", () => {
+  const base=fixture();
+  const models=Array.from({length:1024},(_,i)=>{
+    const m=structuredClone(base[i%base.length]);m.model.id=`distinct.${i}`;
+    const old=m.fingerprints[0].required.report_map;
+    const map=Uint8Array.from([...old.hex.match(/../g).map((x:string)=>parseInt(x,16)),6,i&255,i>>8]);
+    m.fingerprints[0].required.report_map={...old,hex:Array.from(map,b=>b.toString(16).padStart(2,"0")).join(""),length:map.length,crc32c:crc32c(map).toString(16).padStart(8,"0")};
+    return m;
+  });
+  expect(compileCatalog(models,1).bytes.length).toBeLessThan(576*1024);
 });

@@ -59,7 +59,7 @@ try {
         path.join(factory, "catalog.json"),
         path.join(installer, "catalog.json"),
       );
-      for (const variant of ["q2", "o8"]) {
+      for (const variant of ["q2", "o8", "q2-f4"]) {
         fs.mkdirSync(path.join(installer, variant));
         for (const f of [
           "install.json",
@@ -67,6 +67,8 @@ try {
           "bootloader.bin",
           "partition-table.bin",
           "ota_data_initial.bin",
+          "factory-nvs.bin",
+          "catalog.bin",
         ])
           fs.copyFileSync(
             path.join(factory, variant, f),

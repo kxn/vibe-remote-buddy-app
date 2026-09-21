@@ -99,7 +99,7 @@ pub fn catalog_activate(app:tauri::AppHandle,commit:String)->Result<(),String>{
     use super::*;
     #[test] fn bundled_manifest_verifies_exact_bytes(){
         let snapshot=read_snapshot(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/catalog"),"bundled".into()).unwrap();
-        assert_eq!(snapshot.resources.iter().filter(|r|r["kind"]=="model").count(),4);
+        assert_eq!(snapshot.resources.iter().filter(|r|r["kind"]=="model").count(),6);
     }
     #[test] fn paths_stay_in_snapshot(){for p in ["../model.json","/model.json","C:/model.json","a\\b.json","a:stream.json"]{assert!(safe_path(p).is_err());}assert!(safe_path("models/xiaomi/rc003.json").is_ok());}
 }

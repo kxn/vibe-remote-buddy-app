@@ -54,3 +54,13 @@ it("accepts 8MB Flash quad PSRAM but rejects relabelled octal images",async()=>{
  await expect(validatePackage(p,{...q,flash_bytes:4194304})).rejects.toThrow("硬件");
  await expect(validatePackage(p,{...q,psram_bytes:0})).rejects.toThrow("硬件");
 });
+
+it("validates the 4 MB target independently from 8 MB q2",async()=>{
+ const p=await fixture();p.manifest.target="s3-q2-f4-ab2";p.image.fill(0,80,112);for(const [i,b] of new TextEncoder().encode("buddy_s3_q2_f4_ab2").entries())p.image[80+i]=b;
+ const image=Uint8Array.from(p.image);p.manifest.size=image.length;p.manifest.sha256=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",image))).map(v=>v.toString(16).padStart(2,"0")).join("");
+ const small={...info,target:p.manifest.target,flash_bytes:4194304,psram_bytes:2097152};
+ expect((await validatePackage(p,small)).length).toBe(image.length);
+ await expect(validatePackage(p,{...small,target:"s3-q2-ab1"})).rejects.toThrow("不匹配");
+ await expect(validatePackage(p,{...small,flash_bytes:2097152})).rejects.toThrow("硬件");
+ p.manifest.size=0x140001;await expect(validatePackage(p,small)).rejects.toThrow("不完整");
+});
