@@ -979,6 +979,53 @@ main {
   background: #e8efdf;
   border-color: #a8b794;
 }
+.preset-preview {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2d9c8;
+  border-radius: 14px;
+  background: #faf7f0;
+  display: grid;
+  gap: 8px;
+}
+.preset-preview header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.preset-preview header .badge {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8efdf;
+  border: 1px solid #a8b794;
+  font-size: 11px;
+}
+.preset-preview .probe-grid {
+  padding: 8px;
+  gap: 4px;
+}
+.preset-preview .probe-cell {
+  height: 34px;
+}
+.preset-preview .probe-cell span {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  font-size: 11px;
+  background: #fff;
+  border: 1px solid #d5caba;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+.preset-preview .probe-cell span.empty {
+  border-style: dashed;
+  background: transparent;
+}
 .probe-designer aside {
   max-height: 470px;
   overflow: auto;

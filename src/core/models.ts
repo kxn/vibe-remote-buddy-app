@@ -50,6 +50,9 @@ export interface ModelSource {
   error?: string;
 }
 export const remoteModels = new Map<string, RemoteModel>();
+/* Load origin per model id: "catalog" marks shipped resources, anything else
+ * is a locally adapted package. Display only; never a matching criterion. */
+export const modelOrigins = new Map<string, string>();
 const ids = /^[a-z0-9][a-z0-9._-]{0,46}$/;
 function require(ok: unknown, message: string): asserts ok {
   if (!ok) throw Error(message);
@@ -201,6 +204,7 @@ export function loadModels(sources: ModelSource[]): string[] {
   const pending = new Map<string, ModelSource>();
   const duplicate = new Set<string>();
   remoteModels.clear();
+  modelOrigins.clear();
   for (const source of sources) {
     try {
       if (source.error) throw Error(source.error);
@@ -212,6 +216,7 @@ export function loadModels(sources: ModelSource[]): string[] {
         throw Error(`型号 ID 重复：${id}`);
       }
       pending.set(id, source);
+      modelOrigins.set(id, source.source);
     } catch (e) {
       errors.push(`${source.source}: ${String(e)}`);
     }

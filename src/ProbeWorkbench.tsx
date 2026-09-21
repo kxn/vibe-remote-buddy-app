@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
 import {
+  modelOrigins,
   remoteModels,
   type RemoteModel,
 } from "./core/models";
@@ -27,7 +28,7 @@ import {
   type KeyProof,
 } from "./core/probe-layout";
 import { renderRemoteArtwork } from "./core/remote-artwork";
-import { ProbeLayout } from "./ProbeLayout";
+import { ProbeLayout, LayoutPreview } from "./ProbeLayout";
 import { OP, sleep, DeviceError } from "./core/session";
 import { call, native } from "./native";
 type Capture = {
@@ -38,6 +39,9 @@ type Capture = {
   listened: boolean;
 };
 const steps = ["发现设备", "连接与识别", "按键与布局", "完成"];
+/* Voice protocol family of a model; display only, matching never uses it. */
+const familyLabel = (f: number) =>
+  f === 2 ? "联通 ICO" : f === 3 ? "旧版 mSBC" : "ATVV";
 export function ProbeWorkbench({
   service,
   close,
@@ -66,6 +70,7 @@ export function ProbeWorkbench({
     urlRef = useRef(""),
     lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
     localSaved = useRef(""),
+    autoTitle = useRef(""),
     epoch = useRef(0),
     dialogRef = useRef<HTMLElement>(null);
   const [step, setStep] = useState(0),
@@ -529,6 +534,7 @@ export function ProbeWorkbench({
           buttons: [],
         };
         delete m.image;
+        autoTitle.current = m.title;
         update(m);
       }
       setStep(2);
@@ -722,6 +728,14 @@ export function ProbeWorkbench({
       m.layout.artworkButtons = true;
       if (remoteModels.has(m.id) && localSaved.current !== m.id)
         throw Error("型号标识已存在");
+      /* Same-named models are distinguished by fingerprint evidence, but the
+       * operator must see that choice was made. Auto titles also gain the key
+       * count so identical broadcast names stop colliding in pickers. */
+      const duplicateTitle = [...remoteModels.values()].some(
+        (x) => x.id !== m.id && x.title === m.title,
+      );
+      if (m.title === autoTitle.current && m.keys.length)
+        m.title = `${m.title} · ${m.keys.length}键`;
       setProgress("保存型号");
       let result: string | null = localSaved.current;
       if (!result) {
@@ -739,7 +753,11 @@ export function ProbeWorkbench({
         await service.adoptProbe(m.id, () => { ended.current = true; });
         ended.current = true;
         setStep(3);
-        setNotice("型号已保存");
+        setNotice(
+          duplicateTitle
+            ? "型号已保存（目录中存在同名机型，以 Map 指纹区分）"
+            : "型号已保存",
+        );
       }
     });
   }
@@ -750,6 +768,7 @@ export function ProbeWorkbench({
     ) &&
     model.keys.some((k) => k.id === 2);
   const modalBusy = busy || !!capture || !!localSaved.current;
+  const preset = presetId ? remoteModels.get(presetId) : undefined;
   return (
     <div
       className="shade"
@@ -969,6 +988,24 @@ export function ProbeWorkbench({
                 加载布局
               </button>
             </div>
+            {preset && (
+              <div className="preset-preview" aria-label="布局预览">
+                <header>
+                  <strong>{preset.title}</strong>
+                  <span className="badge">
+                    {modelOrigins.get(preset.id) === "catalog" ? "内置" : "适配"}
+                  </span>
+                  <span>
+                    {familyLabel(preset.family)} · {preset.keys.length} 键
+                  </span>
+                </header>
+                <LayoutPreview model={preset} />
+                <small>
+                  Map {preset.map_crc.toString(16).padStart(8, "0")} · 广播{" "}
+                  {preset.matches.map((h) => h.name ?? h.prefix).join(" / ")}
+                </small>
+              </div>
+            )}
             <ProbeLayout
               model={model}
               proofs={proofs}

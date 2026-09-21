@@ -9,6 +9,36 @@ import {
   removeKey,
   type KeyProof,
 } from "./core/probe-layout";
+
+/* Read-only rendering of a model's key grid: same geometry as the designer,
+ * no interaction. Used to preview a layout preset before adopting it. */
+export function LayoutPreview({ model }: { model: RemoteModel }) {
+  const columns = gridColumns(model);
+  return (
+    <div
+      className="probe-grid preview"
+      style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+      aria-label="布局预览"
+    >
+      {Array.from(
+        { length: columns * (model.layout.editorRows ?? 8) },
+        (_, cell) => {
+          const k = model.keys.find((k) => cellOf(model, k.id) === cell);
+          return (
+            <div key={cell} className="probe-cell">
+              {k ? (
+                <span className="preview-key">{k.label}</span>
+              ) : (
+                <span className="empty" />
+              )}
+            </div>
+          );
+        },
+      )}
+    </div>
+  );
+}
+
 export function ProbeLayout({
   model,
   proofs,
