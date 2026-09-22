@@ -1,5 +1,30 @@
 import { labels } from "./layout";
-import type { RemoteModel } from "./models";
+import type { RemoteModel, RemoteAppearance } from "./models";
+
+export function appearanceOf(model: RemoteModel): RemoteAppearance {
+  return (
+    model.layout.appearance ?? {
+      version: 1,
+      color: "black",
+      ratio: Math.max(.18,Math.min(.5,artworkModel(model).layout.width / model.layout.height)),
+      radius: 0.18,
+      top: 0.07,
+      bottom: 0.07,
+    }
+  );
+}
+export function withAppearance(
+  model: RemoteModel,
+  patch: Partial<RemoteAppearance>,
+): RemoteModel {
+  const appearance = { ...appearanceOf(model), ...patch };
+  appearance.top = Math.min(appearance.top, 0.7 - appearance.bottom);
+  return {
+    ...model,
+    image: undefined,
+    layout: { ...model.layout, artworkButtons: true, appearance },
+  };
+}
 
 const escape = (s: string) =>
   s.replace(
@@ -69,13 +94,13 @@ export function artworkPlacement(model: RemoteModel) {
   const maxY = buttons.length
     ? Math.max(...buttons.map((b) => b.y + b.height / 2))
     : 100;
-  const appearance = model.layout.appearance;
-  const top = appearance?.top ?? 0.07,
-    bottom = appearance?.bottom ?? 0.07;
+  const appearance = appearanceOf(model);
+  const top = appearance.top,
+    bottom = appearance.bottom;
   let sx = 84 / (maxX - minX),
     sy = ((1 - top - bottom) * 100) / (maxY - minY);
   const margin = Math.min(w, h) * 0.045;
-  const radius = Math.min(w * (appearance?.radius ?? 0.18), (h - 4) / 2);
+  const radius = Math.min(w * (appearance.radius), (h - 4) / 2);
   const inside = (x: number, y: number) => {
     if (x < margin || x > w - margin || y < margin || y > h - margin)
       return false;
@@ -125,14 +150,14 @@ export function renderRemoteArtwork(model: RemoteModel): string {
     13: "−",
     14: "×",
   };
-  const appearance = model.layout.appearance;
+  const appearance = appearanceOf(model);
   const colors =
-    appearance?.color === "silver"
+    appearance.color === "silver"
       ? ["#899194", "#d6dcde", "#b9c1c4", "#858e92"]
-      : appearance?.color === "white"
+      : appearance.color === "white"
         ? ["#cbcdd0", "#ffffff", "#f2f2f0", "#c3c7c9"]
         : ["#15181b", "#42474b", "#272c30", "#101315"];
-  const radius = w * (appearance?.radius ?? 0.18);
+  const radius = w * (appearance.radius);
   const keys = buttons
     .map((b) => {
       const x = (b.x * w) / 100,

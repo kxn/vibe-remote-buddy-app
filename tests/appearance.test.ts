@@ -99,3 +99,13 @@ it("appearance keeps three occupied columns centered on a five-column canvas",()
  }
  expect(original.layout.buttons[0].x).toBe(10);
 });
+
+it("materializing legacy appearance preserves rendered geometry", () => {
+ const original=base();
+ delete original.image;
+ const before=artworkModel(original);
+ const after=artworkModel(withAppearance(original,{color:"silver"}));
+ expect(after.layout.width).toBeCloseTo(before.layout.width);
+ expect(after.layout.buttons).toEqual(before.layout.buttons);
+ expect(artworkPlacement(after)).toEqual(artworkPlacement(before));
+});

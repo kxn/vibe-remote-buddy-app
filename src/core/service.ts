@@ -14,7 +14,9 @@ import {
   validateModel,
   syncModels,
   remoteModels,
+  modelOrigins,
   type ModelSource,
+  type RemoteModel,
 } from "./models";
 import {
   validatePackage,
@@ -375,6 +377,10 @@ export class BuddyService {
     const local = sources.filter(
       (s) => !defaults.has((s.model as any)?.id) || s.edited,
     );
+    const models = new Map<string, RemoteModel>();
+    const origins = new Map<string, string>();
+    const aliases = new Map<string, string>();
+    const overridden = new Set<string>();
     const errors = loadModels([
       ...resolved.map((m) => ({
         source: "catalog",
@@ -385,14 +391,14 @@ export class BuddyService {
         ),
       })),
       ...local.filter((s) => !defaults.has((s.model as any)?.id)),
-    ]);
+    ], models, origins);
     if (errors.length) throw Error(errors.join("\n"));
     // A locally edited model is a private default definition; the official
     // resource graph remains immutable and does not acquire personal changes.
     for (const s of local.filter((s) => defaults.has((s.model as any)?.id)))
-      remoteModels.set((s.model as any).id,
+      models.set((s.model as any).id,
         applyEditedModel({ ...defaults.get((s.model as any).id)!.model, image: s.image }, validateModel(s.model)));
-    this.catalogModels = [...remoteModels.values()].map((model) => {
+    let catalogModels = [...models.values()].map((model) => {
       const official = defaults.get(model.id);
       if (official) return { ...official, model };
       const source = local.find((s) => (s.model as any)?.id === model.id);
@@ -450,22 +456,29 @@ export class BuddyService {
         })),
       };
     });
-    this.modelAliases.clear();
-    this.catalogModels = mergeCatalogCopies(
-      this.catalogModels, new Set(defaults.keys()),
-      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)), this.modelAliases,
+    catalogModels = mergeCatalogCopies(
+      catalogModels, new Set(defaults.keys()),
+      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)), aliases,
     );
     // Keep legacy IDs available to render existing binding snapshots, while
     // publishing only canonical identities to discovery and the board catalog.
-    for (const entry of this.catalogModels) remoteModels.set(entry.model.id, entry.model);
-    this.overriddenModels.clear();
+    for (const entry of catalogModels) models.set(entry.model.id, entry.model);
     for (const override of await this.platform.overrides?.() ?? []) {
-      const entry=this.catalogModels.find(e=>e.model.id===override.id);
+      const entry=catalogModels.find(e=>e.model.id===override.id);
       if (!entry) continue;
       entry.model=applyOverride(entry.model,override);
-      remoteModels.set(entry.model.id,entry.model);
-      this.overriddenModels.add(entry.model.id);
+      models.set(entry.model.id,entry.model);
+      overridden.add(entry.model.id);
     }
+    // No observer sees a partially validated resource graph, including failed overrides.
+    remoteModels.clear();
+    modelOrigins.clear();
+    for (const [id, model] of models) remoteModels.set(id, model);
+    for (const [id, origin] of origins) modelOrigins.set(id, origin);
+    this.catalogModels = catalogModels;
+    this.modelAliases = aliases;
+    this.overriddenModels.clear();
+    for (const id of overridden) this.overriddenModels.add(id);
     this.catalogVersion = current?.version ?? "";
   }
   get modelCatalog() { return this.catalogModels; }

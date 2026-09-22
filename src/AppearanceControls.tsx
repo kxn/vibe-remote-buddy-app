@@ -1,30 +1,7 @@
 import React from "react";
-import {artworkModel} from "./core/remote-artwork";
-import type { RemoteModel, RemoteAppearance } from "./core/models";
-export function appearanceOf(model: RemoteModel): RemoteAppearance {
-  return (
-    model.layout.appearance ?? {
-      version: 1,
-      color: "black",
-      ratio: Math.max(.18,Math.min(.5,artworkModel(model).layout.width / model.layout.height)),
-      radius: 0.18,
-      top: 0.08,
-      bottom: 0.18,
-    }
-  );
-}
-export function withAppearance(
-  model: RemoteModel,
-  patch: Partial<RemoteAppearance>,
-): RemoteModel {
-  const appearance = { ...appearanceOf(model), ...patch };
-  appearance.top = Math.min(appearance.top, 0.7 - appearance.bottom);
-  return {
-    ...model,
-    image: undefined,
-    layout: { ...model.layout, artworkButtons: true, appearance },
-  };
-}
+import {appearanceOf, withAppearance} from "./core/remote-artwork";
+export {appearanceOf, withAppearance} from "./core/remote-artwork";
+import type { RemoteModel } from "./core/models";
 export function AppearanceControls({
   model,
   change,

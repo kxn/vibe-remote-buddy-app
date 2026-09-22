@@ -218,12 +218,12 @@ export function validateModel(v: unknown): RemoteModel {
   require(placed.size === keys.size, "布局必须包含每个按钮");
   return v as unknown as RemoteModel;
 }
-export function loadModels(sources: ModelSource[]): string[] {
+export function loadModels(sources: ModelSource[], models = remoteModels, origins = modelOrigins): string[] {
   const errors: string[] = [];
   const pending = new Map<string, ModelSource>();
   const duplicate = new Set<string>();
-  remoteModels.clear();
-  modelOrigins.clear();
+  models.clear();
+  origins.clear();
   for (const source of sources) {
     try {
       if (source.error) throw Error(source.error);
@@ -235,14 +235,14 @@ export function loadModels(sources: ModelSource[]): string[] {
         throw Error(`型号 ID 重复：${id}`);
       }
       pending.set(id, source);
-      modelOrigins.set(id, source.source);
+      origins.set(id, source.source);
     } catch (e) {
       errors.push(`${source.source}: ${String(e)}`);
     }
   }
   const visiting = new Set<string>();
   function resolve(id: string): RemoteModel {
-    const cached = remoteModels.get(id);
+    const cached = models.get(id);
     if (cached) return cached;
     require(!duplicate.has(id), `型号 ID 重复：${id}`);
     require(!visiting.has(id), "型号继承循环");
@@ -265,7 +265,7 @@ export function loadModels(sources: ModelSource[]): string[] {
       delete value.extends;
       const model = validateModel(value);
       model.image = image;
-      remoteModels.set(id, model);
+      models.set(id, model);
       return model;
     } finally {
       visiting.delete(id);

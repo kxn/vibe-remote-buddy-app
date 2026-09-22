@@ -5,6 +5,7 @@ import { it, expect } from "vitest";
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
 import { validateModel, type RemoteModel } from "../src/core/models";
 import {
+  standardKeys,
   copyLayoutPreset,
   resizeGrid,
   gridColumns,
@@ -271,4 +272,13 @@ it("shrinking never silently discards edge keys", () => {
   expect(() => resizeGrid(m, 3, 9)).toThrow("移走边缘");
   expect(() => resizeGrid(m, 4, 8)).toThrow("移走边缘");
   expect(cellOf(m, 2)).toBe(35);
+});
+
+it("new standard number and media keys carry usable defaults", () => {
+ const get=(id:number)=>standardKeys.find(k=>k.id===id)!.default;
+ expect(get(23)).toEqual([1,0,39]);
+ for(let id=24;id<=32;id++)expect(get(id)).toEqual([1,0,id+6]);
+ expect(get(33)).toEqual([1,2,37]);
+ expect(get(34)).toEqual([1,2,32]);
+ for(let id=12;id<=18;id++)expect(get(id)).toEqual([2,0,id-12]);
 });

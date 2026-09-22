@@ -1,41 +1,7 @@
+import standards from "../../resources/standard-keys.json";
 import { labels } from "./layout";
 import { type RemoteModel, type ModelKey, validateModel } from "./models";
-export const standardKeys: ModelKey[] = Object.entries({
-  ...labels,
-  15: "播放 / 暂停",
-  16: "下一首",
-  17: "上一首",
-  18: "停止",
-}).map(([id, label]) => ({
-  id: Number(id),
-  label,
-  default: defaultBinding(Number(id)),
-}));
-function defaultBinding(id: number): [number, number, number] {
-  if (id === 2) return [5, 0, 1];
-  if (id === 9) return [4, 0, 65534];
-  if (id === 10) return [4, 0, 65535];
-  const usage: Record<number, number> = {
-    3: 82,
-    4: 81,
-    5: 80,
-    6: 79,
-    7: 40,
-    8: 42,
-  };
-  if (usage[id]) return [1, 0, usage[id]];
-  const media: Record<number, number> = {
-    12: 0,
-    13: 1,
-    14: 2,
-    15: 3,
-    16: 4,
-    17: 5,
-    18: 6,
-  };
-  if (id in media) return [2, 0, media[id]];
-  return [0, 0, 0];
-}
+export const standardKeys: ModelKey[] = standards.keys.map(k => ({...k, default: [...k.default] as [number, number, number]}));
 export interface KeyProof {
   report: number;
   usage: number;
