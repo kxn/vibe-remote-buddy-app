@@ -1334,8 +1334,8 @@ footer.editor-footer {
 .capture-modal > .probe-actions > .capture-retry {
   grid-column: 3;
 }
-/* Permanent feedback clearance: a notification must not cover a dialog action. */
-.app { padding-bottom: 7rem; }
+/* Dialog actions retain clearance for transient notifications.
+   The page already has bottom padding on main; do not add a second spacer. */
 
 .shade, .probe-modal-layer { padding-bottom: 7rem; }
 .dialog, .probe-workbench, .probe-modal { max-height: calc(100dvh - 9rem); }
