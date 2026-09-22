@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  loadModels,
-  remoteModels,
+  loadModels as parseModels,
+  type RemoteModel,
+  type ModelSource,
   validateModel,
   modelBytes,
   syncModels,
@@ -9,6 +10,8 @@ import {
 import xiaomi from "../resources/remotes/xiaomi.rc003/model.json";
 import unicom from "../resources/remotes/unicom.sample-28/model.json";
 import { crc32c } from "../src/core/wire";
+const remoteModels=new Map<string,RemoteModel>();
+const loadModels=(sources:ModelSource[])=>parseModels(sources,remoteModels);
 const source = (model: unknown) => ({ model, source: "fixture" });
 beforeEach(() => remoteModels.clear());
 describe("external model packages", () => {
@@ -89,7 +92,7 @@ describe("external model packages", () => {
     await syncModels(async (op) => {
       calls.push(op);
       return { id: m.id, crc: crc32c(modelBytes(m)) };
-    }, 1);
+    }, 1,remoteModels);
     expect(calls).toEqual([0x430]);
     calls.length = 0;
     await expect(
@@ -99,7 +102,7 @@ describe("external model packages", () => {
         if (op === 0x431) return { token: 7 };
         if (op === 0x432) throw Error("unplugged");
         return {};
-      }, 1),
+      }, 1,remoteModels),
     ).rejects.toThrow("未安装");
     expect(calls).toEqual([0x430, 0x431, 0x432, 0x434]);
   });
@@ -115,7 +118,7 @@ it("allows same-name variants to synchronize independently", async () => {
    if (op === 0x431) return {token:1};
    if (op === 0x433) commits++;
    return {};
- }, 16);
+ }, 16,remoteModels);
  expect(commits).toBe(2);
 });
 

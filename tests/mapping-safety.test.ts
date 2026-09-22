@@ -88,3 +88,17 @@ it("rejects the voice toggle before any writes on older firmware", async () => {
   } as Mapping)).rejects.toThrow("更新接收器固件");
   expect(h.command).not.toHaveBeenCalled();
 });
+
+it("resolves an action draft before applying the shared binding validation", async () => {
+ const h=setup([5]);let actual={key:8,kind:1,modifiers:0,value:40,revision:2} as Mapping;
+ h.command.mockImplementation((async(op:number,body:any)=>{
+  if(op===OP.SLOT)return h.slot;
+  if(op===OP.MAP_GET)return {...actual};
+  if(op===OP.MAP_SET){actual={...body,revision:body.revision+1};return {};}
+  return {};
+ }) as never);
+ vi.spyOn(h.service,"refresh").mockResolvedValue();
+ const saved=await h.service.saveMap(h.slot,{...actual,kind:4,value:0},{kind:"command",target:"task_view",label:"任务视图"});
+ expect(saved.kind).toBe(4);expect(saved.value).toBeGreaterThan(0);
+ expect(h.service.settings.boards.board.authorizations["123:8"]).toBe(saved.value);
+});

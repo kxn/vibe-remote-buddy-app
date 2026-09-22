@@ -6,7 +6,7 @@ export {
   matchesApplication,
 } from "../platform";
 export type { DesktopWindow, InstalledApp } from "../platform";
-import type { Action, Mapping } from "./types";
+import type { Action } from "./types";
 
 export const commands = [
   { id: "window_picker", label: "窗口选择器", group: "窗口" },
@@ -49,32 +49,5 @@ export function validAction(a: Action): boolean {
   );
 }
 
-export const voicePresets = {
-  doubao: { modifiers: 64, value: 0 },
-  wechat: { modifiers: 9, value: 0 },
-  meeting: { modifiers: 0, value: 44 },
-};
-export function voicePreset(modifiers: number, value: number) {
-  return (
-    Object.entries(voicePresets).find(
-      ([, p]) => p.modifiers === modifiers && p.value === value,
-    )?.[0] ?? "custom"
-  );
-}
-
+export {voicePresets, voicePreset, inputMethodForVoice, builtinActions} from "./bindings";
 export type VoiceInputMethod = "doubao" | "wechat";
-export function inputMethodForVoice(
-  map: Mapping,
-): VoiceInputMethod | undefined {
-  if (map.kind === 5 && map.modifiers === 0)
-    return map.value === 1 ? "doubao" : map.value === 2 ? "wechat" : undefined;
-  if (map.kind !== 3) return undefined;
-  const preset = voicePreset(map.modifiers, map.value);
-  return preset === "doubao" || preset === "wechat" ? preset : undefined;
-}
-
-// Stable model defaults; user actions are allocated below this range.
-export const builtinActions: Readonly<Record<number, Action>> = {
-  65534: { kind: "command", target: "task_view", label: "任务视图" },
-  65535: { kind: "command", target: "window_picker", label: "窗口选择器" },
-};

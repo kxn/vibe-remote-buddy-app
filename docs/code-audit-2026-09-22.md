@@ -10,29 +10,19 @@
 | A2 | P2 | `AppearanceControls.appearanceOf` 缺省 top/bottom 为 8%/18%，`remote-artwork.artworkPlacement` 为 7%/7%，只改颜色也会重新排布。默认值及更新逻辑移入 core，编辑器和渲染器共用，按既有渲染缺省保持 7%/7%。显式保存的外观不变；回归比较旧配置只改颜色前后的几何。 |
 | A3 | P2 | `probe-layout.defaultBinding` 与固件标准映射不一致，新增数字键默认禁用。新增 `resources/standard-keys.json`，统一标准按键名和默认动作，固件从同源生成。机型自身默认、个人 override 与已绑定快照继续各自独立。 |
 
-## 结构风险及具体收敛点
+## 收敛实施与第二轮 SSOT 审计
 
-### A4 / P2：动作编码在多个入口重复
+后续实施基线 b7231b1。以下替代初审 A4–A7 的建议。
 
-证据：`core/catalog.ts:action`、`core/actions.ts:voicePresets/inputMethodForVoice/builtinActions`、`ModelEditor.tsx` 的默认动作选择、`main.tsx` 的 KeyDialog/describeMap，以及 `core/models.ts` 的 tuple 校验。
+| 编号 | 实施结果 | 复审结论 |
+| --- | --- | --- |
+| A4 | `core/bindings.ts` 统一动作转换、校验、默认选择、语音预设与显示；资源编译、模型编辑、已绑定编辑、设置验证及保存共用。 | `resources/bindings.json` 是规则来源；固件由它生成，应用保持独立构建。内置软件动作保留区也来自同一资源。 |
+| A5 | `ModelRepository` 单次发布一个完整快照，序列化刷新，读取/验证失败保留前一快照。Map/Set 对外没有写方法，模型与数组冻结。 | models/origins/catalog/aliases/overrides/version 同步切换；浏览器与 native 共用合成器，仅资源 I/O 不同。领域解析不反向依赖仓库，避免循环依赖。 |
+| A6 | `syncModelRepository` 是能力与同步意图的唯一决策点；service 负责串行执行并隔离旧连接排队任务。 | connect/scan/explicit 共用；已存在现代库不会在普通扫描中反复覆盖。旧 API 仅作为传输兼容边界。 |
+| A6 | `resources/voice-protocols.json` 统一协议证据与必需报告/服务/特征属性；候选排序继续区分精确 Map、兼容 Map、未知。 | App 做静态准入；实际订阅成功、MTU 协商和握手由接收器验证。协议识别不等于录音验证成功。 |
+| A7 | 两个编辑器共用无副作用动作领域函数及已有外观控件。 | 各自保存事务保留：改机型默认与改已绑定设备不能共用保存目标。没有复制新连接或保存状态机。 |
 
-这些入口分别操作资源 action、机型默认 tuple 和已绑定 Mapping，但现在各自写数字 kind、语音 preset、65534/65535，存在新增动作漏入口的风险。建议单独 `core/bindings.ts` 定义动作类型、编码/解码、合法性、默认值与显示描述；UI 只编辑输入，catalog 编译仅调用转换。操作系统实际快捷键映射仍属于平台层。A3 统一的是标准按键默认，尚不等于此处所有动作编码都已统一。
-
-### A5 / P2：机型仓库状态存在多个视图，发布必须单一
-
-证据：`core/models.ts` 全局 `remoteModels/modelOrigins`，`BuddyService` 内 `catalogModels/modelAliases/overriddenModels`，浏览器 `main.tsx` 从旧资源初始化而 native 由服务合成 Catalog、本地编辑和 override。
-
-A1 已解决半发布缺陷。进一步建议 `ModelRepository` 返回不可变的统一快照，UI 只订阅它；浏览器 fixture 和 native 使用同一个合成器，I/O 来源不同即可。保留官方默认、本地默认编辑、设备个人映射的明确所有权，不能为了“一个 Map”把三个层级混为一谈。
-
-### A6 / P2：同步决策与协议规则有多处维护
-
-`service.ts` 的 connect/reload/scan 等入口分别判断 model_api/catalog_api 并触发安装；应统一同步策略（能力、版本、是否改变、失败处理），调用方只说明是否必须就绪。旧 API 是否下线是兼容范围选择，本轮没有默默删除。
-
-`probe.ts:familyEvidence` 与 `onboarding.ts:transportReady` 以及固件 adapter 分别掌握报告要求。建议版本化协议描述和同一组跨层准入用例；精确 Map 排序、兼容 Map 需确认、未知适配是不同业务结果，不该混成名字匹配。
-
-### A7 / P3：编辑器可复用领域控制，避免复制页面状态机
-
-机型默认编辑与已绑定按键编辑共享按键动作语义，但保存目标和授权校验不同。优先抽纯函数和无持久化副作用的动作控件，保留各自保存事务。AppearanceControls 的领域函数已移到 core；其他编辑器不应从 React 组件导入业务规则。
+Catalog 紧凑字段序号另集中到 `resources/catalog-wire.json`；字段顺序属于 ABI，新增只允许追加或升级格式版本。标准键默认继续来自 `standard-keys.json`，机型资源明确覆盖的值是该机型的默认，而非第二份全局默认。
 
 ## 不应误删的分支
 
@@ -42,13 +32,12 @@ A1 已解决半发布缺陷。进一步建议 `ModelRepository` 返回不可变�
 - Catalog 的编译器被应用和打包工具共用；生成的 C 表与 TypeScript 数据不是两个人工来源。
 - 全局弹层滚动策略已集中于 `modal-scroll.ts`，不需要每个弹窗再写一套 wheel 处理。
 
-## 建议实施顺序
+## SSOT 所有权与验证
 
-1. 已完成：默认数据统一、外观默认统一、机型快照发布事务化。
-2. 动作编码/校验/描述集中；用同一组动作覆盖 Catalog、两个编辑器、保存往返。
-3. 协议描述和跨层准入用例集中；覆盖三种语音 family、额外报告、缺失必要服务、同名不同 Map。
-4. ModelRepository 统一加载与同步入口，封装旧 API 边界，最后按支持策略退役旧路径。
+- 官方默认：发布的版本化资源图；本地默认编辑：仓库合成时施加的覆盖层。
+- 已添加遥控器：设备持久化快照及个人映射；不随机型库同步自动覆盖。
+- UI 可见机型：`ModelRepository.snapshot`；只读 live view 没有另一份可变数据。
+- 动作、协议准入、紧凑字段顺序：上述版本化 JSON；生成文件不人工修改。
+- 同步决策：统一能力边界；连接和会话归服务管理。
 
-第二轮复查重点：刷新失败不改变现有可见数据，已绑定设备不随标准默认变动，显式外观不回落到缺省值，公共应用仓库不依赖父目录构建。
-
-验证：151 项 Vitest 通过；TypeScript/Vite 生产构建通过；15 项刷机辅助测试通过；Rust 7 项通过、2 项平台实时测试忽略。未进行本轮硬件实测。
+验证：156 项 Vitest、15 项刷机辅助测试、TypeScript/Vite 生产构建、Rust 7 项通过/2 项平台实时测试忽略。真实 React 页面配合模拟 transport，在 1000×780、720×640、400×620 三种尺寸验证动作编辑、机型库、默认配置、背景滚轮及嵌套弹层隔离。新增用例覆盖资源动作与编辑预设一致、协议缺报告/重复/额外属性、刷新排序与失败不发布、快照不可变以及同步能力决策。本轮未进行硬件测试。

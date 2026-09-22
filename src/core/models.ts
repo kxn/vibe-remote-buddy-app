@@ -1,3 +1,4 @@
+import {validBinding} from "./bindings";
 import { OP } from "./session";
 import { crc32c } from "./wire";
 export interface ModelKey {
@@ -59,10 +60,7 @@ export interface ModelSource {
   source: string;
   error?: string;
 }
-export const remoteModels = new Map<string, RemoteModel>();
-/* Load origin per model id: "catalog" marks shipped resources, anything else
- * is a locally adapted package. Display only; never a matching criterion. */
-export const modelOrigins = new Map<string, string>();
+
 const ids = /^[a-z0-9][a-z0-9._-]{0,46}$/;
 function require(ok: unknown, message: string): asserts ok {
   if (!ok) throw Error(message);
@@ -131,25 +129,7 @@ export function validateModel(v: unknown): RemoteModel {
       !keys.has(k.id) &&
       text(k.label, 80), "重复或不支持的按钮");
     keys.add(k.id);
-    const d = k.default;
-    require(Array.isArray(d) &&
-      d.length === 3 &&
-      integer(d[0], 6) &&
-      integer(d[1], 255) &&
-      integer(d[2], 65535), "默认按键无效");
-    const [kind, mod, value] = d;
-    require(k.id === 2
-      ? kind === 3 || kind === 5
-      : kind !== 3 && kind !== 5, "语音配置只能用于语音键");
-    require(kind === 0 || kind === 6
-      ? !mod && !value
-      : kind === 1 || kind === 3
-        ? value <= 223 && (value >= 4 || (!value && mod))
-        : kind === 2
-          ? !mod && value < 8
-          : kind === 4
-            ? !mod && value > 0
-            : !mod && (value === 1 || value === 2), "默认动作参数无效");
+    require(validBinding(k.id, k.default), "默认动作参数无效");
   }
   require(keys.has(2), "现有协议需要语音键");
   require(Array.isArray(v.raw) && v.raw.length <= 64, "原始映射数量无效");
@@ -218,7 +198,7 @@ export function validateModel(v: unknown): RemoteModel {
   require(placed.size === keys.size, "布局必须包含每个按钮");
   return v as unknown as RemoteModel;
 }
-export function loadModels(sources: ModelSource[], models = remoteModels, origins = modelOrigins): string[] {
+export function loadModels(sources: ModelSource[], models:Map<string,RemoteModel>, origins = new Map<string,string>()): string[] {
   const errors: string[] = [];
   const pending = new Map<string, ModelSource>();
   const duplicate = new Set<string>();
@@ -297,6 +277,7 @@ export function modelBytes(m: RemoteModel) {
 export async function syncModels(
   request: (op: number, body: Record<string, unknown>) => Promise<any>,
   capacity: number,
+  models:ReadonlyMap<string,RemoteModel>,
 ) {
   require(integer(capacity, 64, 1), "接收器型号容量无效");
   const installed = new Map<string, number>();
@@ -307,7 +288,7 @@ export async function syncModels(
     } catch (e) {
       if ((e as { status?: number }).status !== 6) throw e;
     }
-  for (const model of remoteModels.values()) {
+  for (const model of models.values()) {
     const bytes = modelBytes(model);
     require(bytes.length < 6144, `${model.id}: 运行配置过大`);
     if (installed.get(model.id) === crc32c(bytes)) continue;

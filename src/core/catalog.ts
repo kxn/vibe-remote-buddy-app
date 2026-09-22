@@ -1,3 +1,5 @@
+import catalogWire from "../../resources/catalog-wire.json";
+import {resourceBinding as action} from "./bindings";
 import { crc32c } from "./wire";
 import { validateModel, type RemoteModel } from "./models";
 import { OP } from "./session";
@@ -20,45 +22,6 @@ export interface CatalogSnapshot {
 const utf8 = new TextEncoder();
 function check(ok: unknown, reason: string): asserts ok {
   if (!ok) throw Error(reason);
-}
-function action(a: Resource): [number, number, number] {
-  switch (a.type) {
-    case "none":
-      return [0, 0, 0];
-    case "keyboard":
-      return [1, a.modifiers, a.usage];
-    case "voice-shortcut":
-      return [3, a.modifiers, a.usage];
-    case "media": {
-      const n = [
-        "volume-up",
-        "volume-down",
-        "mute",
-        "play-pause",
-        "next",
-        "previous",
-        "stop",
-        "browser-home",
-      ].indexOf(a.command);
-      check(n >= 0, "未知媒体动作");
-      return [2, 0, n];
-    }
-    case "app":
-      check(["task-view", "window-picker"].includes(a.command), "未知软件动作");
-      return [4, 0, a.command === "task-view" ? 65534 : 65535];
-    case "toggle-voice-mode":
-      return [6, 0, 0];
-    case "voice-preset":
-      check(
-        ["doubao", "wechat", "video-meeting"].includes(a.preset),
-        "未知语音预设",
-      );
-      return a.preset === "video-meeting"
-        ? [3, 0, 44]
-        : [5, 0, a.preset === "doubao" ? 1 : 2];
-    default:
-      throw Error("未知默认动作");
-  }
 }
 /** Resolve a complete immutable resource graph. Names never establish identity. */
 export function resolveCatalog(resources: Resource[]): CatalogModel[] {
@@ -263,7 +226,7 @@ export function packModel(m: RemoteModel): Uint8Array {
   return w.result();
 }
 // Format 2 uses a fixed key vocabulary, binary hex fields and shared wire sections.
-const objectKeys = ["report_map", "length", "crc32c", "sha256", "hex", "pnp", "source", "vendor", "product", "version", "services", "reports", "id", "type", "name", "prefix", "company"];
+const objectKeys = catalogWire.objectKeys;
 function compactObject(value: any): Uint8Array {
   const w = new Bytes();
   const put = (v: any, key = "") => {

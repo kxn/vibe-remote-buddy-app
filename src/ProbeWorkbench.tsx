@@ -10,7 +10,8 @@ import { Feedback } from "./Feedback";
 import React, { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { BuddyService, ProbeSessionLostError } from "./core/service";
-import { remoteModels, type RemoteModel } from "./core/models";
+import { type RemoteModel } from "./core/models";
+import { remoteModels } from "./core/model-repository";
 import {
   ProbeClient,
   decodeProbeKey,

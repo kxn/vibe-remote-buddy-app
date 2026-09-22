@@ -1,3 +1,4 @@
+import {transportReady} from "./voice-protocols";
 import type { CatalogModel } from "./catalog";
 import type { RemoteModel } from "./models";
 import {
@@ -83,38 +84,6 @@ export function inputShapes(hex: string): Map<number, string> {
     }
   }
   return new Map([...result].map(([id, fields]) => [id, fields.join("|")]));
-}
-function transportReady(attrs: ProbeAttribute[], family: number) {
-  const characteristics = attrs.filter((a) => a.kind === 2);
-  const report = (id: number, type: number, property: number) =>
-    attrs.some(
-      (a) =>
-        isUuid(a, 0x2908) &&
-        a.complete &&
-        a.hex.toLowerCase() ===
-          id.toString(16).padStart(2, "0") +
-            type.toString(16).padStart(2, "0") &&
-        characteristics.some(
-          (c) => c.handle === a.parent && !!(c.properties & property),
-        ),
-    );
-  if (!report(1, 1, 16)) return false;
-  if (family === 1)
-    return [2, 3, 4].every((n) =>
-      characteristics.some(
-        (a) =>
-          a.uuid.toLowerCase() === `ab5e000${n}-5a21-4f05-bc7d-af01f617b664` &&
-          !!(a.properties & (n === 2 ? 12 : 16)),
-      ),
-    );
-  if (family === 2)
-    return (
-      report(0xfc, 1, 16) &&
-      report(0xfb, 2, 12) &&
-      report(0xf8, 1, 16) &&
-      report(0xfa, 2, 12)
-    );
-  return report(4, 3, 12) && [5, 6, 7, 8].every((id) => report(id, 3, 16));
 }
 export function modelCandidates(
   attrs: ProbeAttribute[],

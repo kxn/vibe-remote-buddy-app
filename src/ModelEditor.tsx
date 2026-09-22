@@ -1,3 +1,4 @@
+import {defaultForKind,voiceBinding,bindingTuple} from "./core/bindings";
 import { builtinActions } from "./core/actions";
 import { Feedback } from "./Feedback";
 import React, { useEffect, useState } from "react";
@@ -63,17 +64,7 @@ export function ModelEditor({
             change((m) => {
               const v = Number(e.target.value);
               m.keys.find((x) => x.id === k.id)!.default =
-                v === 0
-                  ? [0, 0, 0]
-                  : v === 1
-                    ? [1, 0, 40]
-                    : v === 2
-                      ? [2, 0, 0]
-                      : v === 3
-                        ? [3, 64, 0]
-                        : v === 4
-                          ? [4, 0, 65535]
-                          : v === 6 ? [6, 0, 0] : [5, 0, 1];
+                defaultForKind(v);
             })
           }
         >
@@ -103,7 +94,7 @@ export function ModelEditor({
             value={k.default[2]}
             onChange={(e) =>
               change((m) => {
-                m.keys.find((x) => x.id === k.id)!.default = Number(e.target.value) === 3 ? [3,0,44] : [5,0,Number(e.target.value)];
+                m.keys.find((x) => x.id === k.id)!.default = bindingTuple(voiceBinding(Number(e.target.value)===3?"meeting":Number(e.target.value)===2?"wechat":"doubao"));
               })
             }
           >

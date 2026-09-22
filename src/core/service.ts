@@ -1,22 +1,15 @@
-import { applyOverride, applyEditedModel, type ModelOverride } from "./model-overrides";
+import {remoteModels} from "./model-repository";
+import {FIRST_BUILTIN_ACTION,validBinding,bindingTuple} from "./bindings";
+import {modelRepository,syncModelRepository,type SyncIntent} from "./model-repository";
+import { type ModelOverride } from "./model-overrides";
 import { candidateStream } from "./candidates";
 import {
   resolveCatalog,
-  mergeCatalogCopies,
-  matchingArtwork,
   compileCatalog,
-  uploadCatalog,
-  type CatalogModel,
   type CatalogSnapshot,
 } from "./catalog";
 import {
-  loadModels,
-  validateModel,
-  syncModels,
-  remoteModels,
-  modelOrigins,
   type ModelSource,
-  type RemoteModel,
 } from "./models";
 import {
   validatePackage,
@@ -82,10 +75,6 @@ export class BuddyService {
   private probeAudio?: (body: Record<string, unknown>) => void;
   private manualSerial?: string;
   private settingsTail: Promise<unknown> = Promise.resolve();
-  private catalogModels: CatalogModel[] = [];
-  private modelAliases = new Map<string,string>();
-  catalogVersion = "";
-  readonly overriddenModels = new Set<string>();
   constructor(private platform: Platform) {}
   subscribe = (fn: () => void) => {
     this.listeners.add(fn);
@@ -217,30 +206,7 @@ export class BuddyService {
       await s.open(port.path);
       if (this.session !== s) throw Error("握手过程中连接中断");
       await this.refresh();
-      if (this.platform.models && remoteModels.size) {
-        if (this.snapshot.info?.catalog_api === 2) {
-          if (!this.snapshot.info.catalog_generation) {
-            try {
-              await uploadCatalog(
-                (op, body) => s.command(op, body),
-                this.catalogModels,
-              );
-              await this.refresh();
-            } catch (e) {
-              this.report(e);
-            }
-          }
-        } else if (this.snapshot.info?.model_api === 1) {
-          try {
-            await syncModels(
-              (op, body) => s.command(op, body),
-              this.snapshot.info.model_capacity ?? 16,
-            );
-          } catch (e) {
-            this.report(e);
-          }
-        } else this.log("接收器固件不支持外部型号，请先更新固件");
-      }
+      if(this.platform.models)try {await this.synchronizeModels("connect");}catch(e){this.report(e);}
       this.update({ status: "connected" });
       this.log(`管理连接已建立 ${port.serial}`);
     } catch (e) {
@@ -358,139 +324,30 @@ export class BuddyService {
   async reloadModels(sync = true) {
     if (!this.platform.models) return;
     await this.loadModelResources();
-    if (sync && this.snapshot.info?.catalog_api === 2) {
-      await this.installCatalog();
-    } else if (sync && this.snapshot.info?.model_api === 1) {
-      const session = this.require();
-      await syncModels(
-        (op, body) => session.command(op, body),
-        this.snapshot.info.model_capacity ?? 16,
-      );
-    }
+    if(sync && this.snapshot.info)await this.synchronizeModels("explicit");
     this.update();
   }
-  private async loadModelResources() {
-    const sources = this.platform.models ? await this.platform.models() : [];
-    const current = this.platform.catalog ? await this.platform.catalog() : undefined;
-    const resolved = current ? resolveCatalog(current.resources) : [];
-    const defaults = new Map(resolved.map((m) => [m.model.id, m]));
-    const local = sources.filter(
-      (s) => !defaults.has((s.model as any)?.id) || s.edited,
-    );
-    const models = new Map<string, RemoteModel>();
-    const origins = new Map<string, string>();
-    const aliases = new Map<string, string>();
-    const overridden = new Set<string>();
-    const errors = loadModels([
-      ...resolved.map((m) => ({
-        source: "catalog",
-        model: m.model,
-        image: matchingArtwork(
-          m.model,
-          sources.find((s) => (s.model as any)?.id === m.model.id),
-        ),
-      })),
-      ...local.filter((s) => !defaults.has((s.model as any)?.id)),
-    ], models, origins);
-    if (errors.length) throw Error(errors.join("\n"));
-    // A locally edited model is a private default definition; the official
-    // resource graph remains immutable and does not acquire personal changes.
-    for (const s of local.filter((s) => defaults.has((s.model as any)?.id)))
-      models.set((s.model as any).id,
-        applyEditedModel({ ...defaults.get((s.model as any).id)!.model, image: s.image }, validateModel(s.model)));
-    let catalogModels = [...models.values()].map((model) => {
-      const official = defaults.get(model.id);
-      if (official) return { ...official, model };
-      const source = local.find((s) => (s.model as any)?.id === model.id);
-      const attrs = source?.evidence?.attributes ?? [];
-      const map = attrs.find(
-        (a: any) => a.complete && /^(?:0x)?2a4b$/i.test(a.uuid),
-      );
-      const required: Record<string, any> = map
-        ? {
-            report_map: {
-              hex: map.hex.toLowerCase(),
-              length: map.hex.length / 2,
-              crc32c: model.map_crc.toString(16).padStart(8, "0"),
-            },
-          }
-        : {};
-      if (map) {
-        required.services = attrs
-          .filter((a: any) => a.kind === 1)
-          .map((a: any) => a.uuid.toLowerCase());
-        const pnp = attrs.find(
-          (a: any) =>
-            a.complete && /^(?:0x)?2a50$/i.test(a.uuid) && a.hex.length === 14,
-        );
-        if (pnp) {
-          const b = Uint8Array.from(pnp.hex.match(/../g), (h: any) =>
-            parseInt(h, 16),
-          );
-          required.pnp = {
-            source: b[0],
-            vendor: b[1] | (b[2] << 8),
-            product: b[3] | (b[4] << 8),
-          };
-        }
-        required.reports = attrs
-          .filter(
-            (a: any) =>
-              a.complete && /^(?:0x)?2908$/i.test(a.uuid) && a.hex.length === 4,
-          )
-          .map((a: any) => ({
-            id: parseInt(a.hex.slice(0, 2), 16),
-            type: parseInt(a.hex.slice(2), 16),
-          }));
-      }
-      const fingerprints = map
-        ? [{ model: model.id, scan_hints: model.matches, required }]
-        : [];
-      return {
-        model,
-        fingerprints,
-        buttons: model.keys.map((k) => ({
-          id: `b${k.id.toString().padStart(2, "0")}`,
-          key: k.id,
-          semantic: k.id === 2 ? "voice" : "custom",
-        })),
-      };
+  private async loadModelResources() { await modelRepository.reload(this.platform); }
+  get modelCatalog() { return modelRepository.snapshot.catalog; }
+  get pairingModels() { return this.modelCatalog.map(m=>m.model); }
+  get catalogVersion() { return modelRepository.snapshot.version; }
+  get overriddenModels() { return modelRepository.snapshot.overridden; }
+  private modelSyncTail:Promise<unknown>=Promise.resolve();
+  private synchronizeModels(intent:SyncIntent) {
+    const expected=this.require();
+    const job=this.modelSyncTail.then(async()=>{
+      if(this.session!==expected)throw Error("接收器连接已变化");
+      await this.synchronizeModelsNow(intent);
     });
-    catalogModels = mergeCatalogCopies(
-      catalogModels, new Set(defaults.keys()),
-      new Set(local.filter(s => s.edited).map(s => (s.model as any).id)), aliases,
-    );
-    // Keep legacy IDs available to render existing binding snapshots, while
-    // publishing only canonical identities to discovery and the board catalog.
-    for (const entry of catalogModels) models.set(entry.model.id, entry.model);
-    for (const override of await this.platform.overrides?.() ?? []) {
-      const entry=catalogModels.find(e=>e.model.id===override.id);
-      if (!entry) continue;
-      entry.model=applyOverride(entry.model,override);
-      models.set(entry.model.id,entry.model);
-      overridden.add(entry.model.id);
-    }
-    // No observer sees a partially validated resource graph, including failed overrides.
-    remoteModels.clear();
-    modelOrigins.clear();
-    for (const [id, model] of models) remoteModels.set(id, model);
-    for (const [id, origin] of origins) modelOrigins.set(id, origin);
-    this.catalogModels = catalogModels;
-    this.modelAliases = aliases;
-    this.overriddenModels.clear();
-    for (const id of overridden) this.overriddenModels.add(id);
-    this.catalogVersion = current?.version ?? "";
+    this.modelSyncTail=job.catch(()=>{});return job;
   }
-  get modelCatalog() { return this.catalogModels; }
-  get pairingModels() { return this.catalogModels.map(m => m.model); }
-  async installCatalog() {
-    const session = this.require();
-    await uploadCatalog(
-      (op, body) => session.command(op, body),
-      this.catalogModels,
-    );
-    await this.refresh();
+  private async synchronizeModelsNow(intent:SyncIntent) {
+    const session=this.require(),info=this.snapshot.info;
+    if(!info)throw Error("接收器未连接");
+    const changed=await syncModelRepository((op,body)=>session.command(op,body),info,modelRepository.snapshot,intent);
+    if(changed&&this.session===session)await this.refresh();
   }
+  async installCatalog() { await this.synchronizeModels("explicit"); }
   async resetDefaults(slot: Slot, adopt = false) {
     this.ensureMutable();
     const session = this.require(),
@@ -519,11 +376,11 @@ export class BuddyService {
     compileCatalog(resolveCatalog(next.resources), 1);
     await this.platform.activateCatalog(next.commit);
     await this.loadModelResources();
-    if (this.snapshot.info?.catalog_api === 2) await this.installCatalog();
+    if (this.snapshot.info) await this.synchronizeModels("explicit");
     this.update();
   }
   async adoptProbe(modelId: string, transferred: () => void) {
-    modelId = this.modelAliases.get(modelId) ?? modelId;
+    modelId = modelRepository.snapshot.aliases.get(modelId) ?? modelId;
     if (!this.adoption) {
       const { operation_id } = await this.require().command<{
         operation_id: number;
@@ -557,18 +414,7 @@ export class BuddyService {
     this.ensureMutable();
     if (this.snapshot.info?.lifecycle_api !== 2)
       throw Error("请先更新接收器固件");
-    if (
-      !renew &&
-      this.platform.models &&
-      this.snapshot.info?.catalog_api !== 2 &&
-      this.snapshot.info?.model_api === 1
-    ) {
-      const session = this.require();
-      await syncModels(
-        (op, body) => session.command(op, body),
-        this.snapshot.info.model_capacity ?? 16,
-      );
-    }
+    if(!renew && this.platform.models)await this.synchronizeModels("scan");
     return this.require().command<{ scan_epoch: number }>(OP.SCAN, {
       duration_ms: 30000,
     });
@@ -758,15 +604,20 @@ export class BuddyService {
       const conf = this.boardConfig();
       if (action && !inherit) {
         let actionId = 1;
-        while (conf.actions[actionId] && actionId < 65534) actionId++;
-        if (actionId >= 65534) throw Error("软件动作已满");
+        while (conf.actions[actionId] && actionId < FIRST_BUILTIN_ACTION) actionId++;
+        if (actionId >= FIRST_BUILTIN_ACTION) throw Error("软件动作已满");
         desired = { ...desired, kind: 4, modifiers: 0, value: actionId };
-        conf.actions[actionId] = action;
-        await this.persist();
       }
       if (inherit) {
         if (!before.default) throw Error("接收器没有默认配置快照");
         desired = { ...desired, ...before.default };
+      }
+      // Validate the resolved mapping, after allocating action IDs or reading
+      // the receiver's inherited default; UI drafts may not have an ID yet.
+      if(!validBinding(desired.key,bindingTuple(desired)))throw Error("按键配置无效");
+      if(action && !inherit) {
+        conf.actions[desired.value]=action;
+        await this.persist();
       }
       let writeError: unknown;
       try {

@@ -1,7 +1,7 @@
 import {it, expect} from "vitest";
 import {BuddyService} from "../src/core/service";
 import type {Platform} from "../src/core/service";
-import {remoteModels, modelOrigins} from "../src/core/models";
+import {remoteModels, modelOrigins} from "../src/core/model-repository";
 import source from "../resources/remotes/xiaomi.rc003/model.json";
 
 it("failed reload keeps the complete previous catalog visible", async()=>{

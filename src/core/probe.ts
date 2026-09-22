@@ -1,3 +1,5 @@
+import {familyEvidence} from "./voice-protocols";
+export {familyEvidence} from "./voice-protocols";
 import { candidateStream } from "./candidates";
 import { NearbyCandidates } from "./discovery";
 import { OP, DeviceError, sleep } from "./session";
@@ -584,28 +586,6 @@ export function captureMapping(
   return validateModel(result);
 }
 
-export function familyEvidence(attrs: ProbeAttribute[]): number | undefined {
-  const atvv = attrs.some(
-    (a) =>
-      a.kind === 1 &&
-      a.uuid.toLowerCase() === "ab5e0001-5a21-4f05-bc7d-af01f617b664",
-  );
-  const refs = attrs
-    .filter((a) => isUuid(a, 0x2908) && a.complete && a.hex.length === 4)
-    .map((a) => [...bytes(a.hex)]);
-  const ico = [
-    [0xfc, 1],
-    [0xfb, 2],
-    [0xf8, 1],
-    [0xfa, 2],
-  ].every(([id, type]) => refs.some((r) => r[0] === id && r[1] === type));
-  // RC003 also exposes these Feature IDs. Its explicit ATVV service wins.
-  const legacy = !atvv && [4, 5, 6, 7, 8].every(id =>
-    refs.filter(r => r[0] === id && r[1] === 3).length === 1) &&
-    refs.some(r => r[0] === 1 && r[1] === 1);
-  const candidates = [atvv ? 1 : 0, ico ? 2 : 0, legacy ? 3 : 0].filter(Boolean);
-  return candidates.length === 1 ? candidates[0] : undefined;
-}
 export function identityText(a: ProbeAttribute): string {
   if (!a.complete) return a.read_error ?? "未读取";
   const v = bytes(a.hex);

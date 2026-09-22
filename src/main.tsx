@@ -1,3 +1,5 @@
+import {bundledModelSources,bundledCatalog} from "./bundled-models";
+import {describeBinding, voiceProfile, selectVoiceProfile} from "./core/bindings";
 import { installModalScroll } from "./modal-scroll";
 import { ModelLibrary } from "./ModelLibrary";
 import { ModelDefaults } from "./ModelDefaults";
@@ -5,7 +7,7 @@ import { Feedback } from "./Feedback";
 import { artworkModel, artworkPlacement, renderRemoteArtwork } from "./core/remote-artwork";
 import { ReceiverSetup, type SetupCandidate } from "./ReceiverSetup";
 import { ProbeWorkbench } from "./ProbeWorkbench";
-import { remoteModels, loadModels } from "./core/models";
+import { remoteModels } from "./core/model-repository";
 import { isNewer, type FirmwarePackage } from "./core/firmware";
 import React, {
   useEffect,
@@ -60,40 +62,14 @@ import {
   validAction,
   inputProfiles,
   commands,
-  voicePresets,
-  voicePreset,
 } from "./core/actions";
 
-if (!native) {
-  const packages = import.meta.glob("../resources/remotes/*/model.json", {
-    eager: true,
-    import: "default",
-  });
-  const artwork = import.meta.glob<string>("../resources/remotes/*/*.svg", {
-    eager: true,
-    query: "?raw",
-    import: "default",
-  });
-  loadModels(
-    Object.entries(packages).map(([source, model]) => ({
-      source,
-      model,
-      image:
-        artwork[
-          source.replace(
-            "model.json",
-            (model as { layout?: { artwork?: string } }).layout?.artwork ?? "",
-          )
-        ],
-    })),
-  );
-}
 const service = new BuddyService({
-  overrides: () => call("model_overrides"),
-  catalog: () => call("catalog_resources"),
+  overrides: () => native ? call("model_overrides") : Promise.resolve([]),
+  catalog: () => native ? call("catalog_resources") : Promise.resolve(bundledCatalog()),
   stageCatalog: () => call("catalog_stage"),
   activateCatalog: (commit) => call("catalog_activate", { commit }),
-  models: () => call("remote_model_resources"),
+  models: () => native ? call("remote_model_resources") : Promise.resolve(bundledModelSources()),
   ports: () => call<Port[]>("ports"),
   transport: () => new SerialTransport(),
   load: () => call("load_settings"),
@@ -295,28 +271,7 @@ function App() {
             6: "不支持",
             7: "连接异常",
           }[s.state] ?? "未连接");
-  const describe = (m: Mapping) =>
-    m.kind === 6 ? "切换会议 / 普通模式" :
-    m.kind === 5
-      ? m.value === 1
-        ? "豆包输入法 · 默认"
-        : "微信输入法 · 默认"
-      : m.kind === 0
-        ? "不使用"
-        : m.kind === 2
-          ? (media[m.value] ?? `媒体键 ${m.value}`)
-          : m.kind === 3
-            ? m.modifiers === 0 && m.value === 44
-              ? "视频会议"
-              : m.modifiers === 64 && !m.value
-                ? "豆包输入法"
-                : m.modifiers === 9 && !m.value
-                  ? "微信输入法"
-                  : chord(m.modifiers, m.value)
-            : m.kind === 4
-              ? (service.resolveAction(m.value)?.label ??
-                `未配置的功能 #${m.value}`)
-              : chord(m.modifiers, m.value);
+  const describe = (m: Mapping) => describeBinding(m, id=>service.resolveAction(id)?.label);
   const openMore = (s: Slot) => {
     setPeer(s.peer_id);
     setModal("more");
@@ -1492,16 +1447,8 @@ function Editor({
     [desktop, setDesktop] = useState(false),
     [saving, setSaving] = useState(false),
     [error, setError] = useState(""),
-    [profile, setProfile] = useState(
-      entry.map.kind === 5
-        ? entry.map.value === 1
-          ? "doubao"
-          : "wechat"
-        : entry.map.kind === 3 &&
-            entry.map.modifiers === 0 &&
-            entry.map.value === 44
-          ? "meeting"
-          : "custom",
+    [profile, setProfile] = useState<string>(
+      voiceProfile(entry.map),
     );
   const voice = entry.catalog.key === 2,
     dirty =
@@ -1579,25 +1526,7 @@ function Editor({
                 value={profile}
                 onChange={(e) => {
                   setProfile(e.target.value);
-                  const preset =
-                    voicePresets[e.target.value as keyof typeof voicePresets];
-                  if (e.target.value === "meeting")
-                    setMap({ ...map, kind: 3, ...voicePresets.meeting });
-                  else if (preset)
-                    setMap({
-                      ...map,
-                      kind: 5,
-                      modifiers: 0,
-                      value: e.target.value === "doubao" ? 1 : 2,
-                    });
-                  else if (map.kind === 5)
-                    setMap({
-                      ...map,
-                      kind: 3,
-                      ...(map.value === 2
-                        ? voicePresets.wechat
-                        : voicePresets.doubao),
-                    });
+                  setMap({...map, ...selectVoiceProfile(map,e.target.value)});
                 }}
               >
                 <option value="doubao">豆包输入法</option>
