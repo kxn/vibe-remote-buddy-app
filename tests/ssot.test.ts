@@ -196,3 +196,17 @@ it("every bundled model retains the agreed navigation defaults", async () => {
     }
   }
 });
+
+it("same named factory keys share defaults across the entire catalog and standard palette", async () => {
+  const { bundledCatalog } = await import("../src/bundled-models");
+  const { resolveCatalog } = await import("../src/core/catalog");
+  const { default: standards } = await import("../resources/standard-keys.json");
+  const byName = new Map(standards.keys.map(k => [k.label, { value: k.default, source: "standard palette" }]));
+  for (const { model } of resolveCatalog(bundledCatalog().resources)) {
+    for (const key of model.keys) {
+      const previous = byName.get(key.label);
+      if (previous) expect(key.default, `${key.label}: ${previous.source} vs ${model.id}`).toEqual(previous.value);
+      else byName.set(key.label, { value: key.default, source: model.id });
+    }
+  }
+});
