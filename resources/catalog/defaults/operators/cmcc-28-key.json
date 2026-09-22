@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "defaults",
   "id": "cmcc.sample-28",
-  "revision": 1,
+  "revision": 2,
   "buttons": {
     "b01": {
       "label": "电源",
@@ -66,9 +66,8 @@
     "b09": {
       "label": "主页",
       "action": {
-        "type": "keyboard",
-        "modifiers": 0,
-        "usage": 74
+        "type": "app",
+        "command": "task-view"
       }
     },
     "b20": {
@@ -82,7 +81,7 @@
       "action": {
         "type": "keyboard",
         "modifiers": 0,
-        "usage": 41
+        "usage": 42
       }
     },
     "b12": {

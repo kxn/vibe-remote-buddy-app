@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "model",
   "id": "xiaomi.legacy-32ba",
-  "revision": 4,
+  "revision": 5,
   "title": "小米蓝牙语音遥控器",
   "buttons": [
     {

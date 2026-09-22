@@ -2,7 +2,7 @@
   "format_version": 2,
   "kind": "defaults",
   "id": "xiaomi.legacy-32ba",
-  "revision": 1,
+  "revision": 2,
   "buttons": {
     "b01": {
       "label": "电源",
@@ -62,23 +62,21 @@
       "action": {
         "type": "keyboard",
         "modifiers": 0,
-        "usage": 41
+        "usage": 42
       }
     },
     "b09": {
       "label": "主页",
       "action": {
-        "type": "keyboard",
-        "modifiers": 0,
-        "usage": 74
+        "type": "app",
+        "command": "task-view"
       }
     },
     "b10": {
       "label": "菜单",
       "action": {
-        "type": "keyboard",
-        "modifiers": 0,
-        "usage": 101
+        "type": "app",
+        "command": "window-picker"
       }
     },
     "b12": {

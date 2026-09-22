@@ -1398,7 +1398,7 @@ img, a { -webkit-user-drag: none; }
 .model-defaults { width:min(960px,calc(100vw - 32px));height:min(820px,calc(100dvh - 9rem));display:flex;flex-direction:column;overflow:hidden; }
 .defaults-body { padding:4px; flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(220px,1fr) 240px;gap:24px; }
 .defaults-body fieldset { min-width:0;border:0;padding:0; }
-.defaults-body label { display:grid;gap:6px; }
+.defaults-body label:not(:has(input[type="checkbox"])) { display:grid;gap:6px; }
 .defaults-preview { position:sticky;top:0;align-self:start;padding:18px;display:flex;justify-content:center;background:var(--soft);border-radius:20px; }
 
 @media(max-width:650px){.defaults-body{grid-template-columns:1fr}.defaults-preview{position:static}}

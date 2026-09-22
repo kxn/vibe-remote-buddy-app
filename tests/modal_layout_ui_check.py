@@ -46,7 +46,12 @@ with sync_playwright() as p:
   assert page.evaluate('scrollY')==underlying
   page.locator('#scroll-test').evaluate('(e)=>e.remove()')
   d.get_by_role('button',name='编辑默认配置',exact=True).click()
-  d=page.locator('[aria-modal=true]').last;d.get_by_text('外观',exact=True).click();snap('defaults')
+  d=page.locator('[aria-modal=true]').last
+  d.locator('.probe-editor > label').first.locator('select').select_option('8')
+  for label in d.locator('.probe-modifiers label').all():
+   assert label.evaluate('(e)=>getComputedStyle(e).display==="flex"'), 'modifier label stacked'
+   assert label.locator('input').evaluate('(e)=>e.getBoundingClientRect().width<30'), 'checkbox stretched'
+  d.get_by_text('外观',exact=True).click();snap('defaults')
   page.mouse.move(1,1);page.mouse.wheel(0,600);page.wait_for_timeout(100)
   assert d.locator('.defaults-body').evaluate('(e)=>e.scrollTop')>0
   assert page.evaluate('scrollY')==underlying

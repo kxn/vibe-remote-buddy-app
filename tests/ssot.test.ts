@@ -182,3 +182,17 @@ it("explicit onboarding configuration overrides family defaults in either direct
  expect(keyConfirmation({family:2,onboarding:{keyConfirmation:"skip"}})).toBe("skip");
  expect(keyConfirmation({family:1,onboarding:{keyConfirmation:"required"}})).toBe("required");
 });
+
+// Check intended product behavior, not just agreement between potentially stale copies.
+it("every bundled model retains the agreed navigation defaults", async () => {
+  const { bundledCatalog } = await import("../src/bundled-models");
+  const { resolveCatalog } = await import("../src/core/catalog");
+  const expected: Record<string, number[]> = {
+    返回: [1, 0, 42], 主页: [4, 0, 65534], 菜单: [4, 0, 65535],
+  };
+  for (const { model } of resolveCatalog(bundledCatalog().resources)) {
+    for (const key of model.keys) {
+      if (expected[key.label]) expect(key.default, `${model.id}: ${key.label}`).toEqual(expected[key.label]);
+    }
+  }
+});

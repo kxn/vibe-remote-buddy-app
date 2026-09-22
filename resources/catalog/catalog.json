@@ -1,6 +1,6 @@
 {
   "format_version": 2,
-  "catalog_version": "0.2.3",
+  "catalog_version": "0.2.4",
   "minimum_catalog_api": 2,
   "resources": [
     {
@@ -134,10 +134,10 @@
     {
       "kind": "defaults",
       "id": "cmcc.sample-28",
-      "revision": 1,
+      "revision": 2,
       "path": "defaults/operators/cmcc-28-key.json",
-      "sha256": "e1abea725276766b96a47c60eee60ea7f5925bb9a27b113e9dbe9c72b1eeabc4",
-      "size": 3747
+      "sha256": "f0122e2d29457eb0fca336a1b8acfb86909f6241d26e895cee55bd6d5d96e36a",
+      "size": 3729
     },
     {
       "kind": "defaults",
@@ -158,10 +158,10 @@
     {
       "kind": "defaults",
       "id": "xiaomi.legacy-32ba",
-      "revision": 1,
+      "revision": 2,
       "path": "defaults/xiaomi/legacy-2717-32ba.json",
-      "sha256": "800f5dd9e7e4f6254025fd8f95abb840a9dba35edb2eb9c6b53827278c5a956c",
-      "size": 1733
+      "sha256": "ef9a5c0dc3085280238c551759b911804e71d832cf632b9d390688f3ded51ac0",
+      "size": 1700
     },
     {
       "kind": "defaults",
@@ -182,9 +182,9 @@
     {
       "kind": "model",
       "id": "cmcc.sample-28",
-      "revision": 3,
+      "revision": 4,
       "path": "models/operators/cmcc-28-key.json",
-      "sha256": "648e727791bf3d83619362aa825c0f5d13467e4ebac447a0ac10b5aa23b1b603",
+      "sha256": "01d1d3319685a9aa54d779956a1fe8cd4757a056bc4291ae9b5569afb04ad55f",
       "size": 1978
     },
     {
@@ -206,9 +206,9 @@
     {
       "kind": "model",
       "id": "xiaomi.legacy-32ba",
-      "revision": 4,
+      "revision": 5,
       "path": "models/xiaomi/legacy-2717-32ba.json",
-      "sha256": "c2f40d4cc21c1d93b9e514278652168a2c7ab96a23c3a09b277ae2e233a3d8b4",
+      "sha256": "000231ac0ad8e20031609be095aa70eb5b9884d6919c31bce1aceff920c6648a",
       "size": 1038
     },
     {
