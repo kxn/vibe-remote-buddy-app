@@ -81,8 +81,31 @@ test("firmware identity is verified inside the ESP image", (t) => {
 });
 test("build version includes actual Git hash and supports temporary versions", () => {
   const info = buildIdentity("1.2.3-rc.2");
-  assert.match(info.display_version, /^1\.2\.3-rc\.2\+[0-9a-f]{8}(\.dirty)?$/);
+  assert.match(
+    info.display_version,
+    /^1\.2\.3-rc\.2\+[0-9a-f]{8}\.(local|ci|release)(\.dirty)?$/,
+  );
   assert.equal(info.short_hash, info.commit.slice(0, 8));
   for (const version of ["v1.2.3", "1.2", "1.2.3+madeup", "1.2.3\nINJECT=1"])
     assert.throws(() => buildIdentity(version), /version/);
+});
+test("only GitHub builds can be marked release; local builds stay local", () => {
+  const original = {
+    GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
+    BUDDY_BUILD_CHANNEL: process.env.BUDDY_BUILD_CHANNEL,
+  };
+  try {
+    delete process.env.GITHUB_ACTIONS;
+    process.env.BUDDY_BUILD_CHANNEL = "release";
+    assert.equal(buildIdentity().channel, "local");
+    process.env.GITHUB_ACTIONS = "true";
+    assert.equal(buildIdentity().channel, "release");
+    delete process.env.BUDDY_BUILD_CHANNEL;
+    assert.equal(buildIdentity().channel, "ci");
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });

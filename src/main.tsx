@@ -290,7 +290,10 @@ function App() {
           }}
         >
           <img className="logo" src="/icon.svg" alt="" width="32" height="32" />
-          Vibe Remote Buddy
+          <span className="brand-text">
+            <span>Vibe Remote Buddy</span>
+            <small className="build-version">{__APP_BUILD__.display_version}</small>
+          </span>
         </button>
         <div className="header-right">
           <button

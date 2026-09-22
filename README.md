@@ -100,3 +100,5 @@ UI 测试注入模拟接口，不连接真实接收器。原生窗口测试会�
 `npm run release` 锁定机型库 main 的最新提交并下载校验，重新编译随固件安装的机型数据库，再生成完整包。网络失败会停止，不静默退回旧库。离线构建可显式使用 `npm run release:offline`。
 
 GitHub Actions 的 Windows build 支持手动构建，可输入版本号并勾选 publish 发版；推送 `vX.Y.Z` 标签也会发布。普通 main/PR 构建仅生成测试通过的 ZIP artifact。详细机制见 [发布设计](docs/release-pipeline.md)。
+
+首页标题下和关于页均显示构建版本，例如 `0.1.2+abcd1234.release`。GitHub 正式发行标记 `release`，普通 CI 构建标记 `ci`，本地构建始终标记 `local`；未提交修改另加 `.dirty`。ZIP 文件名包含相同来源标记。

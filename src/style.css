@@ -123,6 +123,17 @@ header {
   border: 0;
   flex-shrink: 0;
 }
+.brand-text {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+}
+.build-version {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
 .project-links {
   display: flex;
   gap: 0.25rem;

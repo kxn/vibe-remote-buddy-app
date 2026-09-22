@@ -157,12 +157,18 @@ export function buildIdentity(
   const commit = git("rev-parse", "HEAD"),
     dirty = !!git("status", "--porcelain"),
     short_hash = commit.slice(0, 8);
+  const channel = process.env.GITHUB_ACTIONS
+    ? process.env.BUDDY_BUILD_CHANNEL || "ci"
+    : "local";
+  if (!["release", "ci", "local"].includes(channel))
+    throw Error("Invalid build channel");
   return {
     version,
     commit,
     short_hash,
     dirty,
-    display_version: `${version}+${short_hash}${dirty ? ".dirty" : ""}`,
+    channel,
+    display_version: `${version}+${short_hash}.${channel}${dirty ? ".dirty" : ""}`,
   };
 }
 export function sourceDigest() {

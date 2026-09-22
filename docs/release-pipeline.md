@@ -27,3 +27,5 @@ App、固件、机型库独立版本；本次发行的组合在 build-info.json 
 示例：PowerShell `$env:BUDDY_APP_VERSION='0.1.1'; npm run release`。源码版本文件无需为临时构建改动；正式长期默认版本可修改 package.json，并同步 lockfile。
 
 参考：[GitHub workflow_dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch)、[gh release create](https://cli.github.com/manual/gh_release_create)。
+
+首页标题下和关于页均显示构建版本，例如 `0.1.2+abcd1234.release`。GitHub 正式发行标记 `release`，普通 CI 构建标记 `ci`，本地构建始终标记 `local`；未提交修改另加 `.dirty`。ZIP 文件名包含相同来源标记。

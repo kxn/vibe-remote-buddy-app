@@ -26,7 +26,7 @@ fs.copyFileSync(
   path.join(latest, "build-info.json"),
   path.join(stage, "build-info.json"),
 );
-const name = `vibe-remote-buddy-app-${info.version}-${info.short_hash}${info.dirty ? "-dirty" : ""}-windows-x64.zip`,
+const name = `vibe-remote-buddy-app-${info.version}-${info.short_hash}-${info.channel}${info.dirty ? "-dirty" : ""}-windows-x64.zip`,
   zip = path.join(out, name);
 execFileSync(
   "powershell.exe",
