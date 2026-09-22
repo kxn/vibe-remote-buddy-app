@@ -1,0 +1,80 @@
+name: Publish verified release
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Successful build job's Actions run ID (release channel only)"
+        type: string
+        required: true
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: publish-${{ inputs.run_id }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'kxn/vibe-remote-buddy-app'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_ID: ${{ inputs.run_id }}
+    steps:
+      - name: Download successful build
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GH_REPO/actions/runs/$RUN_ID" > run.json
+          gh api "repos/$GH_REPO/actions/runs/$RUN_ID/jobs" > jobs.json
+          jq -e '.jobs | any(.name == "build" and .conclusion == "success")' jobs.json
+          artifact=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired == false and (.name | startswith("vibe-remote-buddy-")) and (.name | endswith(".release-windows-x64"))) | .name')
+          test -n "$artifact"
+          gh run download "$RUN_ID" -R "$GH_REPO" -n "$artifact" -D release
+      - name: Verify provenance and package
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re, zipfile
+          run = json.loads(pathlib.Path('run.json').read_text())
+          assert run['event'] in ('push', 'workflow_dispatch'), 'Not a release build event'
+          assert run['head_repository']['full_name'] == os.environ['GH_REPO'], 'Foreign repository'
+          files = list(pathlib.Path('release').glob('*.zip'))
+          assert len(files) == 1, 'Expected one complete package'
+          archive = files[0]
+          checksum = pathlib.Path(str(archive) + '.sha256').read_text().split()[0]
+          assert hashlib.sha256(archive.read_bytes()).hexdigest() == checksum, 'ZIP checksum mismatch'
+          with zipfile.ZipFile(archive) as z:
+              info = json.loads(z.read('build-info.json'))
+              assert info['commit'] == run['head_sha'] and re.fullmatch('[0-9a-f]{40}', info['commit'])
+              assert info['channel'] == 'release' and info['dirty'] is False
+              assert re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', info['version'])
+              assert info['display_version'] == info['version'] + '+' + info['commit'][:8] + '.release'
+              for name, digest in info['sha256'].items():
+                  assert hashlib.sha256(z.read(name)).hexdigest() == digest, name
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('VERSION=' + info['version'] + '\n')
+              f.write('DISPLAY_VERSION=' + info['display_version'] + '\n')
+              f.write('TARGET_SHA=' + info['commit'] + '\n')
+          PY
+      - name: Verify tag and publish
+        run: |
+          tag="v$VERSION"
+          if ! gh api "repos/$GH_REPO/git/ref/tags/$tag" > tag.json; then
+            gh api --method POST "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$tag" -f "sha=$TARGET_SHA" > tag.json
+          fi
+          kind=$(jq -r '.object.type' tag.json)
+          sha=$(jq -r '.object.sha' tag.json)
+          while [[ "$kind" == tag ]]; do
+            gh api "repos/$GH_REPO/git/tags/$sha" > tag.json
+            kind=$(jq -r '.object.type' tag.json)
+            sha=$(jq -r '.object.sha' tag.json)
+          done
+          test "$kind" = commit
+          test "$sha" = "$TARGET_SHA"
+          args=()
+          if [[ "$VERSION" == *-* ]]; then args+=(--prerelease); fi
+          gh release create "$tag" release/*.zip release/*.sha256 --verify-tag --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"

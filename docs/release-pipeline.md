@@ -29,3 +29,5 @@ App、固件、机型库独立版本；本次发行的组合在 build-info.json 
 参考：[GitHub workflow_dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch)、[gh release create](https://cli.github.com/manual/gh_release_create)。
 
 首页标题下和关于页均显示构建版本，例如 `0.1.2+abcd1234.release`。GitHub 正式发行标记 `release`，普通 CI 构建标记 `ci`，本地构建始终标记 `local`；未提交修改另加 `.dirty`。ZIP 文件名包含相同来源标记。
+
+发布使用独立的 `Publish verified release` 工作流。它核对构建任务成功、包内文件哈希、release 标记、提交及标签一致后创建发行。若仅发布阶段失败，可手动输入原 Actions run ID 重试，无需重新构建；不接受 PR、本地包或普通 ci 包。标签已经存在时不向 Release API 另传提交 SHA，避免 GitHub 对工作流提交的额外范围检查。

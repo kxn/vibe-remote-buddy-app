@@ -11,92 +11,11 @@ on:
         type: string
         required: false
       publish:
-        description: "Publish a GitHub Release after checks pass"
-        type: boolean
-        default: false
-permissions:
-  contents: read
-concurrency:
-  group: windows-${{ github.ref }}
-  cancel-in-progress: false
-jobs:
-  build:
-    runs-on: windows-latest
-    timeout-minutes: 45
-    outputs:
-      version: ${{ steps.asset.outputs.version }}
-      display: ${{ steps.asset.outputs.display }}
-    env:
-      PYTHONUTF8: "1"
-      BUDDY_BUILD_CHANNEL: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)) && 'release' || 'ci' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - name: Select application version
-        shell: pwsh
-        env:
-          REQUESTED_VERSION: ${{ inputs.version }}
-        run: |
-          $version = $env:REQUESTED_VERSION
-          if ($env:GITHUB_REF_TYPE -eq 'tag') { $version = $env:GITHUB_REF_NAME.Substring(1) }
-          if ($version) { "BUDDY_APP_VERSION=$version" >> $env:GITHUB_ENV }
-      - run: npm ci
-      - run: npm test
-      - run: npm run test:release
-      - run: python tests/receiver_setup_helper_test.py
-      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
-      - name: Build complete offline-capable app
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: npm run release
-      - name: Create verified distribution
-        id: asset
-        shell: pwsh
-        run: |
-          node scripts/release-asset.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $release = Get-Content out/distribution/release.json | ConvertFrom-Json
-          "version=$($release.version)" >> $env:GITHUB_OUTPUT
-          "display=$($release.display_version)" >> $env:GITHUB_OUTPUT
-      - uses: actions/upload-artifact@v4
-        with:
-          name: vibe-remote-buddy-${{ steps.asset.outputs.display }}-windows-x64
-          path: |
-            out/distribution/*.zip
-            out/distribution/*.sha256
-            out/distribution/release-notes.md
-          if-no-files-found: error
-  publish:
     needs: build
     if: github.repository == 'kxn/vibe-remote-buddy-app' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish))
-    runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: vibe-remote-buddy-${{ needs.build.outputs.display }}-windows-x64
-          path: release
-      - name: Publish complete package
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ needs.build.outputs.version }}
-          DISPLAY_VERSION: ${{ needs.build.outputs.display }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          args=()
-          if [[ "$VERSION" == *-* ]]; then args+=(--prerelease); fi
-          gh release create "v$VERSION" release/*.zip release/*.sha256 --target "$TARGET_SHA" --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"
+      actions: read
+    uses: ./.github/workflows/publish.yml
+    with:
+      run_id: ${{ github.run_id }}
