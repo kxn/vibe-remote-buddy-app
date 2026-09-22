@@ -1,3 +1,7 @@
 
 # Catalog manifests hash exact published bytes.
 resources/catalog/** -text
+# Tauri rewrites the Cargo manifest with LF during a build. Keep fresh Windows
+# checkouts identical so provenance checks detect source edits, not conversion.
+src-tauri/Cargo.toml text eol=lf
+src-tauri/Cargo.lock text eol=lf
