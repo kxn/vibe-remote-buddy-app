@@ -1,3 +1,4 @@
+import { OperationDialog } from "./OperationDialog";
 import {bundledModelSources,bundledCatalog} from "./bundled-models";
 import {describeBinding, voiceProfile, selectVoiceProfile} from "./core/bindings";
 import { installModalScroll } from "./modal-scroll";
@@ -102,6 +103,7 @@ function Spinner() {
   return <LoaderCircle className="spin" size={16} />;
 }
 function App() {
+  const [receiverChoiceDismissed, setReceiverChoiceDismissed] = useState(false);
   const [preferredModel,setPreferredModel]=useState<string>();
   const [firmware, setFirmware] = useState<FirmwarePackage | null>(null);
   const snap = useSyncExternalStore(service.subscribe, service.getSnapshot),
@@ -293,8 +295,8 @@ function App() {
         <div className="header-right">
           <button
             className="connection"
-            disabled={!connected}
-            onClick={() => setModal("receiver")}
+            disabled={!connected && snap.ports.length < 2}
+            onClick={() => connected ? setModal("receiver") : setReceiverChoiceDismissed(false)}
             aria-label="接收器详情"
           >
             {snap.status === "connecting" ? (
@@ -338,8 +340,8 @@ function App() {
             </button>
           </Feedback>
         )}
-        {snap.ports.length > 1 && !connected && (
-          <Feedback persistent>
+        {snap.ports.length > 1 && !receiverChoiceDismissed && !connected && !modal && !snap.firmwareProgress?.active && (
+          <OperationDialog title="选择接收器" close={() => setReceiverChoiceDismissed(true)}>
             <label className="field">
               接收器
               <select
@@ -358,7 +360,8 @@ function App() {
                 ))}
               </select>
             </label>
-          </Feedback>
+            <p className="operation-phase" role="status">{snap.status === "connecting" ? "正在连接…" : snap.error}</p>
+          </OperationDialog>
         )}
         {page === "home" && (
           <>
@@ -631,26 +634,7 @@ function App() {
               {connected && snap.info?.update_api !== 1 && (
                 <p className="muted">此接收器需要首次安装新版固件</p>
               )}
-              {snap.firmwareProgress && (
-                <Feedback persistent={snap.firmwareProgress.active}>
-                  <div role="status" aria-live="polite">
-                    <span>{snap.firmwareProgress.phase}</span>
-                    {snap.firmwareProgress.active && (
-                      <progress
-                        style={{ width: "100%" }}
-                        max={100}
-                        value={snap.firmwareProgress.percent}
-                      />
-                    )}
-                    {snap.firmwareProgress.active &&
-                      snap.firmwareProgress.percent < 96 && (
-                        <button onClick={() => service.cancelFirmwareUpdate()}>
-                          取消更新
-                        </button>
-                      )}
-                  </div>
-                </Feedback>
-              )}
+
             </section>
             <section className="settings-group">
               <h2>配置</h2>
@@ -1014,6 +998,19 @@ function App() {
             <button onClick={() => setModal(null)}>完成</button>
           </footer>
         </Dialog>
+      )}
+      {snap.firmwareProgress?.active && (
+        <OperationDialog title="更新接收器固件">
+          <p className="operation-phase" role="status">{snap.firmwareProgress.phase}</p>
+          <progress aria-label="固件更新进度" max={100} value={snap.firmwareProgress.percent} />
+          <footer>
+            <button disabled={snap.firmwareProgress.percent >= 96}
+              onClick={() => service.cancelFirmwareUpdate()}>取消更新</button>
+          </footer>
+        </OperationDialog>
+      )}
+      {snap.firmwareProgress && !snap.firmwareProgress.active && (
+        <Feedback>{snap.firmwareProgress.phase}</Feedback>
       )}
       {notice && <Feedback>{notice}</Feedback>}
     </div>

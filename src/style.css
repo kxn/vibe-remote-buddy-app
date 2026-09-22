@@ -1246,8 +1246,7 @@ footer.editor-footer {
   bottom: 1rem;
   right: 1rem;
   width: min(32rem, calc(100vw - 2rem));
-  max-height: 32vh;
-  overflow: auto;
+  overflow: visible;
   display: grid;
   gap: 0.5rem;
   z-index: 100;
@@ -1337,7 +1336,7 @@ footer.editor-footer {
 }
 /* Permanent feedback clearance: a notification must not cover a dialog action. */
 .app { padding-bottom: 7rem; }
-.feedback-layer { max-height: 5rem; }
+
 .shade, .probe-modal-layer { padding-bottom: 7rem; }
 .dialog, .probe-workbench, .probe-modal { max-height: calc(100dvh - 9rem); }
 .receiver-setup[open] { height: min(40rem, calc(100dvh - 9rem)); margin-top: 1rem; margin-bottom: 8rem; }
@@ -1565,3 +1564,24 @@ html.modal-open, html.modal-open body { overflow: hidden; }
 }
 
 .dialog > pre { max-height:min(16rem,30dvh); overflow:auto; }
+
+/* Notifications contain a short summary; decisions and operations use a dialog. */
+.feedback-summary { display:flex; align-items:center; gap:.75rem; min-width:0; flex:1; }
+.feedback-text { min-width:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.feedback-item button { flex-shrink:0; }
+.feedback-detail { white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
+.operation-dialog {
+  position:fixed; inset:0; margin:auto; box-sizing:border-box;
+  width:min(28rem, calc(100vw - 2rem)); max-width:none;
+  max-height:calc(100dvh - 2rem); padding:1.5rem;
+  border:1px solid var(--line); border-radius:1.25rem;
+  background:var(--bg); color:var(--ink); box-shadow:0 12px 48px var(--shadow);
+  overflow:auto; overscroll-behavior:contain;
+}
+.operation-dialog::backdrop { background:rgba(40,35,28,.35); }
+.operation-dialog h2 { margin:0 0 1rem; font-size:1.2rem; }
+.operation-content { min-width:0; }
+.operation-phase { min-height:3em; margin:0 0 .75rem; }
+.operation-dialog progress { display:block; width:100%; height:.65rem; accent-color:var(--accent); }
+.operation-dialog footer { display:flex; justify-content:flex-end; margin-top:1.25rem; gap:.5rem; }
+.operation-dialog select { width:100%; min-width:0; }

@@ -1291,7 +1291,7 @@ export function ProbeWorkbench({
                     </strong>
                   </div>
                   <p role="status">
-                    {capture.proof
+                    {busy ? progress : capture.proof
                       ? "验证通过"
                       : capture.down
                         ? "已按下，请松开"
@@ -1358,9 +1358,6 @@ export function ProbeWorkbench({
                 </>
               )}
               {error && <Feedback error>{error}</Feedback>}
-              {busy && capture.phase === "key" && (
-                <Feedback>{progress}</Feedback>
-              )}
               <div className="probe-actions">
                 {capture.key !== 2 && (
                   <button

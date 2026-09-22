@@ -1,3 +1,4 @@
+import { OperationDialog } from "./OperationDialog";
 import React, { useState } from "react";
 import type { BuddyService } from "./core/service";
 import { ModelDefaults } from "./ModelDefaults";
@@ -17,12 +18,14 @@ export function ModelLibrary({
     [selected, setSelected] = useState(service.pairingModels[0]?.id ?? ""),
     [editing, setEditing] = useState(false),
     [busy, setBusy] = useState(false),
+    [operation, setOperation] = useState(""),
     [message, setMessage] = useState(""),
     [error, setError] = useState(false),
     [, refresh] = useState(0),
     [reset, setReset] = useState(false);
   const model = service.pairingModels.find((m) => m.id === selected);
-  async function run(work: () => Promise<void>, done: string) {
+  async function run(work: () => Promise<void>, done: string, phase: string) {
+    setOperation(phase);
     setBusy(true);
     setMessage("");
     try {
@@ -72,7 +75,7 @@ export function ModelLibrary({
           <button
             disabled={busy}
             onClick={() =>
-              void run(() => service.updateCatalog(), "机型库已更新")
+              void run(() => service.updateCatalog(), "机型库已更新", "检查机型库更新")
             }
           >
             检查更新
@@ -80,7 +83,7 @@ export function ModelLibrary({
           <button
             disabled={busy || service.snapshot.info?.catalog_api !== 2}
             onClick={() =>
-              void run(() => service.installCatalog(), "已同步到接收器")
+              void run(() => service.installCatalog(), "已同步到接收器", "同步机型库到接收器")
             }
           >
             同步到接收器
@@ -142,6 +145,7 @@ export function ModelLibrary({
             编辑默认配置
           </button>
         </footer>
+        {busy && <OperationDialog title={operation}><progress aria-label={operation}/></OperationDialog>}
         {message && <Feedback error={error}>{message}</Feedback>}
         {reset && (
           <div className="probe-modal-layer">
@@ -167,7 +171,7 @@ export function ModelLibrary({
                       });
                       await service.reloadModels(!!service.snapshot.board);
                       setReset(false);
-                    }, "已恢复默认配置")
+                    }, "已恢复默认配置", "恢复默认配置")
                   }
                 >
                   恢复
