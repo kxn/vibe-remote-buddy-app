@@ -79,3 +79,12 @@ it("revokes local action permissions before a snapshot restore can partially fai
   );
   expect(h.service.settings.boards.board.authorizations).toEqual({});
 });
+
+
+it("rejects the voice toggle before any writes on older firmware", async () => {
+  const h = setup([5]);
+  await expect(h.service.saveMap(h.slot, {
+    key: 8, kind: 6, modifiers: 0, value: 0, revision: 2,
+  } as Mapping)).rejects.toThrow("更新接收器固件");
+  expect(h.command).not.toHaveBeenCalled();
+});

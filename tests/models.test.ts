@@ -118,3 +118,18 @@ it("allows same-name variants to synchronize independently", async () => {
  }, 16);
  expect(commits).toBe(2);
 });
+
+
+it("round-trips board-side voice toggle defaults and rejects invalid parameters", () => {
+  const model = structuredClone(unicom);
+  model.keys[0].default = [6, 0, 0];
+  const valid = validateModel(model);
+  expect(JSON.parse(new TextDecoder().decode(modelBytes(valid))).keys[0].default).toEqual([6, 0, 0]);
+  for (const params of [[6, 1, 0], [6, 0, 1], [7, 0, 0]]) {
+    model.keys[0].default = params;
+    expect(() => validateModel(model)).toThrow();
+  }
+  model.keys[0].default = [6, 0, 0];
+  model.keys.find(k => k.id === 2)!.default = [6, 0, 0];
+  expect(() => validateModel(model)).toThrow();
+});

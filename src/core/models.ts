@@ -134,14 +134,14 @@ export function validateModel(v: unknown): RemoteModel {
     const d = k.default;
     require(Array.isArray(d) &&
       d.length === 3 &&
-      integer(d[0], 5) &&
+      integer(d[0], 6) &&
       integer(d[1], 255) &&
       integer(d[2], 65535), "默认按键无效");
     const [kind, mod, value] = d;
     require(k.id === 2
       ? kind === 3 || kind === 5
       : kind !== 3 && kind !== 5, "语音配置只能用于语音键");
-    require(kind === 0
+    require(kind === 0 || kind === 6
       ? !mod && !value
       : kind === 1 || kind === 3
         ? value <= 223 && (value >= 4 || (!value && mod))

@@ -24,6 +24,7 @@ export interface Info {
   flash_bytes?: number;
   psram_bytes?: number;
   voice_presets?: number;
+  voice_toggle?: number;
   host_os?: number;
   firmware: string;
   slots: number;

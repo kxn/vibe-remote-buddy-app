@@ -46,6 +46,8 @@ function action(a: Resource): [number, number, number] {
     case "app":
       check(["task-view", "window-picker"].includes(a.command), "未知软件动作");
       return [4, 0, a.command === "task-view" ? 65534 : 65535];
+    case "toggle-voice-mode":
+      return [6, 0, 0];
     case "voice-preset":
       check(
         ["doubao", "wechat", "video-meeting"].includes(a.preset),

@@ -73,7 +73,7 @@ export function ModelEditor({
                         ? [3, 64, 0]
                         : v === 4
                           ? [4, 0, 65535]
-                          : [5, 0, 1];
+                          : v === 6 ? [6, 0, 0] : [5, 0, 1];
             })
           }
         >
@@ -87,6 +87,7 @@ export function ModelEditor({
                 [1, "键盘快捷键"],
                 [2, "媒体键"],
                 [4, "应用事件"],
+                [6, "切换会议 / 普通模式"],
               ]
           ).map(([id, label]) => (
             <option key={id} value={id}>

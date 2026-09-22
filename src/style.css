@@ -1393,14 +1393,15 @@ img, a { -webkit-user-drag: none; }
 .library-list small { display:block;color:var(--muted); }
 .library-detail { display:flex;flex-direction:column;align-items:center;gap:.75rem;background:var(--soft);padding:1.25rem;border-radius:1rem; }
 .library-detail .onboarding-remote { flex-shrink:0; }
-.model-library footer { flex-shrink:0; }
-@media(max-width:650px){.onboarding-columns,.library-body{grid-template-columns:1fr}.library-list{max-height:150px}.library-body{overflow:auto}.library-detail{overflow:visible}.onboarding-columns{min-height:0}.model-library footer{flex-wrap:wrap}.onboarding-remote{height:280px}}
+.model-library footer, .model-defaults footer { flex-shrink:0; display:flex; flex-wrap:wrap; gap:.65rem; }
+.model-library footer > button, .model-defaults footer > button { min-width:0; }
+@media(max-width:650px){.onboarding-columns,.library-body{grid-template-columns:1fr}.library-list{max-height:none}.library-body{overflow:auto;grid-template-rows:9rem 18rem}.library-detail{overflow:visible}.onboarding-columns{min-height:0}.model-library footer{flex-wrap:wrap}.onboarding-remote{height:280px}}
 .model-defaults { width:min(960px,calc(100vw - 32px));height:min(820px,calc(100dvh - 9rem));display:flex;flex-direction:column;overflow:hidden; }
-.defaults-body { flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(220px,1fr) 240px;gap:24px; }
+.defaults-body { padding:4px; flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:minmax(220px,1fr) 240px;gap:24px; }
 .defaults-body fieldset { min-width:0;border:0;padding:0; }
 .defaults-body label { display:grid;gap:6px; }
 .defaults-preview { position:sticky;top:0;align-self:start;padding:18px;display:flex;justify-content:center;background:var(--soft);border-radius:20px; }
-.model-defaults footer { flex-shrink:0; }
+
 @media(max-width:650px){.defaults-body{grid-template-columns:1fr}.defaults-preview{position:static}}
 
 /* Shared dialog rhythm: embedded headers must not inherit app-header padding. */
@@ -1496,10 +1497,10 @@ img, a { -webkit-user-drag: none; }
 .layout-preview-art .onboarding-remote { height:100%; min-height:10rem; max-height:28rem; }
 .layout-preview-overlay > footer { margin:.5rem 0 0; flex-shrink:0; align-items:center; justify-content:space-between; gap:.5rem; }
 .layout-preview-overlay > footer span { flex:1; min-width:0; font-size:.8rem; overflow-wrap:anywhere; }
-@media(max-width:650px) {
- .workspace-mode .layout-step .probe-designer { grid-template-columns:minmax(0,1fr) minmax(8rem,.8fr); }
+@media(max-width:760px) {
+ .workspace-mode .layout-step .probe-designer { grid-template-columns:minmax(0,1fr) minmax(7rem,.65fr); }
  .workspace-mode .layout-palette-panel .probe-palette { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .workspace-mode .layout-settings { grid-template-columns:1fr 1fr; }
+ .workspace-mode .layout-settings { grid-template-columns:repeat(2,minmax(0,1fr)); }
  .workspace-mode .layout-settings > label:first-child { grid-column:auto; }
 }
 
@@ -1518,7 +1519,8 @@ img, a { -webkit-user-drag: none; }
 .layout-preview-art { overflow:hidden; }
 .layout-preview-art .remote-preview-fit > .onboarding-remote { min-height:0; max-height:none; }
 @media(max-width:650px) {
- .candidate-step > .onboarding-columns { grid-template-columns:minmax(0,1fr) minmax(0,.8fr); }
+ .candidate-step > .onboarding-columns { grid-template-columns:minmax(0,1fr); overflow:auto; }
+ .candidate-step .onboarding-preview { min-height:12rem; }
  .candidate-step .onboarding-columns label { margin-top:.75rem; }
 }
 
@@ -1548,3 +1550,18 @@ img, a { -webkit-user-drag: none; }
 .onboarding-remote > .appearance-boundary { left:0; width:100%; height:1.2rem; transform:translateY(-50%); border:0; border-top:2px dashed var(--accent); border-radius:0; background:transparent; color:var(--accent); cursor:ns-resize; touch-action:none; justify-content:flex-end; overflow:visible; z-index:2; }
 
 .layout-palette-panel > .appearance-controls { flex:1; min-height:0; }
+
+/* Modal scrolling is owned by the uppermost layer, including its backdrop. */
+html { scrollbar-gutter: stable; }
+html.modal-open, html.modal-open body { overflow: hidden; }
+[aria-modal="true"], [aria-modal="true"] * { overscroll-behavior: contain; }
+/* Keep focus rings inside clipped scroll regions. */
+[aria-modal="true"] :focus-visible { outline-offset: -3px; }
+/* Short workspaces scroll as a unit instead of collapsing both key panels. */
+@media (max-height:700px), (max-width:500px) {
+  .workspace-mode > .onboarding-content.layout-step { overflow-y:auto; }
+  .workspace-mode .layout-step .probe-designer { flex:1 0 20rem; min-height:20rem; }
+  .workspace-mode .layout-step > .probe-footer { position:sticky; bottom:0; background:var(--bg); z-index:4; }
+}
+
+.dialog > pre { max-height:min(16rem,30dvh); overflow:auto; }

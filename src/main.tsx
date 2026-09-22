@@ -1,3 +1,4 @@
+import { installModalScroll } from "./modal-scroll";
 import { ModelLibrary } from "./ModelLibrary";
 import { ModelDefaults } from "./ModelDefaults";
 import { Feedback } from "./Feedback";
@@ -295,6 +296,7 @@ function App() {
             7: "连接异常",
           }[s.state] ?? "未连接");
   const describe = (m: Mapping) =>
+    m.kind === 6 ? "切换会议 / 普通模式" :
     m.kind === 5
       ? m.value === 1
         ? "豆包输入法 · 默认"
@@ -1231,8 +1233,8 @@ function Dialog({
     const previous = document.activeElement as HTMLElement;
     ref.current
       ?.querySelector<HTMLElement>("button:not(:disabled),input,select")
-      ?.focus();
-    return () => previous?.focus();
+      ?.focus({ preventScroll: true });
+    return () => previous?.focus({ preventScroll: true });
   }, []);
   return (
     <div
@@ -1698,6 +1700,7 @@ function Editor({
                 <optgroup label="按键">
                   <option value="1">快捷键</option>
                   <option value="2">音量与媒体</option>
+                  <option value="6">切换会议 / 普通模式</option>
                 </optgroup>
                 <option value="0">不使用</option>
               </select>
@@ -1881,6 +1884,8 @@ function BackupDialog({
     </Dialog>
   );
 }
+const releaseModalScroll = installModalScroll();
+if (import.meta.hot) import.meta.hot.dispose(releaseModalScroll);
 createRoot(document.getElementById("root")!).render(
   location.search === "?picker" ? <WindowPicker /> : <App />,
 );

@@ -722,6 +722,8 @@ export class BuddyService {
     action?: Action,
     inherit = false,
   ) {
+    if (desired.kind === 6 && this.snapshot.info?.voice_toggle !== 1)
+      throw Error("请先更新接收器固件，再使用会议模式切换");
     if (desired.kind === 5 && this.snapshot.info?.voice_presets !== 1)
       throw Error("请先更新接收器固件，再使用自动语音预设");
     this.ensureMutable();

@@ -13,6 +13,12 @@ window.fixture = {
 window.__TAURI_INTERNALS__ = {
   invoke: async (cmd, args = {}) => {
     const f = window.fixture;
+    if(cmd === "catalog_resources") {
+      const index=await (await fetch('/resources/catalog/catalog.json')).json();
+      return {version:index.catalog_version,commit:'fixture',resources:await Promise.all(index.resources.map(r=>fetch('/resources/catalog/'+r.path).then(x=>x.json())))};
+    }
+    if(cmd === "model_overrides") return f.overrides ?? [];
+    if(cmd === "save_model_override") { f.overrides=[{id:args.id,...args.value}]; return; }
     if(cmd === "remote_model_resources") return f.models=await Promise.all(["xiaomi.rc003","unicom.sample-28"].map(async id=>({source:id, model:await (await fetch(`/resources/remotes/${id}/model.json`)).json(), image:await (await fetch(`/resources/remotes/${id}/artwork.svg`)).text()})));
     if (cmd === "save_remote_model") { f.exported=args; return "test/exported-model"; }
     if (cmd === "save_probe_diagnostic") return "test/diagnostic.json";
@@ -94,7 +100,7 @@ window.__TAURI_INTERNALS__ = {
       } else if (q.opcode === 0x403)
         body = {
           firmware: "ui-fixture",
-          voice_presets: 1,
+          catalog_api: 2, voice_presets: 1, voice_toggle: 1, lifecycle_api: 2, max_remotes: 2,
           host_os: 1,
           slots: 4,
           probe_api:1, probe_voice_api:4, model_api:1, model_capacity:16,
@@ -104,6 +110,7 @@ window.__TAURI_INTERNALS__ = {
           scan_epoch: 1,
           free_slot: f.count < 4 ? f.count : -1,
         };
+      else if(q.opcode === 0x460) body={catalog_generation:1,catalog_bytes:5000};
       else if(q.opcode === 0x430) {
         const resource=f.models[q.body.index];
         if(!resource)status=6;
@@ -148,9 +155,9 @@ window.__TAURI_INTERNALS__ = {
         f.maps[`${slot}:${q.body.key}`] = { ...q.body, revision: 2 };
       } else if (q.opcode === 0x405) body = { scan_epoch: 1 };
       else if (q.opcode === 0x406) {
-        if (q.body.index === 0)
+        if ((q.body.cursor ?? q.body.index) === 0)
           body = {
-            candidate_id: 1,
+            next: 24, candidate_id: 1,
             scan_epoch: 1,
             name: "小米 Remote 2 Pro",
             rssi: -45, address:"A1:B2:C3:D4:E5:F6",address_type:1,company:123,adv:"020106",response:"",connectable:true,

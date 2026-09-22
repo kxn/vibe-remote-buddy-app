@@ -64,3 +64,5 @@ Windows 使用 TSF 枚举已启用的简体中文键盘服务，按输入法名�
 官方资料：
 - https://learn.microsoft.com/en-us/windows/win32/api/msctf/nf-msctf-itfinputprocessorprofilemgr-activateprofile
 - https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immgetdefaultimewnd
+
+板端动作“切换会议 / 普通模式”不需要上位机运行，配置和生命周期见 [protocol.md](protocol.md#临时语音模式切换voice_toggle1)。
