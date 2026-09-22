@@ -7,11 +7,12 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
+    "test:release": "node --test scripts/release-inputs.node-test.mjs",
     "tauri": "tauri",
-    "release": "tauri build --no-bundle --features custom-protocol && node scripts/package.mjs",
-    "release:archive": "tauri build --no-bundle --features custom-protocol && node scripts/package.mjs --archive",
-    "prerelease": "python scripts/build-setup-helper.py",
-    "prerelease:archive": "python scripts/build-setup-helper.py"
+    "release": "node scripts/release.mjs",
+    "release:archive": "node scripts/release.mjs --archive",
+    "release:offline": "node scripts/release.mjs --offline",
+    "firmware:import": "node scripts/import-firmware.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

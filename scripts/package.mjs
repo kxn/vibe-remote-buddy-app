@@ -1,3 +1,9 @@
+import {
+  sourceDigest,
+  validateFirmware,
+  loadCatalog,
+  sha256 as digest,
+} from "./release-inputs.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,8 +22,56 @@ if (process.platform !== "win32")
   throw new Error("Portable packaging currently validated on Windows only");
 const config = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json"));
 const pkg = JSON.parse(fs.readFileSync("package.json"));
-if (pkg.version !== config.version)
-  throw new Error("package.json and tauri version differ");
+const build = legacy
+  ? null
+  : JSON.parse(
+      fs.readFileSync(
+        process.env.BUDDY_BUILD_INFO || "build/release-inputs/build-info.json",
+      ),
+    );
+if (
+  !legacy &&
+  (build.commit !==
+    execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim() ||
+    build.source_digest !== sourceDigest())
+)
+  throw new Error(
+    "Source changed since compilation; run npm run release again",
+  );
+if (!legacy) {
+  if (
+    JSON.stringify(validateFirmware(process.env.BUDDY_FIRMWARE_DIR)) !==
+    JSON.stringify(build.firmware)
+  )
+    throw new Error("Firmware changed since compilation");
+  if (
+    digest(
+      fs.readFileSync("src-tauri/target/release/vibe-remote-buddy.exe"),
+    ) !== build.executable_sha256
+  )
+    throw new Error("Executable was not produced by this release build");
+  const catalog = loadCatalog(process.env.BUDDY_CATALOG_DIR);
+  if (
+    catalog.version !== build.catalog.version ||
+    catalog.commit !== build.catalog.commit
+  )
+    throw new Error("Catalog changed since compilation");
+  if (
+    digest(
+      fs.readFileSync(path.join(process.env.BUDDY_CATALOG_DIR, "catalog.json")),
+    ) !== build.catalog.index_sha256
+  )
+    throw new Error("Catalog index changed since compilation");
+  for (const variant of Object.keys(build.firmware))
+    if (
+      digest(
+        fs.readFileSync(
+          path.join(process.env.BUDDY_FIRMWARE_DIR, variant, "catalog.bin"),
+        ),
+      ) !== build.catalog.image_sha256
+    )
+      throw new Error("Installation catalog changed since compilation");
+}
 const out = path.join(root, "out");
 const stage = path.join(out, ".staging");
 const latest = path.join(out, "latest");
@@ -39,6 +93,24 @@ try {
       path.join(stage, "Vibe Remote Buddy.exe"),
     );
     fs.cpSync("resources", path.join(stage, "resources"), { recursive: true });
+    fs.rmSync(path.join(stage, "resources/catalog"), {
+      recursive: true,
+      force: true,
+    });
+    fs.cpSync(
+      process.env.BUDDY_CATALOG_DIR,
+      path.join(stage, "resources/catalog"),
+      { recursive: true },
+    );
+    fs.cpSync(
+      "receiver-firmware/NOTICES.md",
+      path.join(stage, "FIRMWARE-NOTICES.md"),
+    );
+    fs.cpSync(
+      "receiver-firmware/licenses",
+      path.join(stage, "firmware-licenses"),
+      { recursive: true },
+    );
     const installer = path.join(stage, "resources/installer");
     fs.mkdirSync(installer, { recursive: true });
     fs.cpSync("build/setup-helper/dist/receiver-setup", installer, {
@@ -108,9 +180,7 @@ try {
   }
   hashes(stage);
   const info = {
-    version: legacy ? null : pkg.version,
-    commit: legacy ? null : git("rev-parse", "HEAD"),
-    dirty: legacy ? null : !!git("status", "--porcelain"),
+    ...(build ?? { version: null, commit: null, dirty: null }),
     packaged_at: new Date().toISOString(),
     platform: "windows",
     arch: process.arch,
@@ -123,6 +193,12 @@ try {
     path.join(stage, "build-info.json"),
     JSON.stringify(info, null, 2) + "\n",
   );
+  if (!legacy) {
+    // Keep the clean distribution separate from local user-edited model files.
+    const distribution = path.join(out, "distribution", "files");
+    fs.rmSync(distribution, { recursive: true, force: true });
+    fs.cpSync(stage, distribution, { recursive: true });
+  }
   if (archive) {
     if (legacy)
       throw new Error(
@@ -144,8 +220,15 @@ try {
   if (fs.existsSync(localModels)) {
     for (const entry of fs.readdirSync(localModels, { withFileTypes: true })) {
       const dest = path.join(stage, "resources/remotes", entry.name);
-      if (entry.isDirectory() && !entry.name.startsWith(".") && (!fs.existsSync(dest) || fs.existsSync(path.join(localModels, entry.name, "user-edited"))))
-        fs.cpSync(path.join(localModels, entry.name), dest, { recursive: true });
+      if (
+        entry.isDirectory() &&
+        !entry.name.startsWith(".") &&
+        (!fs.existsSync(dest) ||
+          fs.existsSync(path.join(localModels, entry.name, "user-edited")))
+      )
+        fs.cpSync(path.join(localModels, entry.name), dest, {
+          recursive: true,
+        });
     }
   }
   if (fs.existsSync(latest)) fs.renameSync(latest, previous);

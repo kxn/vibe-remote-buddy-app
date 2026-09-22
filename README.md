@@ -2,7 +2,7 @@
 
 遥控器接收器的桌面管理应用，使用 Tauri 2、React 和 TypeScript。可管理多只遥控器、配置按键，以及用遥控器切换应用和聚焦输入框。
 
-应用源码采用 **MIT** 许可证，欢迎修改和二次开发。接收器固件独立维护，**不包含在本仓库**。
+应用源码采用 **MIT** 许可证，欢迎修改和二次开发。接收器固件源码独立维护；`receiver-firmware/` 存放发布二进制、校验清单及第三方声明。
 
 ## 功能
 
@@ -17,13 +17,13 @@
 
 ## 兼容性
 
-需要运行 **Buddy v1 / RBP/3 JSON 管理协议** 的 Vibe Remote Buddy 接收器。该接口不同于旧 CH582 客户端，不能把任意蓝牙适配器或旧固件当作兼容设备。仅有本仓库不能制作或烧录接收器；当前不提供接收器固件下载。
+需要运行 **Buddy v1 / RBP/3 JSON 管理协议** 的 Vibe Remote Buddy 接收器。该接口不同于旧 CH582 客户端，不能把任意蓝牙适配器或旧固件当作兼容设备。完整便携包包含三个板型的首次安装镜像、固件升级包及最新机型库，可离线初始化接收器。
 
 目前实际验证平台为 **Windows**。macOS/Linux 保留共享界面及部分平台实现，尚未完成构建和功能验证；Windows 的窗口聚焦、选择器、输入法切换不承诺跨平台可用。微信实际切换还需在安装该输入法的机器上验证。
 
 ## 开发与构建
 
-安装 Node.js 22、Rust stable、Windows C++ 构建工具及 WebView2。环境准备参见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
+安装 Python 3.13、Node.js 22、Rust stable、Windows C++ 构建工具及 WebView2。环境准备参见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
 
 ```powershell
 git clone https://github.com/kxn/vibe-remote-buddy-app.git
@@ -92,3 +92,11 @@ UI 测试注入模拟接口，不连接真实接收器。原生窗口测试会�
 
 
 0.12.0 起支持 ESP32-S3 SuperMini 的 4 MB Quad Flash + 2 MB Quad PSRAM（`s3-q2-f4-ab2`）。8/16 MB q2/o8 原目标保持原分区。各目标均保留双应用、双配置与双机型库；首次安装按实测容量选包，包含离线机型库。不能在普通 OTA 中交叉刷写不同分区目标。
+
+## 版本与发布
+
+“设置 → 关于”显示构建版本，例如 `0.1.0+1234abcd`，未提交修改的本地构建带 `.dirty`。App 版本默认来自 package.json，可在打包时用 `BUDDY_APP_VERSION` 指定；固件与机型库保留各自版本。
+
+`npm run release` 锁定机型库 main 的最新提交并下载校验，重新编译随固件安装的机型数据库，再生成完整包。网络失败会停止，不静默退回旧库。离线构建可显式使用 `npm run release:offline`。
+
+GitHub Actions 的 Windows build 支持手动构建，可输入版本号并勾选 publish 发版；推送 `vX.Y.Z` 标签也会发布。普通 main/PR 构建仅生成测试通过的 ZIP artifact。详细机制见 [发布设计](docs/release-pipeline.md)。

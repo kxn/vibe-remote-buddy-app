@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "target": "s3-o8-ab1",
+  "version": "0.12.4",
+  "size": 763328,
+  "sha256": "a84a1e89fa67b1a1bd2ead92f8519278246e7cc3212c6ad143da89ddfe8149e0",
+  "data_min": 1,
+  "data_max": 3,
+  "notes": "接收器稳定性改进及 USB 固件更新"
+}

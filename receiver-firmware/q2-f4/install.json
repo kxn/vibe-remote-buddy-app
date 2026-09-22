@@ -1,0 +1,43 @@
+{
+  "format": 2,
+  "target": "s3-q2-f4-ab2",
+  "version": "0.12.4",
+  "files": [
+    {
+      "offset": 0,
+      "name": "bootloader.bin",
+      "size": 20912,
+      "sha256": "2f3364428ddc51a8a504fa944834650741f20d6fe7e212dcd8acd6749283853d"
+    },
+    {
+      "offset": 32768,
+      "name": "partition-table.bin",
+      "size": 3072,
+      "sha256": "f4c6546d76e8fbe56c70b87f9210db54134fcca8348f53c99db981e539dd5c3e"
+    },
+    {
+      "offset": 61440,
+      "name": "ota_data_initial.bin",
+      "size": 8192,
+      "sha256": "7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f"
+    },
+    {
+      "offset": 131072,
+      "name": "receiver.bin",
+      "size": 758736,
+      "sha256": "af0b561a484d581ae98b447f72cc4380e6cfe6062e99064ce409ef0fe44a3119"
+    },
+    {
+      "offset": 2752512,
+      "name": "factory-nvs.bin",
+      "size": 131072,
+      "sha256": "5f08b172b1d1bf76ea741de9c51ddb79e4278ba17a38c5dda2c0a6ca713f7ab7"
+    },
+    {
+      "offset": 3014656,
+      "name": "catalog.bin",
+      "size": 3871,
+      "sha256": "aa24aeb41d78fa91514f7aec896e7f3e210372cf3f6c23a06fb1efffd226d517"
+    }
+  ]
+}

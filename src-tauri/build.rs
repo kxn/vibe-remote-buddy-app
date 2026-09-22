@@ -8,8 +8,10 @@ fn main() {
     println!("cargo:rerun-if-env-changed=BUDDY_FIRMWARE_DIR");
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     let mut arms = String::new();
-    if let Some(dir) = env::var_os("BUDDY_FIRMWARE_DIR") {
-        let dir = PathBuf::from(dir);
+    {
+        let dir = env::var_os("BUDDY_FIRMWARE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("../receiver-firmware"));
         for variant in ["q2", "o8", "q2-f4"] {
             for file in ["manifest.json", "receiver.bin"] {
                 let path = dir.join(variant).join(file);
@@ -17,7 +19,11 @@ fn main() {
                 fs::copy(path, out.join(format!("{variant}-{file}")))
                     .expect("firmware variant missing");
             }
-            let target = if variant == "q2-f4" { "s3-q2-f4-ab2".to_string() } else { format!("s3-{variant}-ab1") };
+            let target = if variant == "q2-f4" {
+                "s3-q2-f4-ab2".to_string()
+            } else {
+                format!("s3-{variant}-ab1")
+            };
             arms.push_str(&format!(r#""{target}" => Some((include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-manifest.json")).as_slice(), include_bytes!(concat!(env!("OUT_DIR"), "/{variant}-receiver.bin")).as_slice())),"#));
         }
     }
@@ -42,5 +48,15 @@ fn main() {
         }
     }
     copy_dir(std::path::Path::new("../resources"), &target);
+    println!("cargo:rerun-if-env-changed=BUDDY_CATALOG_DIR");
+    if let Some(dir) = env::var_os("BUDDY_CATALOG_DIR") {
+        let dir = PathBuf::from(dir);
+        println!("cargo:rerun-if-changed={}", dir.display());
+        let catalog = target.join("catalog");
+        if catalog.exists() {
+            fs::remove_dir_all(&catalog).unwrap();
+        }
+        copy_dir(&dir, &catalog);
+    }
     tauri_build::build();
 }

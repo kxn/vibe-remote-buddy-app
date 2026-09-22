@@ -756,7 +756,7 @@ function App() {
             <img className="logo" src="/icon.svg" alt="" />
             <div>
               <h2>Vibe Remote Buddy</h2>
-              <p className="muted">版本 0.1.0 · 作者 kxn</p>
+              <p className="muted">版本 {__APP_BUILD__.display_version} · 作者 kxn</p>
             </div>
           </div>
           <ProjectLinks onError={(e) => service.report(e)} />

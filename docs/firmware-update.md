@@ -8,14 +8,9 @@
 
 ## 发布时附带固件
 
-公开仓库不保存固件源码或二进制。由固件发布方提供独立目录，包含 `catalog.json` 和 `q2/`、`o8/` 两个目录，各目录内含 `receiver.bin` 和 `manifest.json`。构建时设置：
+App 公开仓库的 `receiver-firmware/` 保存三种目标的完整发布产物（q2、o8、q2-f4），包括更新清单和首次安装清单。`npm run firmware:import -- <发布目录>` 校验并导入产物；不导入源码、ELF、配对数据或完整 Flash 转储。
 
-```powershell
-$env:BUDDY_FIRMWARE_DIR='C:/release/receiver-package'
-npm run release
-```
-
-构建脚本把资源复制到 Cargo 输出目录并嵌入程序。未设置环境变量时仍可独立构建，管理功能正常，但没有附带固件。不得将配对数据、密钥或完整 Flash 转储作为固件包。
+`npm run release` 校验固件，获取并锁定最新机型库提交，重新编译安装用机型数据库，嵌入更新固件并打包完整离线安装资源。可用 `BUDDY_FIRMWARE_DIR` 指定另一份完整发布产物。详情见 [发布流程](release-pipeline.md)。
 
 清单字段：format=1、target、version、size、sha256、data_min、data_max、notes。版本采用 `主.次.修订` 三段非负整数。应用禁止同版本覆盖及降级。SHA256 用于完整性校验，不是作者签名；固件包随可信应用发行，不提供任意网络地址下载执行功能。
 
