@@ -64,3 +64,13 @@ it("validates the 4 MB target independently from 8 MB q2",async()=>{
  await expect(validatePackage(p,{...small,flash_bytes:2097152})).rejects.toThrow("硬件");
  p.manifest.size=0x140001;await expect(validatePackage(p,small)).rejects.toThrow("不完整");
 });
+
+it("updates diagnostic firmware to a newer release or the same stable release",()=>{
+ expect(isNewer("0.12.4","buddy-0.12.0-diag")).toBe(true);
+ expect(isNewer("0.12.0","buddy-0.12.0-diag")).toBe(true);
+ expect(isNewer("0.12.0-diag","buddy-0.12.0")).toBe(false);
+ expect(isNewer("0.11.9","buddy-0.12.0-diag")).toBe(false);
+ expect(isNewer("0.12.0-diag","buddy-0.12.0-diag")).toBe(false);
+ expect(isNewer("0.12.4","buddy-0.12.0-unknown")).toBe(false);
+ expect(isNewer("999999999999999999999.0.0","buddy-0.12.0")).toBe(false);
+});

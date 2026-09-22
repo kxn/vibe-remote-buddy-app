@@ -36,14 +36,18 @@ export interface Commands {
   ): Promise<T>;
 }
 const versionParts = (v: string) => {
-  const m = /^(?:buddy-)?(\d+)\.(\d+)\.(\d+)$/.exec(v);
-  return m ? m.slice(1).map(Number) : null;
+  const m = /^(?:buddy-)?(\d+)\.(\d+)\.(\d+)(-diag)?$/.exec(v);
+  if (!m) return null;
+  const numbers = m.slice(1, 4).map(Number);
+  if (!numbers.every(Number.isSafeInteger)) return null;
+  // The diagnostic build belongs to the same release, but precedes stable.
+  return [...numbers, m[4] ? 0 : 1];
 };
 export function isNewer(next: string, current: string): boolean {
   const a = versionParts(next),
     b = versionParts(current);
   if (!a || !b) return false;
-  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] > b[i];
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
   return false;
 }
 export async function validatePackage(
