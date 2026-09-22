@@ -48,3 +48,16 @@ it("failed unbind refreshes slots without concealing incomplete cleanup", async 
   expect(service.snapshot.slots).toEqual([]);
   expect(service.snapshot.busy).toBe(false);
 });
+
+it("limits new adoption to two while retaining four legacy bindings for deletion", async () => {
+  const { service, command } = harness();
+  Object.assign(service.snapshot.info!, { max_remotes: 2, slots: 4, lifecycle_api: 2, probe_api: 1, probe_voice_api: 4 });
+  service.snapshot.slots = [0,1,2,3].map(slot => ({slot,peer_id:100+slot,state:1} as any));
+  await expect(service.beginProbe()).rejects.toThrow("最多可添加 2 个遥控器");
+  expect(command).not.toHaveBeenCalled();
+  service.snapshot.slots = service.snapshot.slots.slice(2);
+  await expect(service.beginProbe()).rejects.toThrow("最多可添加 2 个遥控器");
+  service.snapshot.slots.pop();
+  await service.beginProbe();
+  expect(command).toHaveBeenCalledWith(OP.PROBE_BEGIN);
+});

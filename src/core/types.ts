@@ -27,6 +27,8 @@ export interface Info {
   host_os?: number;
   firmware: string;
   slots: number;
+  max_remotes?: number;
+  capacity_exceeded?: boolean;
   voice_owner: number;
   manual_pairing: boolean;
   scanning: boolean;

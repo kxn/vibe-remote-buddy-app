@@ -319,8 +319,11 @@ export class BuddyService {
     return { slot: slot.slot, peer_id: slot.peer_id };
   }
   private adoption?: { model: string; operation: number };
+  remoteLimit() { return Math.min(2, this.snapshot.info?.max_remotes ?? 2); }
   async beginProbe(onAudio?: (body: Record<string, unknown>) => void) {
     this.ensureMutable();
+    if (this.snapshot.slots.filter(s => s.peer_id).length >= this.remoteLimit())
+      throw Error(`最多可添加 ${this.remoteLimit()} 个遥控器`);
     if (
       this.snapshot.info?.lifecycle_api !== 2 ||
       this.snapshot.info?.probe_api !== 1 ||

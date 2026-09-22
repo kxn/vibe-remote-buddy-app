@@ -410,7 +410,7 @@ function App() {
               <button
                 className="primary"
                 disabled={
-                  !connected || busy || !!recording || bound.length >= 4
+                  !connected || busy || !!recording || bound.length >= service.remoteLimit()
                 }
                 onClick={() => setModal("add")}
               >
@@ -475,8 +475,12 @@ function App() {
                 {connected ? "还没有遥控器" : "连接 Vibe Remote Buddy 接收器"}
               </div>
             )}
-            {bound.length >= 4 && (
-              <p className="muted capacity">最多可添加 4 个遥控器</p>
+            {bound.length >= service.remoteLimit() && (
+              <p className="muted capacity" role="status">
+                {bound.length > service.remoteLimit()
+                  ? "此接收器最多支持两只，请删除多余遥控器后继续连接"
+                  : "最多可添加 2 个遥控器"}
+              </p>
             )}
           </>
         )}
@@ -774,7 +778,7 @@ function App() {
             <dt>已添加遥控器</dt>
             <dd>
               {snap.slots.filter((s) => s.peer_id).length} /{" "}
-              {snap.info?.slots ?? "—"}
+              {connected ? service.remoteLimit() : "—"}
             </dd>
             <dt>接口</dt>
             <dd>{snap.board?.path ?? "—"}</dd>
