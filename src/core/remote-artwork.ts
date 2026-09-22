@@ -1,3 +1,4 @@
+import {gridRows,maximumInsets,appearanceFields} from "./layout-policy";
 import { labels } from "./layout";
 import type { RemoteModel, RemoteAppearance } from "./models";
 
@@ -6,7 +7,7 @@ export function appearanceOf(model: RemoteModel): RemoteAppearance {
     model.layout.appearance ?? {
       version: 1,
       color: "black",
-      ratio: Math.max(.18,Math.min(.5,artworkModel(model).layout.width / model.layout.height)),
+      ratio: Math.max(appearanceFields[0][2],Math.min(appearanceFields[0][3],artworkModel(model).layout.width / model.layout.height)),
       radius: 0.18,
       top: 0.07,
       bottom: 0.07,
@@ -18,7 +19,7 @@ export function withAppearance(
   patch: Partial<RemoteAppearance>,
 ): RemoteModel {
   const appearance = { ...appearanceOf(model), ...patch };
-  appearance.top = Math.min(appearance.top, 0.7 - appearance.bottom);
+  appearance.top = Math.min(appearance.top, maximumInsets - appearance.bottom);
   return {
     ...model,
     image: undefined,
@@ -74,7 +75,7 @@ export function artworkModel(model: RemoteModel): RemoteModel {
       // Remove grid metadata from this display-only projection so it is idempotent.
       editorColumns: undefined,
       // Grid artwork has a physical proportion independent of the editor canvas.
-      width: layout.appearance ? width : (layout.height * used) / ((layout.editorRows ?? 8) + 2),
+      width: layout.appearance ? width : (layout.height * used) / (gridRows(model) + 2),
       buttons: layout.buttons.map((b) => ({
         ...b,
         x: ((b.x - (left * 100) / cols) * cols) / used,

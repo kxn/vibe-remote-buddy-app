@@ -1,3 +1,5 @@
+import {gridColumns,gridRows,gridLimits} from "./layout-policy";
+export {gridColumns} from "./layout-policy";
 import standards from "../../resources/standard-keys.json";
 import { labels } from "./layout";
 import { type RemoteModel, type ModelKey, validateModel } from "./models";
@@ -7,25 +9,13 @@ export interface KeyProof {
   usage: number;
   voice?: boolean;
 }
-export function gridColumns(m: RemoteModel): number {
-  return (
-    m.layout.editorColumns ??
-    Math.max(
-      2,
-      Math.min(
-        5,
-        new Set(m.layout.buttons.map((b) => b.x.toFixed(1))).size || 3,
-      ),
-    )
-  );
-}
 export function cellOf(m: RemoteModel, id: number) {
   const b = m.layout.buttons.find((b) => b.key === id);
   if (b?.cell !== undefined) return b.cell;
   return b
     ? Math.min(
-        (m.layout.editorRows ?? 8) - 1,
-        Math.floor(b.y / (100 / (m.layout.editorRows ?? 8))),
+        gridRows(m) - 1,
+        Math.floor(b.y / (100 / gridRows(m))),
       ) *
         gridColumns(m) +
         Math.min(gridColumns(m) - 1, Math.floor(b.x / (100 / gridColumns(m))))
@@ -33,10 +23,10 @@ export function cellOf(m: RemoteModel, id: number) {
 }
 /** Resize by grid coordinates, never reinterpret existing cell indices. */
 export function resizeGrid(model: RemoteModel, columns: number, rows: number) {
-  if (!Number.isInteger(columns) || columns < 2 || columns > 5 ||
-      !Number.isInteger(rows) || rows < 8 || rows > 16)
-    throw Error("列数需为 2–5，行数需为 8–16");
-  const oldColumns = gridColumns(model), oldRows = model.layout.editorRows ?? 8;
+  if (!Number.isInteger(columns) || columns < gridLimits.columns.min || columns > gridLimits.columns.max ||
+      !Number.isInteger(rows) || rows < gridLimits.rows.min || rows > gridLimits.rows.max)
+    throw Error(`列数需为 ${gridLimits.columns.min}–${gridLimits.columns.max}，行数需为 ${gridLimits.rows.min}–${gridLimits.rows.max}`);
+  const oldColumns = gridColumns(model), oldRows = gridRows(model);
   const m = structuredClone(model);
   for (const b of m.layout.buttons) {
     const cell = cellOf(model, b.key), col = cell % oldColumns, row = Math.floor(cell / oldColumns);
@@ -63,7 +53,7 @@ export function placeKey(
   if (
     !Number.isInteger(cell) ||
     cell < 0 ||
-    cell >= gridColumns(model) * (model.layout.editorRows ?? 8)
+    cell >= gridColumns(model) * gridRows(model)
   )
     throw Error("布局位置无效");
   const m = structuredClone(model),
@@ -93,7 +83,7 @@ export function placeKey(
     x = ((0.5 + (cell % gridColumns(model))) * 100) / gridColumns(model),
     y =
       ((0.5 + Math.floor(cell / gridColumns(model))) * 100) /
-      (model.layout.editorRows ?? 8);
+      gridRows(model);
   if (b) {
     if (occupied && occupied !== b) {
       occupied.cell = cellOf(m, id);
@@ -110,7 +100,7 @@ export function placeKey(
       x,
       y,
       width: 80 / gridColumns(model),
-      height: 80 / (model.layout.editorRows ?? 8),
+      height: 80 / gridRows(model),
       radius: 8,
       fill: "#eee8de",
       color: "#34332e",
@@ -164,9 +154,9 @@ export function copyLayoutPreset(
   m.layout.editorRows =
     preset.layout.editorRows ??
     Math.max(
-      8,
+      gridLimits.rows.min,
       Math.min(
-        16,
+        gridLimits.rows.max,
         new Set(preset.layout.buttons.map((b) => b.y.toFixed(2))).size,
       ),
     );

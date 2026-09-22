@@ -1,3 +1,4 @@
+import {keyConfirmation} from "./core/voice-protocols";
 import { AppearanceControls } from "./AppearanceControls";
 import { RemotePreview } from "./RemotePreview";
 import { makeOverride } from "./core/model-overrides";
@@ -66,8 +67,7 @@ export function ModelDefaults({
               添加时确认按键
               <select
                 value={
-                  draft.onboarding?.keyConfirmation ??
-                  (draft.family === 2 ? "required" : "skip")
+                  keyConfirmation(draft)
                 }
                 onChange={(e) =>
                   setDraft({

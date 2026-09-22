@@ -1,4 +1,4 @@
-import {transportReady} from "./voice-protocols";
+import {transportReady,keyConfirmation} from "./voice-protocols";
 import type { CatalogModel } from "./catalog";
 import type { RemoteModel } from "./models";
 import {
@@ -191,8 +191,7 @@ export function modelCandidates(
           variant: !bindingExact,
           confirmKeys:
             !bindingExact ||
-            (m.onboarding?.keyConfirmation ??
-              (m.family === 2 ? "required" : "skip")) === "required",
+            keyConfirmation(m) === "required",
         },
       ];
     })

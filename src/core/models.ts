@@ -1,3 +1,5 @@
+import {supportedFamily} from "./voice-protocols";
+import {gridColumns,gridRows,gridLimits,appearanceFields,maximumInsets} from "./layout-policy";
 import {validBinding} from "./bindings";
 import { OP } from "./session";
 import { crc32c } from "./wire";
@@ -103,7 +105,7 @@ export function validateModel(v: unknown): RemoteModel {
     ids.test(v.id), "型号 schema/id 无效");
   require(text(v.title, 120) &&
     integer(v.revision, 0xffffffff, 1) &&
-    (v.family === 1 || v.family === 2 || v.family === 3), "型号名称、版本或协议无效");
+    supportedFamily(v.family), "型号名称、版本或协议无效");
   require(v.onboarding === undefined || (object(v.onboarding) && Object.keys(v.onboarding).every(k => k === "keyConfirmation") && ["required", "skip"].includes(v.onboarding.keyConfirmation)), "添加策略无效");
   require(integer(v.map_crc, 0xffffffff), "map_crc 无效");
   require(Array.isArray(v.matches) &&
@@ -153,9 +155,9 @@ export function validateModel(v: unknown): RemoteModel {
       Number.isFinite(l.angle) &&
       Math.abs(l.angle) <= 30), "缩略图角度无效");
   require(l.editorColumns === undefined ||
-    integer(l.editorColumns, 5, 2), "编辑列数无效");
+    integer(l.editorColumns, gridLimits.columns.max, gridLimits.columns.min), "编辑列数无效");
   require(l.editorRows === undefined ||
-    integer(l.editorRows, 16, 8), "编辑网格无效");
+    integer(l.editorRows, gridLimits.rows.max, gridLimits.rows.min), "编辑网格无效");
   require(l.artworkButtons === undefined ||
     typeof l.artworkButtons === "boolean", "图片按键设置无效");
   require(l.thumbnailSymbols === undefined ||
@@ -163,15 +165,17 @@ export function validateModel(v: unknown): RemoteModel {
   if (l.appearance !== undefined) {
     const a = l.appearance;
     require(object(a) && a.version === 1 && ["black", "silver", "white"].includes(a.color), "外观格式无效");
-    for (const [key, min, max] of [["ratio", .18, .5], ["radius", .04, .45], ["top", .04, .3], ["bottom", .04, .5]] as const)
+    for (const [key, , min, max] of appearanceFields)
       require(typeof a[key] === "number" && Number.isFinite(a[key]) && a[key] >= min && a[key] <= max, "外观参数无效");
-    require(a.top + a.bottom <= .7, "按键区域过小");
+    require(a.top + a.bottom <= maximumInsets, "按键区域过小");
   }
+  require(l.buttons.every((b:any)=>object(b) && typeof b.x === "number" && Number.isFinite(b.x)), "布局坐标无效");
+  const gridCapacity = gridColumns(v as RemoteModel) * gridRows(v as RemoteModel);
   const placed = new Set<number>();
   const cells = new Set<number>();
   for (const b of l.buttons) {
     if (b.cell !== undefined) {
-      require(integer(b.cell, (l.editorColumns ?? 5) * (l.editorRows ?? 8) - 1, 0) && !cells.has(b.cell), "网格位置无效");
+      require(integer(b.cell, gridCapacity - 1, 0) && !cells.has(b.cell), "网格位置无效");
       cells.add(b.cell);
     }
     require(object(b) &&

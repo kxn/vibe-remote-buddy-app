@@ -1,3 +1,4 @@
+import {appearanceFields} from "./core/layout-policy";
 import React from "react";
 import {appearanceOf, withAppearance} from "./core/remote-artwork";
 export {appearanceOf, withAppearance} from "./core/remote-artwork";
@@ -34,14 +35,7 @@ export function AppearanceControls({
           </button>
         ))}
       </div>
-      {(
-        [
-          ["ratio", "宽窄", 0.18, 0.5, 0.01],
-          ["radius", "圆角", 0.04, 0.45, 0.01],
-          ["top", "顶部留白", 0.04, 0.3, 0.01],
-          ["bottom", "底部留白", 0.04, 0.5, 0.01],
-        ] as const
-      ).map(([key, label, min, max, step]) => (
+      {appearanceFields.map(([key, label, min, max, step]) => (
         <label key={key}>
           <span>
             {label}

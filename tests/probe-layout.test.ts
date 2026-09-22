@@ -282,3 +282,14 @@ it("new standard number and media keys carry usable defaults", () => {
  expect(get(34)).toEqual([1,2,32]);
  for(let id=12;id<=18;id++)expect(get(id)).toEqual([2,0,id-12]);
 });
+
+it("validation uses the editor's inferred columns instead of a hidden five-column default",()=>{
+ const m=structuredClone(validateModel(xiaomi));
+ delete m.layout.editorColumns;m.layout.editorRows=8;
+ m.layout.buttons.forEach(b=>{b.x=50;delete b.cell;});
+ expect(gridColumns(m)).toBe(2);
+ m.layout.buttons[0].cell=16;
+ expect(()=>validateModel(m)).toThrow("网格位置无效");
+ m.layout.buttons[0].cell=15;
+ expect(validateModel(m).layout.buttons[0].cell).toBe(15);
+});

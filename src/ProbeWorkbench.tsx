@@ -1,3 +1,4 @@
+import {gridLimits} from "./core/layout-policy";
 import { RemotePreview } from "./RemotePreview";
 import {
   modelCandidates,
@@ -572,9 +573,9 @@ export function ProbeWorkbench({
           width: 320,
           height: 560,
           thumbnailSymbols: true,
-          editorColumns: 3,
+          editorColumns: gridLimits.columns.initial,
           appearance: {version:1,color:"black",ratio:.28,radius:.18,top:.08,bottom:.18},
-          editorRows: 8,
+          editorRows: gridLimits.rows.initial,
           buttons: [],
         };
         delete m.image;

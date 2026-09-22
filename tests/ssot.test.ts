@@ -174,3 +174,11 @@ it("connect, scan and explicit sync share one capability policy", async () => {
   );
   expect(request.mock.calls.some(([op]) => op === OP.MODEL_COMMIT)).toBe(true);
 });
+
+it("explicit onboarding configuration overrides family defaults in either direction",async()=>{
+ const {keyConfirmation}=await import("../src/core/voice-protocols");
+ expect(keyConfirmation({family:2})).toBe("required");
+ expect(keyConfirmation({family:1})).toBe("skip");
+ expect(keyConfirmation({family:2,onboarding:{keyConfirmation:"skip"}})).toBe("skip");
+ expect(keyConfirmation({family:1,onboarding:{keyConfirmation:"required"}})).toBe("required");
+});

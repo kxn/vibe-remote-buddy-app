@@ -1,3 +1,4 @@
+import {protocolForDriver,keyConfirmation} from "./voice-protocols";
 import catalogWire from "../../resources/catalog-wire.json";
 import {resourceBinding as action} from "./bindings";
 import { crc32c } from "./wire";
@@ -50,17 +51,10 @@ export function resolveCatalog(resources: Resource[]): CatalogModel[] {
         k = get("keymap", m.keymap),
         d = get("defaults", m.defaults),
         l = get("layout", m.layout);
-      check(
-        p.driver_api === 1 && p.sample_rate === 16000,
-        "不支持的语音协议版本",
-      );
-      const family = (
-        { atvv: 1, "hid-ico": 2, "xiaomi-hid-msbc": 3 } as Record<
-          string,
-          number
-        >
-      )[p.driver];
-      check(family, "接收器不支持此协议");
+      const protocol=protocolForDriver(p.driver);
+      check(protocol,"接收器不支持此协议");
+      check(p.driver_api===protocol.driverApi && p.sample_rate===protocol.sampleRate,"不支持的语音协议版本");
+      const family=protocol.family;
       const used = new Set<number>();
       const buttons = m.buttons.map((b: Resource) => {
         // Wire IDs are part of the persistent binding ABI. Never renumber them
@@ -110,7 +104,7 @@ export function resolveCatalog(resources: Resource[]): CatalogModel[] {
           ...fps.map((f) => f.revision),
         ),
         family,
-        onboarding: m.onboarding ?? { keyConfirmation: family === 2 ? "required" : "skip" },
+        onboarding: m.onboarding ?? { keyConfirmation: keyConfirmation({family}) },
         matches,
         map_crc: Number.parseInt(fps[0].required.report_map.crc32c, 16),
         keys: buttons.map((b: { id: string; key: number }) => {

@@ -1,3 +1,4 @@
+import {gridRows,gridLimits} from "./core/layout-policy";
 import {
   AppearanceControls,
   withAppearance,
@@ -112,10 +113,10 @@ export function ProbeLayout({
               <div className="grid-dimensions">
                 {(["列", "行"] as const).map((label, index) => {
                   const value = index
-                    ? (model.layout.editorRows ?? 8)
+                    ? gridRows(model)
                     : gridColumns(model);
-                  const minimum = index ? 8 : 2,
-                    maximum = index ? 16 : 5;
+                  const limits = index ? gridLimits.rows : gridLimits.columns;
+                  const minimum = limits.min, maximum = limits.max;
                   const resize = (delta: number) => {
                     try {
                       change(
@@ -124,7 +125,7 @@ export function ProbeLayout({
                           index ? gridColumns(model) : value + delta,
                           index
                             ? value + delta
-                            : (model.layout.editorRows ?? 8),
+                            : gridRows(model),
                         ),
                       );
                       setError("");
@@ -169,7 +170,7 @@ export function ProbeLayout({
               >
                 {Array.from(
                   {
-                    length: gridColumns(model) * (model.layout.editorRows ?? 8),
+                    length: gridColumns(model) * gridRows(model),
                   },
                   (_, cell) => {
                     const k = model.keys.find(

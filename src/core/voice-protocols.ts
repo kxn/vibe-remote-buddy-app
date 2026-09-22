@@ -60,3 +60,22 @@ export function transportReady(attrs: ProbeAttribute[], family: number) {
     })
   );
 }
+
+export function protocolForDriver(driver: string) {
+  return spec.protocols.find((p) => p.driver === driver);
+}
+export function supportedFamily(family: unknown) {
+  return spec.protocols.some((p) => p.family === family);
+}
+export function keyConfirmation(model: {
+  family: number;
+  onboarding?: { keyConfirmation: "required" | "skip" };
+}): "required" | "skip" {
+  const defaultPolicy = spec.protocols.find(
+    (p) => p.family === model.family,
+  )?.defaultKeyConfirmation;
+  return (
+    model.onboarding?.keyConfirmation ??
+    (defaultPolicy === "skip" ? "skip" : "required")
+  );
+}
