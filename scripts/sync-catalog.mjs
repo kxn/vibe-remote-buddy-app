@@ -5,7 +5,12 @@ export async function syncCatalog(destination) {
   const repo = "kxn/vibe-remote-buddy-models";
   const get = async (url) => {
     const response = await fetch(url, {
-      headers: { "User-Agent": "VibeRemoteBuddy-build" },
+      headers: {
+        "User-Agent": "VibeRemoteBuddy-build",
+        // Authenticate only the fixed GitHub API host, never raw asset hosts.
+        ...(new URL(url).hostname === "api.github.com" && process.env.GH_TOKEN
+          ? { Authorization: `Bearer ${process.env.GH_TOKEN}` } : {}),
+      },
       signal: AbortSignal.timeout(30000),
     });
     if (!response.ok) throw Error(`${response.status}: ${url}`);
