@@ -66,6 +66,7 @@ it("validates the 4 MB target independently from 8 MB q2",async()=>{
 });
 
 it("updates diagnostic firmware to a newer release or the same stable release",()=>{
+ expect(isNewer("0.12.5","buddy-0.12.4")).toBe(true);
  expect(isNewer("0.12.4","buddy-0.12.0-diag")).toBe(true);
  expect(isNewer("0.12.0","buddy-0.12.0-diag")).toBe(true);
  expect(isNewer("0.12.0-diag","buddy-0.12.0")).toBe(false);
