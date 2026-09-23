@@ -2,7 +2,9 @@ import type { Candidate } from "./types";
 
 export const SCAN_DURATION_MS = 30000;
 // A proximity filter, not a distance estimate or a protocol identifier.
-export const PAIR_MIN_RSSI = -55;
+export const NEARBY_MIN_RSSI = -55;
+export const PAIR_MIN_RSSI = -75;
+export const PAIR_RSSI_HYSTERESIS = 5;
 export function isBoundCandidate(c: Candidate): boolean {
   return (
     Number.isInteger(c.bound_slot) && c.bound_slot >= 0 && c.bound_slot < 4
@@ -23,16 +25,20 @@ export interface NearbyCandidate { connectable: boolean; rssi: number; age_ms: n
 export class NearbyCandidates<T extends NearbyCandidate> {
   private items = new Map<string, T>();
   private rank = new Map<string, number>();
-  constructor(private key: (row:T)=>string, private accept:(row:T)=>boolean = ()=>true) {}
+  constructor(
+    private key: (row:T)=>string,
+    private accept:(row:T)=>boolean = ()=>true,
+    private minRssi = NEARBY_MIN_RSSI,
+  ) {}
   update(list:T[]):T[] {
     const fresh = new Map(list.filter(c => c.connectable && Number.isFinite(c.rssi) &&
       c.rssi <= 0 && c.age_ms < 5000 && this.accept(c)).map(c=>[this.key(c),c]));
     for (const [id] of this.items) {
       const c = fresh.get(id);
-      if (!c || c.rssi < PAIR_MIN_RSSI-5) { this.items.delete(id); this.rank.delete(id); }
+      if (!c || c.rssi < this.minRssi - PAIR_RSSI_HYSTERESIS) { this.items.delete(id); this.rank.delete(id); }
       else this.items.set(id,c);
     }
-    for(const [id,c] of fresh) if(!this.items.has(id) && c.rssi >= PAIR_MIN_RSSI) {
+    for(const [id,c] of fresh) if(!this.items.has(id) && c.rssi >= this.minRssi) {
       this.items.set(id,c); this.rank.set(id,c.rssi);
     }
     return [...this.items.entries()].sort((a,b)=>this.rank.get(b[0])!-this.rank.get(a[0])!).map(([,c])=>c);
@@ -41,7 +47,7 @@ export class NearbyCandidates<T extends NearbyCandidate> {
 }
 export class PairCandidates extends NearbyCandidates<Candidate> {
   constructor(includeUnknown:()=>boolean=()=>false) {
-    super(c=>`${c.scan_epoch}:${c.candidate_id}`, c=>c.known || isBoundCandidate(c) || includeUnknown());
+    super(c=>`${c.scan_epoch}:${c.candidate_id}`, c=>c.known || isBoundCandidate(c) || includeUnknown(), PAIR_MIN_RSSI);
   }
 }
 interface DiscoveryPort {
