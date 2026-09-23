@@ -44,10 +44,6 @@ type Capture = {
   listened: boolean;
 };
 type IcoArtifacts = ReturnType<ProbeClient["icoArtifacts"]>;
-function saveCapture(blob:Blob,name:string){
-  const url=URL.createObjectURL(blob),a=document.createElement("a");
-  a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
 const steps = ["连接设备", "选择机型", "确认与布局", "完成"];
 /* Voice protocol family of a model; display only, matching never uses it. */
 const familyLabel = (f: number) =>
@@ -110,6 +106,7 @@ export function ProbeWorkbench({
     [voice, setVoice] = useState<ProbeVoiceStatus>(),
     [audio, setAudio] = useState(""),
     [icoArtifacts, setIcoArtifacts] = useState<IcoArtifacts>(),
+    [captureSaveStatus, setCaptureSaveStatus] = useState(""),
     [failures, setFailures] = useState<string[]>([]),
     [identified, setIdentified] = useState(false),
     [presetId, setPresetId] = useState(""),
@@ -129,6 +126,18 @@ export function ProbeWorkbench({
   function capturing(c?: Capture) {
     captureRef.current = c;
     setCapture(c);
+  }
+  async function saveCapture(blob: Blob, name: string) {
+    setCaptureSaveStatus("正在选择保存位置…");
+    try {
+      const path = await call<string | null>("export_capture", {
+        name,
+        bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+      });
+      setCaptureSaveStatus(path ? `已保存：${path}` : "已取消保存");
+    } catch (e) {
+      setCaptureSaveStatus(`保存失败：${e instanceof Error ? e.message : String(e)}`);
+    }
   }
   function clearAudio() {
     microphone.current.cancel();
@@ -1366,12 +1375,13 @@ export function ProbeWorkbench({
                             : `正在保留原始 40 字节 ICO 帧及对应 PCM（${voice.raw_ico_frames ?? 0} 帧）…`}
                       {icoArtifacts && (
                         <div className="voice-retry-slot">
-                          <button onClick={() => saveCapture(icoArtifacts.raw,`unicom-ico-${voice.capture}.ico`)}>保存原始 ICO</button>
-                          <button onClick={() => saveCapture(icoArtifacts.pcm,`unicom-ico-${voice.capture}.pcm`)}>保存配对 PCM</button>
-                          <button onClick={() => saveCapture(icoArtifacts.wav,`unicom-ico-${voice.capture}.wav`)}>保存 PCM WAV</button>
-                          <button onClick={() => saveCapture(icoArtifacts.metadata,`unicom-ico-${voice.capture}.json`)}>保存帧序号说明</button>
+                          <button onClick={() => void saveCapture(icoArtifacts.raw,`unicom-ico-${voice.capture}.ico`)}>保存原始 ICO</button>
+                          <button onClick={() => void saveCapture(icoArtifacts.pcm,`unicom-ico-${voice.capture}.pcm`)}>保存配对 PCM</button>
+                          <button onClick={() => void saveCapture(icoArtifacts.wav,`unicom-ico-${voice.capture}.wav`)}>保存 PCM WAV</button>
+                          <button onClick={() => void saveCapture(icoArtifacts.metadata,`unicom-ico-${voice.capture}.json`)}>保存帧序号说明</button>
                         </div>
                       )}
+                      {captureSaveStatus && <div role="status">{captureSaveStatus}</div>}
                     </div>
                   )}
                   <div className="voice-retry-slot">
