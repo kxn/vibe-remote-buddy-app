@@ -1,9 +1,9 @@
 {
   "format": 1,
   "target": "s3-q2-ab1",
-  "version": "0.12.7",
-  "size": 759264,
-  "sha256": "2ee9d5a6f99fa110c96297c40e83af455937cafaf25c463119d0c326c11e1bfb",
+  "version": "0.12.8",
+  "size": 759360,
+  "sha256": "245ec13e40a23d0c42bf77671af2d46ac3fac8b8abb5482029136eeb22437e1f",
   "data_min": 1,
   "data_max": 3,
   "notes": "接收器稳定性改进及 USB 固件更新"
