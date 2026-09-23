@@ -103,7 +103,7 @@ window.__TAURI_INTERNALS__ = {
           catalog_api: 2, voice_presets: 1, voice_toggle: 1, lifecycle_api: 2, max_remotes: 2,
           host_os: 1,
           slots: 4,
-          probe_api:1, probe_voice_api:4, model_api:1, model_capacity:16,
+          probe_api:1, probe_voice_api:5, model_api:1, model_capacity:16,
           voice_owner: f.voiceOwner,
           manual_pairing: true,
           scanning: false,

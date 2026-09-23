@@ -295,7 +295,7 @@ export class BuddyService {
     if (
       this.snapshot.info?.lifecycle_api !== 2 ||
       this.snapshot.info?.probe_api !== 1 ||
-      this.snapshot.info?.probe_voice_api !== 4
+      this.snapshot.info?.probe_voice_api !== 5
     )
       throw Error("接收器固件不支持适配工具，请先更新固件");
     this.update({ busy: true });

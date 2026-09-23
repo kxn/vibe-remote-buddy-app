@@ -396,6 +396,29 @@ it("assembles streamed audio without download requests and isolates captures", a
   expect(c.audioSize(8)).toBe(0);
 });
 
+it("exports raw obfuscated ICO bytes paired with exact per-frame PCM", async () => {
+  const client = new ProbeClient((async () => ({})) as ProbeCommand);
+  const records = new Uint8Array(2 * 682), sequences=[65535,0];
+  for(let f=0;f<2;f++) {
+    const p=f*682;records[p]=sequences[f]&255;records[p+1]=sequences[f]>>8;
+    for(let i=0;i<40;i++)records[p+2+i]=(f*41+i)&255;
+    for(let i=0;i<640;i++)records[p+42+i]=(f*73+i)&255;
+  }
+  for(let offset=0;offset<records.length;offset+=192) {
+    const part=records.subarray(offset,Math.min(offset+192,records.length));
+    client.receiveAudio({ico:true,capture:9,offset,total:records.length,frames:2,hex:Array.from(part,b=>b.toString(16).padStart(2,"0")).join("")});
+  }
+  expect(client.icoReady(9)).toBe(true);
+  const files=client.icoArtifacts(9),raw=new Uint8Array(await files.raw.arrayBuffer()),pcm=new Uint8Array(await files.pcm.arrayBuffer());
+  expect(files.frames).toBe(2);
+  expect([...raw.slice(0,4)]).toEqual([0,1,2,3]);
+  expect([...raw.slice(40,44)]).toEqual([41,42,43,44]);
+  expect([...pcm.slice(0,4)]).toEqual([...records.slice(42,46)]);
+  expect([...pcm.slice(640,644)]).toEqual([...records.slice(724,728)]);
+  const metadata=JSON.parse(await files.metadata.text());
+  expect(metadata.sequences).toEqual([65535,0]);
+});
+
 it("recognizes legacy Xiaomi feature topology without guessing ATVV", () => {
   const refs = [attr({}), ...[4,5,6,7,8].map(id => attr({hex: `0${id}03`}))];
   expect(familyEvidence(refs)).toBe(3);

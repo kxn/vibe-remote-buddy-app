@@ -190,10 +190,13 @@ export class ProbeClient {
     number,
     { chunks: Uint8Array[]; size: number; error: string }
   >();
+  private ico = new Map<number,{chunks:Uint8Array[];size:number;total:number;frames:number;error:string}>();
   clearAudio() {
     this.audio.clear();
+    this.ico.clear();
   }
   receiveAudio(body: Record<string, unknown>) {
+    if(body.ico===true){this.receiveIco(body);return;}
     const capture = body.capture,
       offset = body.offset;
     if (!Number.isInteger(capture) || (capture as number) < 1) return;
@@ -240,6 +243,47 @@ export class ProbeClient {
       offset += chunk.length;
     }
     return pcmWav(pcm, rate);
+  }
+  private receiveIco(body:Record<string,unknown>) {
+    const capture=body.capture,offset=body.offset,total=body.total,frames=body.frames;
+    if(!Number.isInteger(capture)||(capture as number)<1)return;
+    let stream=this.ico.get(capture as number);
+    if(!stream){stream={chunks:[],size:0,total:Number(total),frames:Number(frames),error:""};this.ico.set(capture as number,stream);}
+    if(stream.error)return;
+    const frameCount=frames as number,totalBytes=total as number;
+    try {
+      if(!Number.isInteger(offset)||offset!==stream.size||!Number.isInteger(total)||
+         !Number.isInteger(frames)||typeof body.hex!=="string"||
+         totalBytes!==frameCount*682||frameCount<1||frameCount>500||totalBytes!==stream.total||frameCount!==stream.frames)
+        throw Error("ICO 采集数据序号或长度不连续");
+      const data=bytes(body.hex);
+      if(!data.length||data.length>192||stream.size+data.length>stream.total)
+        throw Error("ICO 采集数据块长度无效");
+      stream.chunks.push(data);stream.size+=data.length;
+    } catch(e) {stream.error=String(e);}
+  }
+  icoReady(capture:number) {
+    const s=this.ico.get(capture);return !!s&&!s.error&&s.size===s.total;
+  }
+  icoArtifacts(capture:number) {
+    const s=this.ico.get(capture);
+    if(!s||s.error||s.size!==s.total)throw Error(s?.error||"ICO 采集数据尚未完整传输");
+    const records=new Uint8Array(s.total);let at=0;
+    for(const part of s.chunks){records.set(part,at);at+=part.length;}
+    const raw=new Uint8Array(s.frames*40),pcm=new Uint8Array(s.frames*640),sequences:number[]=[];
+    for(let i=0;i<s.frames;i++){
+      const base=i*682;sequences.push(records[base]|(records[base+1]<<8));
+      if(i && (sequences[i]-sequences[i-1]+65536)%65536!==1)throw Error("ICO 帧序号不连续，拒绝导出");
+      raw.set(records.subarray(base+2,base+42),i*40);
+      pcm.set(records.subarray(base+42,base+682),i*640);
+    }
+    return {
+      frames:s.frames,
+      raw:new Blob([raw],{type:"application/octet-stream"}),
+      pcm:new Blob([pcm],{type:"application/octet-stream"}),
+      wav:pcmWav(pcm,16000),
+      metadata:new Blob([JSON.stringify({format:"vibe-remote-buddy-unicom-ico-pair-v1",codec:"iFLYTEK ICO with original byte obfuscation preserved",raw_frame_bytes:40,sample_rate_hz:16000,samples_per_frame:320,pcm_format:"signed 16-bit little-endian",frame_count:s.frames,sequence_contiguous:true,sequences},null,2)+"\n"],{type:"application/json"})
+    };
   }
   private scanItems = new ProbeCandidates();
   readonly trace: {
@@ -627,6 +671,11 @@ export interface ProbeVoiceStatus {
   adapter_error?: string;
   adapter_state?: number;
   prepare_ms?: number;
+  raw_ico_requested?: boolean;
+  raw_ico_frames?: number;
+  raw_ico_exported?: number;
+  raw_ico_complete?: boolean;
+  raw_ico_error?: string;
 }
 export function pcmWav(pcm: Uint8Array, rate: number) {
   if (rate !== 16000 || pcm.length % 2) throw Error("音频格式无效");

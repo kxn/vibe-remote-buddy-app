@@ -43,6 +43,11 @@ type Capture = {
   down?: boolean;
   listened: boolean;
 };
+type IcoArtifacts = ReturnType<ProbeClient["icoArtifacts"]>;
+function saveCapture(blob:Blob,name:string){
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 const steps = ["连接设备", "选择机型", "确认与布局", "完成"];
 /* Voice protocol family of a model; display only, matching never uses it. */
 const familyLabel = (f: number) =>
@@ -81,6 +86,7 @@ export function ProbeWorkbench({
     voiceProof = useRef<KeyProof | undefined>(undefined),
     preflight = useRef(false),
     audioFetching = useRef(false),
+    icoFetching = useRef(false),
     urlRef = useRef(""),
     lastVoice = useRef<ProbeVoiceStatus | undefined>(undefined),
     localSaved = useRef(""),
@@ -103,6 +109,7 @@ export function ProbeWorkbench({
     [capture, setCapture] = useState<Capture>(),
     [voice, setVoice] = useState<ProbeVoiceStatus>(),
     [audio, setAudio] = useState(""),
+    [icoArtifacts, setIcoArtifacts] = useState<IcoArtifacts>(),
     [failures, setFailures] = useState<string[]>([]),
     [identified, setIdentified] = useState(false),
     [presetId, setPresetId] = useState(""),
@@ -129,6 +136,7 @@ export function ProbeWorkbench({
     if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     urlRef.current = "";
     setAudio("");
+    setIcoArtifacts(undefined);icoFetching.current=false;
     setVoice(undefined);
   }
   function fail(e: unknown) {
@@ -373,6 +381,10 @@ export function ProbeWorkbench({
                     });
                   lastVoice.current = v;
                   setVoice(v);
+                  if(v.raw_ico_complete && (v.raw_ico_frames??0)>0 && !icoFetching.current && started.icoReady(v.capture)) {
+                    icoFetching.current=true;
+                    setIcoArtifacts(started.icoArtifacts(v.capture));
+                  }
                   if (
                     (v.error || v.decode_error) &&
                     (v.error !== previousVoice?.error ||
@@ -719,7 +731,7 @@ export function ProbeWorkbench({
         throw Error("这个键码已分配给其他按键");
   }
   async function prepareVoice() {
-    if (service.snapshot.info?.probe_voice_api !== 4)
+    if (service.snapshot.info?.probe_voice_api !== 5)
       throw Error("请更新接收器固件以支持语音验证");
     epoch.current++;
     audioFetching.current = false;
@@ -745,6 +757,7 @@ export function ProbeWorkbench({
       learn: true,
       report: 0,
       usage: 0,
+      raw_ico: modelRef.current!.family === 2,
     });
     voicePrepared.current = true;
     capturing({ key: 2, phase: "voice", listened: false });
@@ -1315,7 +1328,9 @@ export function ProbeWorkbench({
                             : voice?.released
                               ? "正在处理录音"
                               : voice?.ready
-                                ? "请按住语音键说话约 3 秒，然后松开。"
+                                ? model?.family === 2
+                                  ? "按住联通遥控器语音键说话约 3 秒后松开。本次会同步采集原始 ICO 和逐帧 PCM。"
+                                  : "请按住语音键说话约 3 秒，然后松开。"
                                 : "正在准备语音协议…"}
                   </p>
                   <div className="voice-media-slot">
@@ -1340,6 +1355,25 @@ export function ProbeWorkbench({
                       />
                     )}
                   </div>
+                  {voice?.raw_ico_requested && (
+                    <div className="probe-voice-state" role="status">
+                      {voice.raw_ico_error
+                        ? `原始 ICO 未导出：${voice.raw_ico_error}`
+                        : icoArtifacts
+                          ? `ICO 原始帧与 PCM 已逐帧配对，连续帧 ${icoArtifacts.frames} 帧；传输校验通过。`
+                          : voice.released
+                            ? `已采集 ${voice.raw_ico_frames ?? 0} 帧，正在校验并传输文件…`
+                            : `正在保留原始 40 字节 ICO 帧及对应 PCM（${voice.raw_ico_frames ?? 0} 帧）…`}
+                      {icoArtifacts && (
+                        <div className="voice-retry-slot">
+                          <button onClick={() => saveCapture(icoArtifacts.raw,`unicom-ico-${voice.capture}.ico`)}>保存原始 ICO</button>
+                          <button onClick={() => saveCapture(icoArtifacts.pcm,`unicom-ico-${voice.capture}.pcm`)}>保存配对 PCM</button>
+                          <button onClick={() => saveCapture(icoArtifacts.wav,`unicom-ico-${voice.capture}.wav`)}>保存 PCM WAV</button>
+                          <button onClick={() => saveCapture(icoArtifacts.metadata,`unicom-ico-${voice.capture}.json`)}>保存帧序号说明</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="voice-retry-slot">
                     {voice?.adapter_error && (
                       <button
@@ -1350,7 +1384,7 @@ export function ProbeWorkbench({
                       </button>
                     )}
                     {(audio || error) && !voice?.adapter_error && (
-                      <button disabled={busy} onClick={() => void testVoice()}>
+                      <button disabled={busy || (!!voice?.raw_ico_requested && !voice.raw_ico_complete && !voice.raw_ico_error)} onClick={() => void testVoice()}>
                         重新录音
                       </button>
                     )}
@@ -1378,7 +1412,8 @@ export function ProbeWorkbench({
                   <button
                     className="primary"
                     disabled={
-                      busy || !!error || !!voice?.error || !capture.listened
+                      busy || !!error || !!voice?.error || !capture.listened ||
+                      (!!voice?.raw_ico_requested && !voice.raw_ico_complete && !voice.raw_ico_error)
                     }
                     onClick={confirmCapture}
                   >

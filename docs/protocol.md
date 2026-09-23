@@ -172,7 +172,7 @@ available in STATUS and command error details.
 
 ## 适配向导语音验证（固件 0.8.4）
 
-`INFO.probe_voice_api=4` 支持探测语音经标准 USB 麦克风输出。
+`INFO.probe_voice_api=5` 支持探测语音经标准 USB 麦克风输出，并为联通遥控器提供可选的原始 ICO/PCM 配对导出。ICO 原始帧保留遥控器字节混淆，不做 permutation/XOR；每帧 PCM 为同一解码帧的 320 个 S16LE 样本。
 
 - ARM 0x44a：family、map_crc、report、usage，电脑先打开接收器麦克风再 ARM。板端按物理键启动/停止语音，不发送 HID 快捷键。
 - STATUS 0x44b：原有状态字段，以及 pending_samples（待输出 PCM 样本）；ready 仅表示协议准备完成。正常 END、released 且 pending_samples=0 后，主机留200ms尾音时间再结束本地录制。
