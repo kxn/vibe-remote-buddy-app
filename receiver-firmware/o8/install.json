@@ -1,7 +1,7 @@
 {
   "format": 2,
   "target": "s3-o8-ab1",
-  "version": "0.12.4",
+  "version": "0.12.7",
   "files": [
     {
       "offset": 0,
@@ -24,8 +24,8 @@
     {
       "offset": 131072,
       "name": "receiver.bin",
-      "size": 763328,
-      "sha256": "a84a1e89fa67b1a1bd2ead92f8519278246e7cc3212c6ad143da89ddfe8149e0"
+      "size": 763344,
+      "sha256": "135bc2218294780e46fa82e522bbd83ccb89c228fefc94a8d4233e73ecc08ab4"
     },
     {
       "offset": 4325376,
