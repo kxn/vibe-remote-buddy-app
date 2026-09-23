@@ -1,7 +1,7 @@
 {
   "format": 2,
   "target": "s3-q2-f4-ab2",
-  "version": "0.12.8",
+  "version": "0.12.9",
   "files": [
     {
       "offset": 0,
@@ -25,7 +25,7 @@
       "offset": 131072,
       "name": "receiver.bin",
       "size": 758816,
-      "sha256": "f37fa55f36ae08a6786fd95ce8e461123b302ef9f056ff69b9aaa8e399bd8a78"
+      "sha256": "1485d75b7a0da55bcd216a6087dfc2130796d4f28987ed341acd9b2629d02418"
     },
     {
       "offset": 2752512,
