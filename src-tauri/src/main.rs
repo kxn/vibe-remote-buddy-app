@@ -396,27 +396,6 @@ async fn export_config(text: String) -> Result<bool, String> {
     Ok(false)
 }
 #[tauri::command]
-async fn export_capture(name: String, bytes: Vec<u8>) -> Result<Option<String>, String> {
-    if bytes.is_empty() || bytes.len() > 1024 * 1024 {
-        return Err("录音文件为空或超过 1 MB".into());
-    }
-    let name = std::path::Path::new(&name)
-        .file_name()
-        .and_then(|value| value.to_str())
-        .filter(|value| !value.is_empty())
-        .ok_or("文件名无效")?;
-    if let Some(file) = rfd::AsyncFileDialog::new()
-        .set_title("保存 ICO 录音数据")
-        .set_file_name(name)
-        .save_file()
-        .await
-    {
-        std::fs::write(file.path(), bytes).map_err(|e| e.to_string())?;
-        return Ok(Some(file.path().to_string_lossy().into_owned()));
-    }
-    Ok(None)
-}
-#[tauri::command]
 async fn import_config() -> Result<Option<String>, String> {
     if let Some(file) = rfd::AsyncFileDialog::new()
         .add_filter("JSON", &["json"])
@@ -521,7 +500,6 @@ fn main() {
             set_background,
             choose_application,
             export_config,
-            export_capture,
             import_config,
             run_action,
             desktop_available,
