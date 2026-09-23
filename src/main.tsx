@@ -1343,7 +1343,7 @@ function PairDialog({
             {isBoundCandidate(c) ? " · 已添加" : ""}
           </span>
           <span className="muted">
-            {c.rssi > -65 ? "信号良好" : "信号较弱"}
+            {c.rssi} dBm · {c.rssi > -65 ? "信号良好" : "信号较弱"}
           </span>
         </button>
       ))}

@@ -1016,7 +1016,7 @@ export function ProbeWorkbench({
                           <small>需适配</small>
                         )}
                       </span>
-                      <small>信号良好</small>
+                      <small>{c.rssi} dBm · {c.rssi > -65 ? "信号良好" : "信号较弱"}</small>
                     </button>
                   ))}
               </div>

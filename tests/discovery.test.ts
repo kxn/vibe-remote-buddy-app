@@ -31,7 +31,7 @@ describe("discovery", () => {
       candidate(),
       candidate({ candidate_id: 2 }),
       candidate({ known: false, name: "" }),
-      candidate({ rssi: -76 }),
+      candidate({ rssi: -86 }),
       candidate({ age_ms: 5000 }),
       candidate({ rssi: 127 }),
       candidate({ known: false, bound_slot: 0 }),
@@ -91,7 +91,7 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
       list.update([
         candidate({ candidate_id: 1, rssi: -50 }),
         candidate({ candidate_id: 2, rssi: -40 }),
-        candidate({ candidate_id: 3, rssi: -81 }),
+        candidate({ candidate_id: 3, rssi: -91 }),
       ]),
     ),
   ).toEqual([2, 1]);
@@ -99,7 +99,7 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
     ids(
       list.update([
         candidate({ candidate_id: 1, rssi: -35 }),
-        candidate({ candidate_id: 2, rssi: -78 }),
+        candidate({ candidate_id: 2, rssi: -88 }),
         candidate({ candidate_id: 4, rssi: -30 }),
       ]),
     ),
@@ -107,7 +107,7 @@ it("ranks new nearby devices by admission strength, retains order and hysteresis
   expect(
     ids(
       list.update([
-        candidate({ candidate_id: 1, rssi: -81 }),
+        candidate({ candidate_id: 1, rssi: -91 }),
         candidate({ candidate_id: 4, rssi: -35 }),
       ]),
     ),
@@ -124,7 +124,7 @@ it("explicit model selection admits unknown candidates only at the relaxed proxi
  const list=new PairCandidates(()=>true);
  expect(list.update([
   candidate({known:false}),
-  candidate({candidate_id:2,known:false,rssi:-75}),
-  candidate({candidate_id:3,known:false,rssi:-76}),
+  candidate({candidate_id:2,known:false,rssi:-85}),
+  candidate({candidate_id:3,known:false,rssi:-86}),
  ]).map(c=>c.candidate_id)).toEqual([1,2]);
 });

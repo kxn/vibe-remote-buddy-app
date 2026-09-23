@@ -1,7 +1,7 @@
 import {familyEvidence} from "./voice-protocols";
 export {familyEvidence} from "./voice-protocols";
 import { candidateStream } from "./candidates";
-import { NearbyCandidates } from "./discovery";
+import { NearbyCandidates, PAIR_MIN_RSSI } from "./discovery";
 import { OP, DeviceError, sleep } from "./session";
 import { crc32c } from "./wire";
 import { validateModel, type RemoteModel } from "./models";
@@ -177,7 +177,13 @@ export function sdkError(code: number): string {
   return `${label} [SDK ${code} / 0x${code.toString(16)}]`;
 }
 export class ProbeCandidates extends NearbyCandidates<ProbeCandidate> {
-  constructor() { super(c=>`${c.address_type}:${c.address || c.candidate_id}`); }
+  constructor() {
+    super(
+      c => `${c.address_type}:${c.address || c.candidate_id}`,
+      () => true,
+      PAIR_MIN_RSSI,
+    );
+  }
 }
 export class ProbeClient {
   private audio = new Map<

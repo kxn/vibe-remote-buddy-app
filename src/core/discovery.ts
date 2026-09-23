@@ -3,7 +3,7 @@ import type { Candidate } from "./types";
 export const SCAN_DURATION_MS = 30000;
 // A proximity filter, not a distance estimate or a protocol identifier.
 export const NEARBY_MIN_RSSI = -55;
-export const PAIR_MIN_RSSI = -75;
+export const PAIR_MIN_RSSI = -85;
 export const PAIR_RSSI_HYSTERESIS = 5;
 export function isBoundCandidate(c: Candidate): boolean {
   return (

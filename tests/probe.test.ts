@@ -157,12 +157,14 @@ describe("probe discovery usability", () => {
     const list = new ProbeCandidates();
     expect(
       list.update([
-        candidate(1, -90),
+        candidate(1, -86),
+        candidate(5, -91),
         candidate(2, -50),
+        candidate(6, -85),
         candidate(3, 127),
         { ...candidate(4, -25), connectable: false },
       ]),
-    ).toEqual([candidate(2, -50)]);
+    ).toEqual([candidate(2, -50), candidate(6, -85)]);
   });
   it("preserves row order across signal fluctuations and candidate ID replacement", () => {
     const list = new ProbeCandidates();
@@ -187,12 +189,12 @@ describe("probe discovery usability", () => {
   });
   it("uses hysteresis and ages devices out without constantly reordering", () => {
     const list = new ProbeCandidates();
-    list.update([candidate(1, -54)]);
-    expect(list.update([candidate(1, -57)])).toHaveLength(1);
-    expect(list.update([candidate(1, -61)])).toHaveLength(0);
-    expect(list.update([candidate(1, -57)])).toHaveLength(0);
-    list.update([candidate(1, -50)]);
-    expect(list.update([candidate(1, -50, 5000)])).toHaveLength(0);
+    list.update([candidate(1, -84)]);
+    expect(list.update([candidate(1, -89)])).toHaveLength(1);
+    expect(list.update([candidate(1, -91)])).toHaveLength(0);
+    expect(list.update([candidate(1, -89)])).toHaveLength(0);
+    list.update([candidate(1, -84)]);
+    expect(list.update([candidate(1, -84, 5000)])).toHaveLength(0);
   });
   it("distinguishes the NimBLE host domain from ATT and HCI errors", () => {
     expect(sdkError(7)).toContain("BLE_HS_ENOTCONN");
