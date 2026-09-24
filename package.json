@@ -10,6 +10,7 @@
     "test:release": "node --test scripts/release-inputs.node-test.mjs",
     "tauri": "tauri",
     "release": "node scripts/release.mjs",
+    "installer": "node scripts/make-installer.mjs",
     "release:archive": "node scripts/release.mjs --archive",
     "release:offline": "node scripts/release.mjs --offline",
     "firmware:import": "node scripts/import-firmware.mjs"
