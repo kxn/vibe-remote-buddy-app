@@ -432,13 +432,22 @@ pub fn focus(window: &Window, matcher: &Focus) -> Result<(), String> {
     }
 }
 fn mission_control(arg: Option<&str>) -> Result<(), String> {
-    let exe = "/System/Applications/Mission Control.app/Contents/MacOS/Mission Control";
-    if !std::path::Path::new(exe).exists() {
+    let app = "/System/Applications/Mission Control.app";
+    if !std::path::Path::new(app).exists() {
         return Err("此命令在 macOS 上不可用".into());
     }
-    let mut c = std::process::Command::new(exe);
-    c.args(arg);
-    c.spawn().map(|_| ()).map_err(|e| e.to_string())
+    // System apps are launch-constrained: executing the binary directly is
+    // killed (SIGKILL), so go through LaunchServices.
+    let mut c = std::process::Command::new("/usr/bin/open");
+    c.arg("-a").arg(app);
+    if let Some(a) = arg {
+        c.arg("--args").arg(a);
+    }
+    let status = c.status().map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err(format!("无法打开调度中心：{status}"));
+    }
+    Ok(())
 }
 pub fn command(id: &str) -> Result<(), String> {
     match id {
