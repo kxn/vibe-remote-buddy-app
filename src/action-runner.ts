@@ -35,7 +35,7 @@ export async function runAction(a: Action, inputMethod?: VoiceInputMethod) {
       if (a.target === "window_picker") await call("show_window_picker");
       else if (a.target === "focus_input") {
         const window = await call<DesktopWindow>("desktop_foreground");
-        const profile = profileFor(window.path);
+        const profile = profileFor(window.path) ?? profileFor(window.process);
         if (!profile) throw Error("当前应用还没有输入框适配");
         await focus(window, profile.id);
         if (inputMethod)
