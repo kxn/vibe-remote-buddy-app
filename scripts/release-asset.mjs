@@ -49,7 +49,7 @@ const notes = `App: ${info.display_version}\n\nModel catalog: ${info.catalog.ver
   .map(([v, f]) => `${v} ${f.version}`)
   .join(
     ", ",
-  )}\n\nWindows x64 portable package. Extract the complete archive before running Vibe Remote Buddy.exe.\n`;
+  )}\n\nWindows x64: use the setup EXE for an installed copy, or extract the complete portable ZIP before running Vibe Remote Buddy.exe.\n`;
 fs.writeFileSync(path.join(out, "release-notes.md"), notes);
 writeJson(path.join(out, "release.json"), {
   version: info.version,

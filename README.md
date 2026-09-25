@@ -15,7 +15,7 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/kxn/vibe-remote-buddy-app/releases) 获取 Windows 发行包。使用便携版时，先解压整个包，再打开 `Vibe Remote Buddy.exe`。
+1. 从 [Releases](https://github.com/kxn/vibe-remote-buddy-app/releases) 获取 Windows 发行包。安装版运行文件名以 `-setup.exe` 结尾的安装程序；便携版先解压整个 ZIP，再打开 `Vibe Remote Buddy.exe`。
 2. 用 USB 数据线连接接收器。软件显示“接收器已连接”后，点“+ 添加遥控器”。空白开发板需要先[初始化接收器](docs/user-guide.md#初始化接收器新板子才需要)。
 3. 让遥控器靠近接收器并进入配对状态，在列表里选中它，按提示完成添加。
 

@@ -14,14 +14,14 @@ App、固件、机型库独立版本；本次发行的组合在 build-info.json 
 
 版本记录在编译前生成。构建时注入界面，打包直接使用同一份记录，并检查源码摘要和提交未变化。build-info.json 记录各固件镜像 SHA256、机型库版本/提交/索引及数据库摘要、源码是否修改。不能把旧 EXE 单独拿来配一份新版本号。
 
-打包独立烧录助手和许可证到 out/latest。release-asset.mjs 只压缩 build-info 中列出的、散列一致的文件；本地后来添加的机型不会混入公开 ZIP。ZIP 与校验文件生成在 out/distribution。
+打包独立烧录助手和许可证到 out/latest。release-asset.mjs 只压缩 build-info 中列出的、散列一致的文件；本地后来添加的机型不会混入公开 ZIP。NSIS 安装包从同一份已校验文件生成，并在安装、静默卸载的冒烟测试中检查用户文件得到保留。ZIP、安装包及各自的校验文件生成在 out/distribution。
 
 ## GitHub Actions
 
-- main / pull_request：测试、构建完整 ZIP，上传 artifact，不发布 Release。
+- main / pull_request：测试、构建便携 ZIP 和 NSIS 安装包，上传 artifact，不发布 Release。
 - workflow_dispatch：version 留空取 package.json；publish=false 仅 artifact，true 以 v<version> 发版。
 - v* tag：使用标签版本，测试成功后发布。
-- build job 只读仓库；publish job 才有 contents:write。不执行 PR 上的发布。发行依赖最新机型库，因此相同 App 提交重打包也可能采用更新的库，精确组合以成品 build-info 为准。
+- build job 只读仓库；publish job 才有 contents:write。不执行 PR 上的发布。发行依赖最新机型库，因此相同 App 提交重打包也可能采用更新的库，精确组合以成品 build-info 为准。发布前分别核对 ZIP 和安装包的 SHA256，并检查它们的版本、提交与来源标记一致。
 - 已存在的 Release 不覆盖，使用新版本。带预发布后缀的版本发布为 prerelease。
 
 示例：PowerShell `$env:BUDDY_APP_VERSION='0.1.1'; npm run release`。源码版本文件无需为临时构建改动；正式长期默认版本可修改 package.json，并同步 lockfile。

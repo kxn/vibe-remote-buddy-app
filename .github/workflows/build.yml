@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 45
     outputs:
       version: ${{ steps.asset.outputs.version }}
@@ -70,11 +70,18 @@ jobs:
           $release = Get-Content out/distribution/release.json | ConvertFrom-Json
           "version=$($release.version)" >> $env:GITHUB_OUTPUT
           "display=$($release.display_version)" >> $env:GITHUB_OUTPUT
+      - name: Build and smoke-test NSIS installer
+        shell: pwsh
+        run: |
+          npm run installer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/installer-smoke.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: vibe-remote-buddy-${{ steps.asset.outputs.display }}-windows-x64
           path: |
             out/distribution/*.zip
+            out/distribution/*-setup.exe
             out/distribution/*.sha256
             out/distribution/release-notes.md
           if-no-files-found: error

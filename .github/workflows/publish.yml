@@ -47,12 +47,20 @@ jobs:
           archive = files[0]
           checksum = pathlib.Path(str(archive) + '.sha256').read_text().split()[0]
           assert hashlib.sha256(archive.read_bytes()).hexdigest() == checksum, 'ZIP checksum mismatch'
+          installers = list(pathlib.Path('release').glob('*-setup.exe'))
+          assert len(installers) == 1, 'Expected one NSIS installer'
+          installer = installers[0]
+          installer_checksum = pathlib.Path(str(installer) + '.sha256').read_text().split()[0]
+          assert hashlib.sha256(installer.read_bytes()).hexdigest() == installer_checksum, 'Installer checksum mismatch'
           with zipfile.ZipFile(archive) as z:
               info = json.loads(z.read('build-info.json'))
               assert info['commit'] == run['head_sha'] and re.fullmatch('[0-9a-f]{40}', info['commit'])
               assert info['channel'] == 'release' and info['dirty'] is False
               assert re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', info['version'])
               assert info['display_version'] == info['version'] + '+' + info['commit'][:8] + '.release'
+              stem = f"vibe-remote-buddy-app-{info['version']}-{info['commit'][:8]}-release-windows-x64"
+              assert archive.name == stem + '.zip', 'Portable package name mismatch'
+              assert installer.name == stem + '-setup.exe', 'Installer name mismatch'
               for name, digest in info['sha256'].items():
                   assert hashlib.sha256(z.read(name)).hexdigest() == digest, name
           with open(os.environ['GITHUB_ENV'], 'a') as f:
@@ -77,4 +85,4 @@ jobs:
           test "$sha" = "$TARGET_SHA"
           args=()
           if [[ "$VERSION" == *-* ]]; then args+=(--prerelease); fi
-          gh release create "$tag" release/*.zip release/*.sha256 --verify-tag --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"
+          gh release create "$tag" release/*.zip release/*-setup.exe release/*.sha256 --verify-tag --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"
