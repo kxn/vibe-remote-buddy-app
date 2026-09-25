@@ -39,6 +39,7 @@ extern "C" {
     fn CGEventSourceFlagsState(state: i32) -> u64;
     fn CGEventCreateKeyboardEvent(source: *const c_void, key: u16, down: bool) -> *mut c_void;
     fn CGEventSetFlags(event: *mut c_void, flags: u64);
+    fn CGEventSetType(event: *mut c_void, kind: u32);
     fn CGEventPost(tap: u32, event: *mut c_void);
 }
 extern "C" {
@@ -187,29 +188,57 @@ pub fn cg_windows(option: u32, relative: u32) -> Vec<CgWindow> {
         .collect()
 }
 
+const FLAGS_CHANGED: u32 = 12;
 pub const SHIFT: u64 = 0x20000;
 pub const CONTROL: u64 = 0x40000;
 const OPTION: u64 = 0x80000;
 pub const COMMAND: u64 = 0x100000;
 pub const ARROW: u64 = 0x200000 | 0x800000; // numeric pad + function, as hardware arrows report
 /// Posts one complete key press. Refuses while the user holds a modifier.
+/// Modifiers are pressed and released as their own flagsChanged events; flags
+/// only on the key events leave macOS believing the modifiers stay held.
 pub fn key(code: u16, flags: u64) -> Result<(), String> {
     require_trusted()?;
     if unsafe { CGEventSourceFlagsState(1) } & (SHIFT | CONTROL | OPTION | COMMAND) != 0 {
         return Err("修饰键仍按住，已取消快捷操作".into());
     }
-    unsafe {
-        for down in [true, false] {
-            let e = CGEventCreateKeyboardEvent(std::ptr::null(), code, down);
-            if e.is_null() {
-                return Err("macOS 未能创建按键事件".into());
-            }
-            CGEventSetFlags(e, flags);
-            CGEventPost(0, e);
-            core_foundation::base::CFRelease(e as CFTypeRef);
+    // (flag, virtual key code) for ⌃ ⌥ ⇧ ⌘.
+    let modifiers: Vec<(u64, u16)> = [(CONTROL, 59), (OPTION, 58), (SHIFT, 56), (COMMAND, 55)]
+        .into_iter()
+        .filter(|(f, _)| flags & f != 0)
+        .collect();
+    let extra = flags & !(SHIFT | CONTROL | OPTION | COMMAND);
+    let post = |code: u16, down: bool, flags: u64, modifier: bool| unsafe {
+        let e = CGEventCreateKeyboardEvent(std::ptr::null(), code, down);
+        if e.is_null() {
+            return false;
         }
+        if modifier {
+            CGEventSetType(e, FLAGS_CHANGED);
+        }
+        CGEventSetFlags(e, flags);
+        CGEventPost(0, e);
+        core_foundation::base::CFRelease(e as CFTypeRef);
+        true
+    };
+    let mut held = 0;
+    let mut ok = true;
+    for (f, c) in &modifiers {
+        held |= f;
+        ok &= post(*c, true, held, true);
     }
-    Ok(())
+    ok &= post(code, true, held | extra, false);
+    ok &= post(code, false, held | extra, false);
+    // Always release, even after a failure above.
+    for (f, c) in modifiers.iter().rev() {
+        held &= !f;
+        post(*c, false, held, true);
+    }
+    if ok {
+        Ok(())
+    } else {
+        Err("macOS 未能创建按键事件".into())
+    }
 }
 
 extern "C" fn run_job(ctx: *mut c_void) {

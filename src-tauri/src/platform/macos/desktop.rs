@@ -432,13 +432,22 @@ pub fn focus(window: &Window, matcher: &Focus) -> Result<(), String> {
     }
 }
 fn mission_control(arg: Option<&str>) -> Result<(), String> {
-    let exe = "/System/Applications/Mission Control.app/Contents/MacOS/Mission Control";
-    if !std::path::Path::new(exe).exists() {
+    let app = "/System/Applications/Mission Control.app";
+    if !std::path::Path::new(app).exists() {
         return Err("此命令在 macOS 上不可用".into());
     }
-    let mut c = std::process::Command::new(exe);
-    c.args(arg);
-    c.spawn().map(|_| ()).map_err(|e| e.to_string())
+    // System apps are launch-constrained: executing the binary directly is
+    // killed (SIGKILL), so go through LaunchServices.
+    let mut c = std::process::Command::new("/usr/bin/open");
+    c.arg("-a").arg(app);
+    if let Some(a) = arg {
+        c.arg("--args").arg(a);
+    }
+    let status = c.status().map_err(|e| e.to_string())?;
+    if !status.success() {
+        return Err(format!("无法打开调度中心：{status}"));
+    }
+    Ok(())
 }
 pub fn command(id: &str) -> Result<(), String> {
     match id {
@@ -449,6 +458,7 @@ pub fn command(id: &str) -> Result<(), String> {
         "space_right" => return sys::key(124, sys::CONTROL | sys::ARROW),
         // ⌃⇧⌘4: system area capture to the clipboard.
         "screenshot" => return sys::key(21, sys::CONTROL | sys::SHIFT | sys::COMMAND),
+        "toggle_maximize" | "minimize_window" | "close_window" => return window_op(id),
         _ => (),
     }
     let current = foreground()?;
@@ -488,12 +498,22 @@ pub fn command(id: &str) -> Result<(), String> {
         *cycle = Some((app, windows, last, Instant::now()));
         return Ok(());
     }
-    if !matches!(id, "toggle_maximize" | "minimize_window" | "close_window") {
-        return Err("未知窗口操作".into());
-    }
+    Err("未知窗口操作".into())
+}
+/// Acts on the front application's focused window through AX. A full-screen
+/// window lives in its own Space, where the window-server number lookup used
+/// for switching cannot reach it, so restoring it would otherwise fail.
+fn window_op(id: &str) -> Result<(), String> {
     require_trusted()?;
-    let (pid, number) = handle(&current)?;
-    let (_, win) = ax_window(pid, number)?;
+    let pid = front_pid().ok_or("没有前台应用")?;
+    if pid == own_pid() {
+        return Err("当前窗口不可操作".into());
+    }
+    let app = Ax::app(pid);
+    let win = app
+        .element("AXFocusedWindow")
+        .or_else(|| app.element("AXMainWindow"))
+        .ok_or("当前应用没有可操作的窗口")?;
     let done = match id {
         // macOS equivalent of maximize/restore: the window's full-screen state.
         "toggle_maximize" => {
