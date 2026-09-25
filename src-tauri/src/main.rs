@@ -290,6 +290,7 @@ fn serial_close(state: State<Native>) -> Result<(), String> {
 }
 fn serial_failure(app: &tauri::AppHandle, operation: &str, error: impl std::fmt::Display + std::fmt::Debug) -> String {
     let message = format!("USB 串口{operation}失败：{error}");
+    #[cfg(debug_assertions)]
     if let Ok(dir) = app.path().app_local_data_dir() {
         let dir = dir.join("diagnostics");
         let _ = std::fs::create_dir_all(&dir);
@@ -297,6 +298,8 @@ fn serial_failure(app: &tauri::AppHandle, operation: &str, error: impl std::fmt:
             "time":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()});
         let _ = std::fs::write(dir.join("transport-latest.json"), snapshot.to_string());
     }
+    #[cfg(not(debug_assertions))]
+    let _ = app;
     message
 }
 #[tauri::command]
@@ -361,11 +364,19 @@ fn save_settings(value: serde_json::Value, app: tauri::AppHandle) -> Result<(), 
 // Bounded local diagnostic snapshot; never contains recorded PCM or credentials.
 #[tauri::command]
 fn save_probe_diagnostic(value: serde_json::Value, app: tauri::AppHandle) -> Result<(), String> {
-    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("diagnostics");
-    let bytes = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
-    if bytes.len() > 2 * 1024 * 1024 { return Err("诊断记录过大".into()); }
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    std::fs::write(dir.join("probe-latest.json"), bytes).map_err(|e| e.to_string())
+    #[cfg(debug_assertions)]
+    {
+        let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?.join("diagnostics");
+        let bytes = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
+        if bytes.len() > 2 * 1024 * 1024 { return Err("诊断记录过大".into()); }
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join("probe-latest.json"), bytes).map_err(|e| e.to_string())
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = (value, app);
+        Err("自动诊断仅在开发构建中可用".into())
+    }
 }
 #[tauri::command]
 fn set_background(enabled: bool, state: State<Native>) {

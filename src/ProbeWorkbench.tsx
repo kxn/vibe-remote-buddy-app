@@ -145,7 +145,7 @@ export function ProbeWorkbench({
       e instanceof DeviceError
         ? ` [opcode=0x${e.opcode.toString(16)} status=${e.status} ${JSON.stringify(e.detail)}]`
         : "";
-    if (native)
+    if (native && import.meta.env.DEV)
       void call("save_probe_diagnostic", {
         value: {
           time: new Date().toISOString(),

@@ -159,6 +159,7 @@ try {
       "docs/remote-probe.md",
       path.join(stage, "REMOTE-PROBE.md"),
     );
+    fs.copyFileSync("docs/user-guide.md", path.join(stage, "USER-GUIDE.md"));
   }
   if (
     !fs.existsSync(path.join(stage, "Vibe Remote Buddy.exe")) ||

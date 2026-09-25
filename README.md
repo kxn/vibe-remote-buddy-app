@@ -38,7 +38,9 @@ npm run tauri -- dev
 npm run release
 ```
 
-Windows 完整便携包固定输出到 `out/latest/`，启动其中的 `Vibe Remote Buddy.exe`。需要留档使用 `npm run release:archive`。每份包带 `build-info.json`，详见[构建产物规范](docs/build-artifacts.md)。目前不生成安装包，也未做代码签名。
+Windows 完整便携包固定输出到 `out/latest/`，启动其中的 `Vibe Remote Buddy.exe`。`npm run installer` 可从经校验的发行包生成按用户安装的 NSIS 安装程序。需要留档使用 `npm run release:archive`。每份包带 `build-info.json`，详见[构建产物规范](docs/build-artifacts.md)。目前未做代码签名。
+
+给最终用户的操作步骤见[使用说明](docs/user-guide.md)，便携包内也附有 `USER-GUIDE.md`。
 
 ## 测试
 
