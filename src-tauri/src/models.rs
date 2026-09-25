@@ -59,6 +59,20 @@ pub fn remote_model_resources(app: tauri::AppHandle) -> Result<Vec<ModelSource>,
         .filter_map(Result::ok)
         .filter(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
         .collect();
+    #[cfg(target_os = "macos")]
+    {
+        // Saved and edited packages live outside the signed bundle and replace
+        // the bundled package with the same directory name.
+        let user = user_remotes(&app)?;
+        if let Ok(items) = fs::read_dir(&user) {
+            let items: Vec<_> = items
+                .filter_map(Result::ok)
+                .filter(|e| e.path().is_dir() && !e.file_name().to_string_lossy().starts_with('.'))
+                .collect();
+            entries.retain(|e| !items.iter().any(|u| u.file_name() == e.file_name()));
+            entries.extend(items);
+        }
+    }
     entries.sort_by_key(|e| e.file_name());
     if entries.len() > 64 {
         return Err("型号资源目录超过 64 个".into());
@@ -188,21 +202,83 @@ fn write_model_package(
 }
 #[tauri::command]
 pub async fn save_remote_model(
+    app: tauri::AppHandle,
     model: Value,
     image: Option<String>,
     evidence: String,
 ) -> Result<Option<String>, String> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = &app;
+    #[cfg(not(target_os = "macos"))]
     let root = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .parent()
         .ok_or("程序目录无效")?
         .join("resources/remotes");
+    #[cfg(target_os = "macos")]
+    let root = {
+        let root = user_remotes(&app)?;
+        let id = model["id"].as_str().unwrap_or_default();
+        if !id.is_empty() && bundled_remotes(&app)?.join(id).exists() {
+            return Err("同名型号目录已经存在，请使用新的标识".into());
+        }
+        root
+    };
     write_model_package(&root, model, image, &evidence).map(Some)
+}
+#[cfg(target_os = "macos")]
+fn user_remotes(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("remotes"))
+}
+#[cfg(target_os = "macos")]
+fn bundled_remotes(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if cfg!(debug_assertions) {
+        return Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/remotes"));
+    }
+    Ok(app
+        .path()
+        .resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("resources/remotes"))
+}
+#[cfg(target_os = "macos")]
+fn copy_package(from: &Path, to: &Path) -> Result<(), String> {
+    fs::create_dir_all(to).map_err(|e| e.to_string())?;
+    for item in fs::read_dir(from).map_err(|e| e.to_string())? {
+        let item = item.map_err(|e| e.to_string())?;
+        if item.file_type().map_err(|e| e.to_string())?.is_file() {
+            fs::copy(item.path(), to.join(item.file_name())).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
-pub async fn update_remote_model(model: Value, image: String) -> Result<String, String> {
+pub async fn update_remote_model(app: tauri::AppHandle, model: Value, image: String) -> Result<String, String> {
+    #[cfg(not(target_os = "macos"))]
+    let _ = &app;
+    #[cfg(not(target_os = "macos"))]
     let root = std::env::current_exe().map_err(|e|e.to_string())?.parent().ok_or("程序目录无效")?.join("resources/remotes");
+    #[cfg(target_os = "macos")]
+    let root = {
+        // Copy a bundled package out of the read-only app bundle before editing it.
+        let root = user_remotes(&app)?;
+        let id = model["id"].as_str().ok_or("缺少型号标识")?;
+        let bundled = bundled_remotes(&app)?.join(id);
+        if !root.join(id).exists() && bundled.join("model.json").is_file()
+            && !id.starts_with('.') && !id.contains('/') && !id.contains("..")
+        {
+            let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_err(|e|e.to_string())?.as_nanos();
+            let staging = root.join(format!(".seed-{stamp}"));
+            copy_package(&bundled, &staging)?;
+            fs::rename(&staging, root.join(id)).map_err(|e| e.to_string())?;
+        }
+        root
+    };
     replace_model_package(&root, model, image)
 }
 fn replace_model_package(root: &Path, model: Value, image: String) -> Result<String, String> {

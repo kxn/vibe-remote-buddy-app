@@ -25,3 +25,9 @@ semver = "1"
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Threading"] }
 windows = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Accessibility", "Win32_UI_TextServices", "Win32_UI_HiDpi", "Win32_UI_Input_Ime", "Win32_System_Threading", "Win32_System_Com", "Win32_System_Variant", "Win32_System_Ole", "Win32_Graphics_Dwm"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString", "NSURL", "NSArray", "NSBundle", "NSFileManager", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "libc", "NSApplication", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace", "NSGraphics"] }
+core-foundation = "0.10"

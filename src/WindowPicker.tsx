@@ -3,12 +3,21 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { call } from "./native";
 import type { DesktopWindow } from "./core/actions";
+// Provided by macOS only; other platforms keep the process label.
+interface AppDisplay {
+  name: string;
+  icon: string | null;
+}
+// WebKit on macOS: native traffic lights close the window, so the page only
+// draws the title under them (see .window-picker.mac).
+const mac = navigator.userAgent.includes("Macintosh");
 export function WindowPicker() {
   const [windows, setWindows] = useState<DesktopWindow[]>([]),
     [index, setIndex] = useState(0),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [apps, setApps] = useState<Record<string, AppDisplay>>({});
   const list = useRef<HTMLDivElement>(null);
   const closing = useRef(false),
     activating = useRef(false);
@@ -38,7 +47,19 @@ export function WindowPicker() {
   };
   useEffect(() => {
     void call<DesktopWindow[]>("desktop_windows")
-      .then(setWindows)
+      .then((list) => {
+        setWindows(list);
+        const paths = [...new Set(list.map((w) => w.path))];
+        void call<(AppDisplay | null)[]>("desktop_app_display", { paths })
+          .then((found) =>
+            setApps(
+              Object.fromEntries(
+                paths.flatMap((p, i) => (found[i] ? [[p, found[i]]] : [])),
+              ),
+            ),
+          )
+          .catch(() => {});
+      })
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);
@@ -114,12 +135,14 @@ export function WindowPicker() {
     };
   }, [loading]);
   return (
-    <main className="window-picker">
+    <main className={`window-picker${mac ? " mac" : ""}`}>
       <header>
         <h1>窗口选择</h1>
-        <button onClick={close} aria-label="关闭">
-          ×
-        </button>
+        {!mac && (
+          <button onClick={close} aria-label="关闭">
+            ×
+          </button>
+        )}
       </header>
       {loading ? (
         <p>正在读取窗口…</p>
@@ -143,8 +166,20 @@ export function WindowPicker() {
               onMouseEnter={() => setIndex(i)}
               onClick={() => void activate(w)}
             >
-              <strong>{w.title}</strong>
-              <span>{w.process}</span>
+              {apps[w.path] ? (
+                <span className="window-app">
+                  {apps[w.path].icon && <img src={apps[w.path].icon!} alt="" />}
+                  <span>
+                    <strong>{w.title}</strong>
+                    <span>{apps[w.path].name}</span>
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <strong>{w.title}</strong>
+                  <span>{w.process}</span>
+                </>
+              )}
             </button>
           ))}
         </div>

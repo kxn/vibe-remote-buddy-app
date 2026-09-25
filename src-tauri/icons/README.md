@@ -4,6 +4,7 @@
 - tray.svg：小尺寸专用版本，去掉波纹，增加主体占比。
 - icon.ico：16/20/24/32/40/48/64/96/128/256 px；32 px 及以下使用简化版本。
 - tray-*.png：16/20/24/32/40/48/64 px；按 Windows 任务栏窗口 DPI 选择，主窗口 DPI 变化时重新检查。
+- tray-template.svg / tray-template.png（44 px）：macOS 菜单栏模板图像，黑色轮廓加透明镂空，由系统按菜单栏外观着色。
 - icon.png / icon.icns：大尺寸及 macOS 资源。
 
 SVG 用 Tauri CLI 的 icon 命令栅格化；通过 --png 参数指定小尺寸。ICO 为各尺寸分别嵌入 PNG 帧，不能只替换一张大图。所有图片保留透明圆角。

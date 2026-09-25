@@ -16,7 +16,7 @@
 
 ## 平台边界
 
-Windows 使用原生窗口枚举和 UI Automation。匹配逻辑/动作目录保留在 TypeScript；Rust 只提供 Windows API 和 UIA 调用。macOS/Linux 暂不显示为可用的输入聚焦/窗口动作，保留原来的应用和网页功能。
+Windows 使用原生窗口枚举和 UI Automation；macOS 使用 CoreGraphics/AppKit/Accessibility（见下文 [macOS](#macos)）。匹配逻辑/动作目录保留在 TypeScript；Rust 只提供平台 API 调用。Linux 暂不显示为可用的输入聚焦/窗口动作，保留原来的应用和网页功能。
 
 列出可见、非工具、非 cloaked 的用户窗口，不列全部后台进程；专用应用动作保存适配器 ID，不保存易失的 PID/窗口句柄或商店版本路径；其他自定义应用仍可选程序文件。窗口操作额外校验 HWND、PID 和路径。切换列表保留短期稳定顺序，避免每次 MRU 改变后只在两个窗口间来回跳。
 
@@ -57,7 +57,7 @@ Windows 后台前置受系统限制：先普通激活，未获得前台时允许
 
 专用应用切换和“聚焦当前应用输入框”在聚焦成功后，读取触发遥控器的板端语音键（逻辑键 2）映射：VOICE_PRESET 的 value=1/2 分别对应豆包/微信；既有 VOICE + 右 Alt 对应豆包，VOICE + Ctrl+Win 对应微信。禁用或自定义组合保持输入法不变。每次读取当前设备的设置，不使用其他遥控器或全局缓存。
 
-Windows 使用 TSF 枚举已启用的简体中文键盘服务，按输入法名称选定 profile；ActivateProfile(FORSESSION) 切换当前桌面会话（用户已接受其他窗口也可能受到影响），不更改默认输入法、不启用未启用的 profile。聚焦后通过目标焦点的默认 IME 窗口请求打开和 NATIVE 中文转换模式，保留其他转换标志，并读取验证；每次请求校验目标前台身份，消息超时有界。未安装、切换或中文状态确认失败均上报原始错误；不模拟 Shift、Win+Space 轮换，不自动重放动作。macOS/Linux 暂未实现对应平台切换。
+Windows 使用 TSF 枚举已启用的简体中文键盘服务，按输入法名称选定 profile；ActivateProfile(FORSESSION) 切换当前桌面会话（用户已接受其他窗口也可能受到影响），不更改默认输入法、不启用未启用的 profile。聚焦后通过目标焦点的默认 IME 窗口请求打开和 NATIVE 中文转换模式，保留其他转换标志，并读取验证；每次请求校验目标前台身份，消息超时有界。未安装、切换或中文状态确认失败均上报原始错误；不模拟 Shift、Win+Space 轮换，不自动重放动作。macOS 见下文 [macOS](#macos)；Linux 暂未实现。
 
 验证：单元测试覆盖两只遥控器共享动作却各自使用豆包/微信配置、断开和旧设备事件；Windows 原生实测 ZCode 中从小狼毫关闭状态切回豆包中文，并验证未安装微信及失效前台被拒绝。微信实际切换需在安装微信输入法后验证。
 
@@ -66,3 +66,21 @@ Windows 使用 TSF 枚举已启用的简体中文键盘服务，按输入法名�
 - https://learn.microsoft.com/en-us/windows/win32/api/imm/nf-imm-immgetdefaultimewnd
 
 板端动作“切换会议 / 普通模式”不需要上位机运行，配置和生命周期见 [protocol.md](protocol.md#临时语音模式切换voice_toggle1)。
+
+## macOS
+
+实现位于 `src-tauri/src/platform/macos/` 与 `src/platform/macos.ts`，与 Windows 共用动作 ID 和前端流程。窗口动作、输入框聚焦、按键类命令需要在 系统设置 › 隐私与安全性 › 辅助功能 中允许本应用；未授权时返回该提示并请求系统弹窗一次。
+
+- 窗口：CGWindowList 列出屏幕上 layer 0 的常规应用窗口（不含本应用、最小化和其他桌面空间的窗口），token 为 `pid:窗口号`，校验 pid、bundle 路径和窗口号。标题优先 CG，缺少屏幕录制权限时用 AX 标题，再退回应用名。前台为 NSWorkspace 前台应用在 CG 次序中的第一个常规窗口；应用在前台但没有窗口时为 `pid:0`，冷启动等待期间视为过渡状态。
+- 激活：取消最小化、AXMain/AXRaise，NSRunningApplication 激活并设置 AXFrontmost，再确认前台真的变为目标窗口；前台变到第三个应用则取消，超时报告 macOS 未允许切换。
+- 选择器（本应用窗口）：macOS 14+ 会忽略非用户输入引起的 `activateIgnoringOtherApps`，因此在工作线程对本应用设置 AXFrontmost；刚显示的窗口可能尚未进入窗口服务器列表，本应用窗口改由 AppKit 按窗口号校验，前台窗口取 AppKit key window。激活会恢复先前的 key window（主窗口），激活等待期间反复把选择器设为 key。创建选择器前把本应用其他窗口移出屏幕，避免主窗口闪现；选择器销毁后放回其他应用窗口之后，未切换就关闭时把焦点还给原应用。准备阶段前台变为本应用自身不视为用户切换。
+- 选择器外观（仅 macOS，`.window-picker.mac`）：overlay 标题栏，原生红绿灯关闭；每行显示应用图标、窗口标题和本地化应用名（`desktop_app_display`，按 bundle 路径缓存），不显示 bundle id。WKWebView 在 overflow hidden 时仍保留旧式根滚动条槽，根元素使用 `scrollbar-width: none` 去除。
+- 输入框：在目标窗口的 AX 树中查找 AXTextArea/AXTextField/AXComboBox（跳过密码框和禁用项），按 AXDescription/AXTitle/AXPlaceholderValue/AXLabel 名称或 AXIdentifier/AXDOMIdentifier 精确匹配；为 Electron/Chromium 设置 AXManualAccessibility。在工作线程执行，AX 消息 0.5 秒超时，整体截止时间与 Windows 相同；多匹配、找不到、前台变化均失败。终端保留已有焦点。
+- 应用：扫描 /Applications、/System/Applications、~/Applications 及其 Utilities 子目录，AppID 为 bundle id，经目录校验后用 `open -b` 启动。bundle id：ChatGPT `com.openai.chat`（新版桌面应用使用 `com.openai.codex`，已安装旧版时优先旧版）、Codex `com.openai.codex`、ZCode `dev.zcode.app`、终端 Terminal/iTerm2/WezTerm/Alacritty/Ghostty/kitty/Warp。
+- 命令：最大化/还原对应 AXFullScreen 切换；最小化为 AXMinimized；关闭为按下 AXCloseButton；同应用/全局窗口循环与 Windows 相同；显示桌面、任务视图调用系统“调度中心”；上/下一个桌面发送 ⌃←/⌃→，区域截图发送 ⌃⇧⌘4（到剪贴板），依赖系统默认快捷键，任意修饰键按住时拒绝。
+- 输入法：在主线程通过 TIS 按名称选中已启用的输入源（含带模式的输入法的子模式），并读取当前输入源确认；未启用明确失败。macOS 没有与 IME NATIVE 模式对应的公共接口，不强制输入法内部的中/英状态。
+
+验证边界（2026-09-25，macOS 27.2，Apple Silicon，签名打包应用 + 小米 Remote 2 Pro + o8 接收器 buddy-0.12.10）：
+- 实机通过：主页键“任务视图”打开调度中心；“切换到 ChatGPT”切到前台并聚焦输入框；窗口选择器连续多轮打开、方向键移动、确认切换、返回键关闭，主窗口不闪现。
+- 只读探测：窗口与前台、`com.apple.Terminal` 枚举、ChatGPT 输入框 AXTextArea「Do anything」、TIS 找到豆包 `com.bytedance.inputmethod.doubaoime.pinyin`。
+- 未实机验证：微信输入法切换（本机未安装）、ZCode、窗口最大化/最小化/关闭/虚拟桌面/区域截图等其余命令、Intel Mac 与 macOS 12–13。

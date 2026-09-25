@@ -22,6 +22,7 @@ fn show_main(app: &tauri::AppHandle) {
         let _ = w.set_focus();
     }
 }
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn tray_image() -> Result<tauri::image::Image<'static>, tauri::Error> {
     let size = platform::shell::tray_size();
     let bytes: &[u8] = match size {
@@ -65,6 +66,21 @@ fn desktop_platform() -> &'static str {
 #[tauri::command]
 fn desktop_available() -> bool {
     platform::DESKTOP_AVAILABLE
+}
+/// Display name and icon per application path; only macOS provides them.
+#[tauri::command]
+async fn desktop_app_display(paths: Vec<String>) -> Vec<Option<serde_json::Value>> {
+    #[cfg(target_os = "macos")]
+    return tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .iter()
+            .map(|p| platform::app_display::get(p).and_then(|d| serde_json::to_value(d).ok()))
+            .collect()
+    })
+    .await
+    .unwrap_or_default();
+    #[cfg(not(target_os = "macos"))]
+    paths.iter().map(|_| None).collect()
 }
 #[tauri::command]
 fn desktop_windows() -> Result<Vec<desktop::Window>, String> {
@@ -143,6 +159,12 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
         }
         let _opening = Opening(app.clone());
         let origin = desktop::current_token();
+        // Creating the picker can activate this app and bring the main window
+        // forward on macOS; set our windows aside before that.
+        #[cfg(target_os = "macos")]
+        if app.get_webview_window("picker").is_none() {
+            platform::desktop::set_aside();
+        }
         let w = if let Some(w) = app.get_webview_window("picker") {
             w
         } else {
@@ -150,7 +172,7 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
                 .picker
                 .lock()
                 .map_err(|e| e.to_string())? = PickerState::default();
-            tauri::WebviewWindowBuilder::new(
+            let builder = tauri::WebviewWindowBuilder::new(
                 &app,
                 "picker",
                 tauri::WebviewUrl::App("index.html?picker".into()),
@@ -162,9 +184,21 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
             .always_on_top(true)
             .skip_taskbar(true)
             .visible(false)
-            .focused(false)
+            .focused(false);
+            // Compact panel under the native traffic lights; the page draws the title.
+            #[cfg(target_os = "macos")]
+            let builder = builder
+                .inner_size(520.0, 440.0)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
+            builder
             .build()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| {
+                // No picker window, so no Destroyed event will restore ours.
+                #[cfg(target_os = "macos")]
+                platform::desktop::restore_set_aside();
+                e.to_string()
+            })?
         };
         let result = (|| -> Result<(), String> {
             let deadline = std::time::Instant::now() + Duration::from_secs(6);
@@ -185,7 +219,11 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
             }
             let identity = platform::shell::picker_identity(&w)?;
             let current = desktop::current_token();
-            if current != origin && current != identity.token {
+            // Creating the hidden picker can activate this app on macOS; that
+            // is not the user moving to another window.
+            let ours = cfg!(target_os = "macos")
+                && current.split(':').next() == Some(std::process::id().to_string().as_str());
+            if current != origin && current != identity.token && !ours {
                 return Err("前台窗口已变化，已取消打开选择器".into());
             }
             w.show().map_err(|e| e.to_string())?;
@@ -241,6 +279,9 @@ fn ports() -> Result<Vec<Port>, String> {
     Ok(serialport::available_ports()
         .map_err(|e| e.to_string())?
         .into_iter()
+        // macOS lists each USB serial device as /dev/cu.* and /dev/tty.*; the
+        // dial-in tty node waits for carrier, so keep only the callout node.
+        .filter(|p| !cfg!(target_os = "macos") || p.port_name.starts_with("/dev/cu."))
         .filter_map(|p| {
             if let serialport::SerialPortType::UsbPort(u) = p.port_type {
                 if u.vid == 0xcafe && u.pid == 0x4016 {
@@ -384,8 +425,10 @@ fn set_background(enabled: bool, state: State<Native>) {
 }
 #[tauri::command]
 async fn choose_application() -> Option<String> {
-    rfd::AsyncFileDialog::new()
-        .set_title("选择应用程序")
+    let dialog = rfd::AsyncFileDialog::new().set_title("选择应用程序");
+    #[cfg(target_os = "macos")]
+    let dialog = dialog.set_directory("/Applications");
+    dialog
         .pick_file()
         .await
         .map(|f| f.path().to_string_lossy().into_owned())
@@ -519,6 +562,7 @@ fn main() {
             installed_applications,
             launch_installed_application,
             desktop_windows,
+            desktop_app_display,
             desktop_foreground,
             desktop_activate,
             desktop_input_method,
@@ -530,6 +574,8 @@ fn main() {
             quit
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            platform::fn_bridge::start();
             use tauri::{
                 menu::{Menu, MenuItem},
                 tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -556,8 +602,15 @@ fn main() {
                 MenuItem::with_id(app, "show", "打开 Vibe Remote Buddy", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &exit])?;
+            // macOS menu bar icons are monochrome templates tinted by the system.
+            #[cfg(target_os = "macos")]
+            let tray_icon =
+                tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = tray_image()?;
             TrayIconBuilder::with_id("main")
-                .icon(tray_image()?)
+                .icon(tray_icon)
+                .icon_as_template(cfg!(target_os = "macos"))
                 .tooltip("Vibe Remote Buddy")
                 .menu(&menu)
                 .show_menu_on_left_click(platform::TRAY_MENU_ON_LEFT_CLICK)
@@ -589,10 +642,15 @@ fn main() {
             Ok(())
         })
         .on_window_event(|w, event| {
+            #[cfg(not(target_os = "macos"))]
             if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
                 if let (Some(tray), Ok(icon)) = (w.app_handle().tray_by_id("main"), tray_image()) {
                     let _ = tray.set_icon(Some(icon));
                 }
+            }
+            #[cfg(target_os = "macos")]
+            if w.label() == "picker" && matches!(event, tauri::WindowEvent::Destroyed) {
+                platform::desktop::restore_set_aside();
             }
             if w.label() != "main" {
                 return;
@@ -610,6 +668,13 @@ fn main() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("启动 Vibe Remote Buddy 失败");
+        .build(tauri::generate_context!())
+        .expect("启动 Vibe Remote Buddy 失败")
+        .run(|_app, _event| {
+            // Clicking the Dock icon restores a window hidden to the background.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                show_main(_app);
+            }
+        });
 }

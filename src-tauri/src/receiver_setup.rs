@@ -35,17 +35,28 @@ pub struct Setup {
     ticket: Mutex<Option<Ticket>>,
 }
 fn folder() -> Result<PathBuf, String> {
-    Ok(std::env::current_exe()
-        .map_err(|e| e.to_string())?
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let dir = exe.parent().ok_or("应用目录不存在")?;
+    // The macOS app bundle keeps packaged resources in Contents/Resources.
+    #[cfg(target_os = "macos")]
+    if let Some(p) = dir
         .parent()
-        .ok_or("应用目录不存在")?
-        .join("resources/installer"))
+        .map(|c| c.join("Resources/resources/installer"))
+        .filter(|p| p.is_dir())
+    {
+        return Ok(p);
+    }
+    Ok(dir.join("resources/installer"))
 }
 fn helper() -> Result<PathBuf, String> {
-    if !cfg!(windows) {
+    if !cfg!(any(windows, target_os = "macos")) {
         return Err("此平台暂不支持初始化接收器".into());
     }
-    let p = folder()?.join("receiver-setup.exe");
+    let p = folder()?.join(if cfg!(windows) {
+        "receiver-setup.exe"
+    } else {
+        "receiver-setup"
+    });
     if !p.is_file() {
         return Err("缺少初始化工具，请使用完整应用包".into());
     }
@@ -56,6 +67,8 @@ pub fn setup_candidates() -> Result<Vec<Candidate>, String> {
     let mut result: Vec<_> = serialport::available_ports()
         .map_err(|e| e.to_string())?
         .into_iter()
+        // macOS also lists a dial-in /dev/tty.* twin for each /dev/cu.* device.
+        .filter(|p| !cfg!(target_os = "macos") || p.port_name.starts_with("/dev/cu."))
         .filter_map(|p| {
             if let serialport::SerialPortType::UsbPort(u) = p.port_type {
                 // Enumeration only. USB bridges are candidates, never proof of an ESP32.
