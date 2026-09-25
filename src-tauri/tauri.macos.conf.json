@@ -1,0 +1,18 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "dragDropEnabled": false,
+        "title": "Vibe Remote Buddy",
+        "width": 880,
+        "height": 720,
+        "center": true,
+        "minWidth": 400,
+        "minHeight": 420,
+        "backgroundThrottling": "disabled"
+      }
+    ]
+  }
+}

@@ -31,6 +31,16 @@ const read = (program, a) => execFileSync(program, a, { cwd: root, encoding: "ut
 const sha256 = (p) => createHash("sha256").update(fs.readFileSync(p)).digest("hex");
 const arch = { arm64: "arm64", x64: "x64" }[process.arch];
 
+// tauri.macos.conf.json repeats the main window (arrays are replaced when
+// merged) only to disable WKWebView background throttling; keep it in sync.
+{
+  const base = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8")).app.windows;
+  const mac = JSON.parse(fs.readFileSync("src-tauri/tauri.macos.conf.json", "utf8")).app.windows;
+  const strip = (w) => w.map(({ backgroundThrottling, ...rest }) => rest);
+  if (JSON.stringify(strip(mac)) !== JSON.stringify(base))
+    throw Error("src-tauri/tauri.macos.conf.json windows differ from tauri.conf.json");
+}
+
 // 1. Catalog, firmware and build identity, exactly as the Windows release.
 run(process.execPath, ["scripts/release.mjs", "--prepare-only", ...(args.includes("--offline") ? ["--offline"] : [])]);
 const prepared = path.join(root, "build/release-inputs");
