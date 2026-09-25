@@ -425,8 +425,10 @@ fn set_background(enabled: bool, state: State<Native>) {
 }
 #[tauri::command]
 async fn choose_application() -> Option<String> {
-    rfd::AsyncFileDialog::new()
-        .set_title("选择应用程序")
+    let dialog = rfd::AsyncFileDialog::new().set_title("选择应用程序");
+    #[cfg(target_os = "macos")]
+    let dialog = dialog.set_directory("/Applications");
+    dialog
         .pick_file()
         .await
         .map(|f| f.path().to_string_lossy().into_owned())

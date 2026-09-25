@@ -663,6 +663,12 @@ main {
   margin: 0 0 1rem;
   font-size: 0.85rem;
 }
+/* WebKit gives checkboxes no end margin; keep the label text off the box. */
+.mac .editor-footer > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
 /* showModal focuses the dialog itself; WebKit draws a ring around the sheet. */
 .mac dialog:focus {
   outline: none;
