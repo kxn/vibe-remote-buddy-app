@@ -10,11 +10,20 @@ import { renderUserGuide } from "./render-user-guide.mjs";
 if (process.platform !== "darwin") throw Error("macOS packaging runs on macOS");
 process.chdir(root);
 const args = process.argv.slice(2);
-const notarize = !args.includes("--no-notarize");
+// BUDDY_MAC_SIGN_IDENTITY: Developer ID Application identity; "-" signs ad hoc
+// (local or pull request testing only, never notarized).
 const identity = process.env.BUDDY_MAC_SIGN_IDENTITY;
-const profile = process.env.BUDDY_NOTARY_PROFILE;
-if (!identity) throw Error("Set BUDDY_MAC_SIGN_IDENTITY to a Developer ID Application identity");
-if (notarize && !profile) throw Error("Set BUDDY_NOTARY_PROFILE to a notarytool keychain profile, or pass --no-notarize");
+const adHoc = identity === "-";
+const notarize = !adHoc && !args.includes("--no-notarize");
+if (!identity) throw Error("Set BUDDY_MAC_SIGN_IDENTITY to a Developer ID Application identity, or - for ad hoc");
+// Notary credentials: a notarytool keychain profile, or an App Store Connect API key.
+const notaryAuth = process.env.BUDDY_NOTARY_PROFILE
+  ? ["--keychain-profile", process.env.BUDDY_NOTARY_PROFILE]
+  : process.env.BUDDY_NOTARY_KEY
+    ? ["--key", process.env.BUDDY_NOTARY_KEY, "--key-id", process.env.BUDDY_NOTARY_KEY_ID, "--issuer", process.env.BUDDY_NOTARY_ISSUER]
+    : null;
+if (notarize && !notaryAuth)
+  throw Error("Set BUDDY_NOTARY_PROFILE or BUDDY_NOTARY_KEY/_KEY_ID/_ISSUER, or pass --no-notarize");
 
 const run = (program, a, opts = {}) =>
   execFileSync(program, a, { cwd: root, stdio: "inherit", ...opts });
@@ -30,7 +39,7 @@ const info = JSON.parse(fs.readFileSync(buildInfoPath, "utf8"));
 const catalogDir = path.join(prepared, "catalog");
 const firmwareDir = path.join(prepared, "firmware");
 
-// 2. Receiver setup helper (esptool) as a PyInstaller onedir for this Mac.
+// 2. Receiver setup helper (esptool) as a PyInstaller executable for this Mac.
 const helperWork = path.join(root, "build/setup-helper-macos");
 const helperSource = path.join(root, "tools/receiver_setup");
 const py = path.join(helperWork, "venv/bin/python");
@@ -97,7 +106,7 @@ const machO = (p) => {
   return ["cffaedfe", "cafebabe", "feedfacf"].includes(b.toString("hex"));
 };
 const sign = (p, entitlements) =>
-  run("codesign", ["--force", "--timestamp", "--options", "runtime", "--sign", identity,
+  run("codesign", ["--force", adHoc ? "--timestamp=none" : "--timestamp", "--options", "runtime", "--sign", identity,
     ...(entitlements ? ["--entitlements", entitlements] : []), p]);
 const nested = [];
 (function walk(dir) {
@@ -153,7 +162,7 @@ fs.rmSync(dmg, { force: true });
 run("hdiutil", ["create", "-volname", "Vibe Remote Buddy", "-srcfolder", dmgRoot, "-fs", "HFS+", "-format", "UDZO", "-ov", dmg]);
 sign(dmg);
 if (notarize) {
-  run("xcrun", ["notarytool", "submit", dmg, "--keychain-profile", profile, "--wait"]);
+  run("xcrun", ["notarytool", "submit", dmg, ...notaryAuth, "--wait"]);
   run("xcrun", ["stapler", "staple", dmg]);
   run("xcrun", ["stapler", "validate", dmg]);
   // The ticket covers the same app signature, so staple the latest copy too.

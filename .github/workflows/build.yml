@@ -85,9 +85,17 @@ jobs:
             out/distribution/*.sha256
             out/distribution/release-notes.md
           if-no-files-found: error
+  macos:
+    uses: ./.github/workflows/macos.yml
+    with:
+      version: ${{ inputs.version }}
+      channel: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)) && 'release' || 'ci' }}
+    secrets: inherit
   publish:
-    needs: build
-    if: github.repository == 'kxn/vibe-remote-buddy-app' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish))
+    # The macOS image is attached when it built and was notarized; its absence
+    # never blocks the Windows release.
+    needs: [build, macos]
+    if: ${{ !cancelled() && needs.build.result == 'success' && github.repository == 'kxn/vibe-remote-buddy-app' && (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
     permissions:
       contents: write
       actions: read

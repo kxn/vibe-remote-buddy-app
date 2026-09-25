@@ -35,6 +35,9 @@ jobs:
           artifact=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired == false and (.name | startswith("vibe-remote-buddy-")) and (.name | endswith(".release-windows-x64"))) | .name')
           test -n "$artifact"
           gh run download "$RUN_ID" -R "$GH_REPO" -n "$artifact" -D release
+          # Optional notarized macOS disk image from the same run.
+          mac=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts" --jq '.artifacts[] | select(.expired == false and (.name | startswith("vibe-remote-buddy-")) and (.name | test("\\.release-macos-[a-z0-9]+$"))) | .name')
+          if [[ -n "$mac" ]]; then gh run download "$RUN_ID" -R "$GH_REPO" -n "$mac" -D release-macos; fi
       - name: Verify provenance and package
         run: |
           python3 - <<'PY'
@@ -63,7 +66,26 @@ jobs:
               assert installer.name == stem + '-setup.exe', 'Installer name mismatch'
               for name, digest in info['sha256'].items():
                   assert hashlib.sha256(z.read(name)).hexdigest() == digest, name
+          mac_assets = []
+          dmgs = list(pathlib.Path('release-macos').glob('*.dmg'))
+          if dmgs:
+              assert len(dmgs) == 1, 'Expected one macOS disk image'
+              dmg = dmgs[0]
+              digest = hashlib.sha256(dmg.read_bytes()).hexdigest()
+              assert pathlib.Path(str(dmg) + '.sha256').read_text().split()[0] == digest, 'DMG checksum mismatch'
+              mac = json.loads(pathlib.Path(str(dmg)[:-4] + '.build-info.json').read_text())
+              assert mac['platform'] == 'macos'
+              assert mac['commit'] == info['commit'] and mac['version'] == info['version']
+              assert mac['channel'] == 'release' and mac['dirty'] is False
+              assert mac['disk_image'] == {'name': dmg.name, 'sha256': digest}
+              assert re.fullmatch('[a-z0-9]+', mac['arch'])
+              assert dmg.name == f"vibe-remote-buddy-app-{info['version']}-{info['commit'][:8]}-release-macos-{mac['arch']}.dmg", 'DMG name mismatch'
+              if mac['notarized'] is True:
+                  mac_assets = [str(dmg), str(dmg) + '.sha256']
+          if not mac_assets:
+              print('No notarized macOS image in this run; publishing Windows only')
           with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write('MAC_ASSETS=' + ' '.join(mac_assets) + '\n')
               f.write('VERSION=' + info['version'] + '\n')
               f.write('DISPLAY_VERSION=' + info['display_version'] + '\n')
               f.write('TARGET_SHA=' + info['commit'] + '\n')
@@ -85,4 +107,5 @@ jobs:
           test "$sha" = "$TARGET_SHA"
           args=()
           if [[ "$VERSION" == *-* ]]; then args+=(--prerelease); fi
-          gh release create "$tag" release/*.zip release/*-setup.exe release/*.sha256 --verify-tag --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"
+          # shellcheck disable=SC2086
+          gh release create "$tag" release/*.zip release/*-setup.exe release/*.sha256 $MAC_ASSETS --verify-tag --title "Vibe Remote Buddy $DISPLAY_VERSION" --notes-file release/release-notes.md "${args[@]}"

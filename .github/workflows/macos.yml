@@ -1,0 +1,107 @@
+name: macOS build
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: false
+      channel:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: "1"
+      BUDDY_BUILD_CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Select application version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          version="$REQUESTED_VERSION"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then version="${GITHUB_REF_NAME#v}"; fi
+          if [[ -n "$version" ]]; then echo "BUDDY_APP_VERSION=$version" >> "$GITHUB_ENV"; fi
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:release
+      - run: python tests/receiver_setup_helper_test.py
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      # Developer ID signing and notarization need repository secrets. Without
+      # them (for example pull requests from forks) the app is signed ad hoc
+      # and uploaded for testing only; publishing requires a notarized image.
+      - name: Prepare signing
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          NOTARY_KEY: ${{ secrets.APPLE_API_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          if [[ -z "$CERTIFICATE" || -z "$SIGNING_IDENTITY" || -z "$NOTARY_KEY" ]]; then
+            echo "BUDDY_MAC_SIGN_IDENTITY=-" >> "$GITHUB_ENV"
+            echo "::notice::No Developer ID secrets; building an ad hoc signed test app"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/buddy-signing.keychain-db"
+          password=$(openssl rand -hex 24)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" > /dev/null
+          existing=()  # bash 3.2 compatible (no mapfile)
+          while IFS= read -r k; do existing+=("$k"); done < <(security list-keychains -d user | tr -d '" ')
+          security list-keychains -d user -s "$keychain" "${existing[@]}"
+          echo "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
+          {
+            echo "BUDDY_MAC_SIGN_IDENTITY=$SIGNING_IDENTITY"
+            echo "BUDDY_NOTARY_KEY=$RUNNER_TEMP/notary.p8"
+            echo "BUDDY_NOTARY_KEY_ID=$NOTARY_KEY_ID"
+            echo "BUDDY_NOTARY_ISSUER=$NOTARY_ISSUER"
+          } >> "$GITHUB_ENV"
+      - name: Build app and disk image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run release:macos
+      - name: Collect distribution
+        id: asset
+        run: |
+          dmg=$(ls out/distribution/*-macos-*.dmg)
+          test "$(echo "$dmg" | wc -l)" -eq 1
+          cp out/latest/build-info.json "${dmg%.dmg}.build-info.json"
+          echo "display=$(jq -r .display_version out/latest/build-info.json)" >> "$GITHUB_OUTPUT"
+          echo "arch=$(jq -r .arch out/latest/build-info.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vibe-remote-buddy-${{ steps.asset.outputs.display }}-macos-${{ steps.asset.outputs.arch }}
+          path: |
+            out/distribution/*-macos-*.dmg
+            out/distribution/*-macos-*.dmg.sha256
+            out/distribution/*-macos-*.build-info.json
+          if-no-files-found: error
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/buddy-signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/notary.p8"
