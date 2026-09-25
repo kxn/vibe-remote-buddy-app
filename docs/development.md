@@ -43,6 +43,8 @@ python tests/actions_ui_check.py
 
 UI 测试使用模拟接口，不连接真实接收器。原生窗口测试会改变前台窗口；标记为 ignored 的输入法实机测试默认不执行。
 
+使用说明中的界面图由应用页面配合示例设备数据生成。运行 `npm run dev` 后，可用 `python scripts/capture-user-guide.py` 按 2 倍像素重拍；截图不代表实机功能验收。
+
 ## 构建与发布
 
 正式构建使用 `npm run release`，固定输出为 `out/latest/`。它嵌入前端并启用 `custom-protocol`；普通 `cargo build --release` 不能作为交付包。便携包必须保留 EXE 旁边的 `resources/`、许可证、清单和说明书。验收打包后的应用时，先停止占用 1420 端口的 Vite 开发服务。

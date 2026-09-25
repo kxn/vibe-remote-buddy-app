@@ -2,9 +2,9 @@
 
 让蓝牙遥控器也能控制电脑：按键管播放和音量，语音键可以用来听写或在会议中说话。遥控器连接到 USB 接收器；软件用来配对、设置按键和管理设备。
 
-![Vibe Remote Buddy 的遥控器按键设置界面](docs/images/user-guide/buttons-overview.png)
+![Vibe Remote Buddy 首页，显示两只不同型号的遥控器](docs/images/user-guide/home-connected.png)
 
-*点左边的遥控器按键，就能在右边查看或修改它的功能。*
+*首页界面示例：一个接收器可保存两只遥控器。图中的设备名称和状态为示例数据。*
 
 ## 它能做什么
 
