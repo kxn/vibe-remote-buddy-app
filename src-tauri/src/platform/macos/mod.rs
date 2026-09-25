@@ -1,6 +1,7 @@
 // Native AppKit/CG/AX/TIS implementation; never fall through to Win32.
 pub mod activate;
 pub mod desktop;
+pub mod fn_bridge;
 pub mod ime;
 pub mod installed_apps;
 pub mod shell;

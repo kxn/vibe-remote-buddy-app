@@ -533,6 +533,8 @@ fn main() {
             quit
         ])
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            platform::fn_bridge::start();
             use tauri::{
                 menu::{Menu, MenuItem},
                 tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
