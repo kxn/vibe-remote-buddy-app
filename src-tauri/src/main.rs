@@ -241,6 +241,9 @@ fn ports() -> Result<Vec<Port>, String> {
     Ok(serialport::available_ports()
         .map_err(|e| e.to_string())?
         .into_iter()
+        // macOS lists each USB serial device as /dev/cu.* and /dev/tty.*; the
+        // dial-in tty node waits for carrier, so keep only the callout node.
+        .filter(|p| !cfg!(target_os = "macos") || p.port_name.starts_with("/dev/cu."))
         .filter_map(|p| {
             if let serialport::SerialPortType::UsbPort(u) = p.port_type {
                 if u.vid == 0xcafe && u.pid == 0x4016 {
