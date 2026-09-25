@@ -14,6 +14,8 @@ Dependencies are downloaded by their package managers, with exact versions in pa
 - Vite and Vitest: MIT.
 - TypeScript: Apache-2.0.
 - Microsoft windows / windows-sys crates: MIT or Apache-2.0.
+- objc2 and objc2-foundation (macOS only): MIT; objc2-app-kit: Zlib, Apache-2.0 or MIT.
+- core-foundation (macOS only): MIT or Apache-2.0.
 - serialport: MPL-2.0.
 - rfd: MIT.
 - reqwest: MIT or Apache-2.0.
