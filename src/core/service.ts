@@ -88,6 +88,7 @@ export class BuddyService {
     this.listeners.forEach((f) => f());
   }
   log(message: string) {
+    if (!import.meta.env.DEV) return;
     this.update({
       logs: [
         ...this.snapshot.logs,
@@ -826,6 +827,7 @@ export class BuddyService {
     }
   }
   async diagnostics() {
+    if (!import.meta.env.DEV) return [];
     const s = this.require(),
       result: unknown[] = [];
     // Faults, audio/USB counters, negotiated links, probe status and control history.

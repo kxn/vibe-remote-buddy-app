@@ -672,7 +672,7 @@ function App() {
                 </button>
               </div>
 
-              <div className="setting">
+              {import.meta.env.DEV && <div className="setting">
                 <span>故障诊断</span>
                 <button
                   disabled={!connected}
@@ -685,7 +685,7 @@ function App() {
                 >
                   查看
                 </button>
-              </div>
+              </div>}
             </details>
             <button
               className="setting about-entry quiet"
@@ -987,7 +987,7 @@ function App() {
       {modal === "backup" && (
         <BackupDialog service={service} close={() => setModal(null)} />
       )}
-      {modal === "diagnostics" && (
+      {import.meta.env.DEV && modal === "diagnostics" && (
         <Dialog title="接收器与故障日志" close={() => setModal(null)}>
           <pre>
             {JSON.stringify(

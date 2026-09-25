@@ -522,7 +522,7 @@ export function ProbeWorkbench({
       let s = await c.status();
       setStatus(s);
       const family = familyEvidence(a);
-      if (!family) throw Error("此设备的语音协议暂不支持，请保存诊断");
+      if (!family) throw Error("此设备的语音协议暂不支持");
       if (protocol && family !== protocol)
         throw Error("设备协议特征与所选协议不一致");
       setProgress("订阅按键通道");
@@ -950,7 +950,7 @@ export function ProbeWorkbench({
         {!capture && error && (
           <Feedback error>
             <span>{error}</span>
-            <button
+            {import.meta.env.DEV && <button
               disabled={busy || !native}
               onClick={() =>
                 void run(async () => {
@@ -961,7 +961,7 @@ export function ProbeWorkbench({
               }
             >
               保存诊断
-            </button>
+            </button>}
           </Feedback>
         )}
         {notice && (
