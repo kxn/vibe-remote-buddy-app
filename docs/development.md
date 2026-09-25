@@ -14,7 +14,7 @@
 
 ## 开发环境
 
-需要 Python 3.13、Node.js 22、Rust stable、Windows C++ 构建工具及 WebView2。系统依赖见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
+Windows 需要 Python 3.13、Node.js 22、Rust stable、Windows C++ 构建工具及 WebView2；macOS 需要 Xcode 命令行工具、Python 3、Node.js 22 和 Rust stable。系统依赖见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)。
 
 ```powershell
 git clone https://github.com/kxn/vibe-remote-buddy-app.git
@@ -23,7 +23,7 @@ npm ci
 npm run tauri -- dev
 ```
 
-目前经过完整构建和功能验证的平台是 Windows。macOS/Linux 的共享界面与部分平台实现仍在开发中；Windows 的窗口聚焦、窗口选择器和输入法切换不能直接用于其他平台。微信输入法的实际切换还需要在装有该输入法的机器上验证。平台实现见[平台边界](platforms.md)。
+目前经过完整构建和实机验证的平台是 Windows 和 macOS（Apple 芯片）。Linux 的平台实现仍在开发中；各平台的窗口聚焦、窗口选择器和输入法切换分别实现，不能互相套用。微信输入法的实际切换还需要在装有该输入法的机器上验证。平台实现见[平台边界](platforms.md)。
 
 ## 测试
 
@@ -51,7 +51,7 @@ UI 测试使用模拟接口，不连接真实接收器。原生窗口测试会�
 
 `npm run installer` 用已校验的发行包制作按用户安装的 NSIS 安装程序；`npm run release:archive` 留存不可覆盖的归档。每份包的 `build-info.json` 记录版本、来源和文件校验值。应用、固件与机型库各有独立版本。离线构建可显式使用 `npm run release:offline`；在线构建要求锁定并校验最新机型库，网络失败会停止。
 
-推送到 `main` 或提交 PR 只触发 CI 构建与测试。GitHub Actions 的手动发布和 `vX.Y.Z` 标签才进入正式发布流程。具体规则见[构建产物规范](build-artifacts.md)和[发布设计](release-pipeline.md)。当前 Windows 安装包没有代码签名。
+推送到 `main` 或提交 PR 只触发 CI 构建与测试。GitHub Actions 的手动发布和 `vX.Y.Z` 标签才进入正式发布流程。具体规则见[构建产物规范](build-artifacts.md)和[发布设计](release-pipeline.md)。当前 Windows 安装包没有代码签名。macOS 使用 `npm run release:macos` 生成签名的 `out/latest/Vibe Remote Buddy.app` 和公证后的 DMG，签名与公证参数见[构建产物规范](build-artifacts.md#macos)。
 
 ## 接收器与机型资源
 

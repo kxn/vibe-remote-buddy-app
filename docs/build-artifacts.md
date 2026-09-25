@@ -19,7 +19,7 @@
 
 通过 `node scripts/package.mjs --import-existing <旧目录>` 可迁移已验证的旧包到固定入口；其原构建版本和提交记为 unknown，不能把当前源码提交冒充旧包来源。此选项只用于历史整理，不替代构建。
 
-Windows 当前经过验证；新增平台需要先扩展打包脚本并验证，不能把 Windows 便携包改名为 macOS/Linux 包。公开应用仓库仅允许 receiver-firmware 下的固件发布产物及必要声明，不得混入内部源码或 SDK。
+Windows 与 macOS 分别有打包脚本并经过验证；新增平台需要先扩展打包脚本并验证，不能把一个平台的包改名为另一个平台的包。公开应用仓库仅允许 receiver-firmware 下的固件发布产物及必要声明，不得混入内部源码或 SDK。
 
 
 Windows 便携包还包含 `resources/installer/`：独立烧录助手、运行库、许可证及源码。默认使用 receiver-firmware 中经校验的三个板型发布镜像；BUDDY_FIRMWARE_DIR 可显式覆盖。每次打包重新用选定机型库生成 catalog.bin 并更新安装清单。缺失任何必需镜像或散列不符会失败，不生成缺功能的发行包。禁止单独发布助手 EXE 或删除其 _internal 目录。正式构建需要 Python，终端用户不需要。
@@ -27,3 +27,11 @@ Windows 便携包还包含 `resources/installer/`：独立烧录助手、运行�
 NSIS 安装程序为按用户安装：默认装到 `%LOCALAPPDATA%\Programs\Vibe Remote Buddy`，只写 HKCU 注册表和当前用户快捷方式，普通用户全程不触发 UAC。界面 11 种语言（英/简中/繁中/日/韩/德/法/西/意/俄/巴西葡语），按系统语言预选、可切换并记住选择；静默安装 `/S` 默认英语，`/D=<目录>` 可指定目录且必须是最后一个参数。安装界面禁止选择磁盘根目录；卸载只删除打包清单内的文件及空目录，即使指定到已有目录也不会递归清空它。`resources\remotes` 下带 `user-edited` 标记的本地改编型号始终保留；设置与覆盖数据在 app_config_dir，不在卸载范围内。
 
 构建与 GitHub 发版详见 [release-pipeline.md](release-pipeline.md)。
+
+## macOS
+
+- `npm run release:macos`（仅在 macOS 上）：与 `npm run release` 共用输入准备（机型库、固件、build-info），生成 `out/latest/Vibe Remote Buddy.app` 与 `out/latest/build-info.json`，以及 `out/distribution/vibe-remote-buddy-app-<版本>-<提交前8位>-<channel>[-dirty]-macos-<架构>.dmg` 和 `.sha256`。`--offline` 与 Windows 相同；`--no-notarize` 只签名不公证。
+- 签名：`BUDDY_MAC_SIGN_IDENTITY` 为 Developer ID Application 证书名；`-` 表示 ad hoc 签名，仅供本机或 PR 测试，不会公证。应用包内每个 Mach-O（含初始化助手）都以 hardened runtime 签名；应用授权见 `src-tauri/macos/*.entitlements`，Info.plist 补充见 `src-tauri/Info.plist`。
+- 公证：`BUDDY_NOTARY_PROFILE`（`xcrun notarytool store-credentials` 保存的钥匙串配置）或 `BUDDY_NOTARY_KEY` / `BUDDY_NOTARY_KEY_ID` / `BUDDY_NOTARY_ISSUER`（App Store Connect API 密钥）。公证后对 DMG 与应用 staple，并用 `spctl` 核验。
+- 资源在 `Contents/Resources/resources/`，包含机型、机型库、初始化助手（PyInstaller 单文件，避免 Tauri 复制资源时展开 onedir 的框架符号链接而破坏签名）、固件镜像及 `docs/` 下的说明和许可证。不要在签名后修改应用包；用户改编的型号保存在应用数据目录。
+- 在较新的 macOS 上，strip 后的 release proc-macro 动态库会被 dyld 拒绝加载，脚本为构建期依赖设置 `CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=false`，不影响最终应用。

@@ -1,6 +1,6 @@
 # 完整发布流程
 
-App、固件、机型库独立版本；本次发行的组合在 build-info.json 固定。仅验证 Windows x64。
+App、固件、机型库独立版本；本次发行的组合在 build-info.json 固定。验证 Windows x64 与 macOS arm64。
 
 ## 输入
 
@@ -31,3 +31,9 @@ App、固件、机型库独立版本；本次发行的组合在 build-info.json 
 首页标题下和关于页均显示构建版本，例如 `0.1.2+abcd1234.release`。GitHub 正式发行标记 `release`，普通 CI 构建标记 `ci`，本地构建始终标记 `local`；未提交修改另加 `.dirty`。ZIP 文件名包含相同来源标记。
 
 发布使用独立的 `Publish verified release` 工作流。它核对构建任务成功、包内文件哈希、release 标记、提交及标签一致后创建发行。若仅发布阶段失败，可手动输入原 Actions run ID 重试，无需重新构建；不接受 PR、本地包或普通 ci 包。标签已经存在时不向 Release API 另传提交 SHA，避免 GitHub 对工作流提交的额外范围检查。
+
+## macOS
+
+`build.yml` 调用可复用的 `macos.yml`，在 macos-14（arm64）上运行同样的测试并执行 `npm run release:macos`。仓库配置以下 secrets 时签名并公证：`APPLE_CERTIFICATE`（Developer ID Application 证书 .p12 的 base64）、`APPLE_CERTIFICATE_PASSWORD`、`APPLE_SIGNING_IDENTITY`、`APPLE_API_KEY`（App Store Connect API 密钥 .p8 内容）、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`。未配置时（包括来自 fork 的 PR）只做 ad hoc 签名并上传测试 artifact。证书导入临时钥匙串，任务结束后删除。
+
+发布时 `publish.yml` 下载同一次运行的 macOS artifact，核对 DMG 散列、build-info 中的提交、版本、release 通道、未修改源码与文件名，只有已公证的 DMG 才随 Windows 包一起发布。macOS 构建缺失或失败不阻止 Windows 发布。

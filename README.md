@@ -15,7 +15,7 @@
 
 ## 快速开始
 
-1. 从 [Releases](https://github.com/kxn/vibe-remote-buddy-app/releases) 获取 Windows 发行包。安装版运行文件名以 `-setup.exe` 结尾的安装程序；便携版先解压整个 ZIP，再打开 `Vibe Remote Buddy.exe`。
+1. 从 [Releases](https://github.com/kxn/vibe-remote-buddy-app/releases) 获取发行包。Windows 安装版运行文件名以 `-setup.exe` 结尾的安装程序，便携版先解压整个 ZIP，再打开 `Vibe Remote Buddy.exe`；macOS（Apple 芯片）打开 `-macos-arm64.dmg`，把应用拖进“应用程序”，并按[常见问题](docs/user-guide.md#常见问题)允许输入监控和辅助功能。
 2. 用 USB 数据线连接接收器。软件显示“接收器已连接”后，点“+ 添加遥控器”。空白开发板需要先[初始化接收器](docs/user-guide.md#初始化接收器新板子才需要)。
 3. 让遥控器靠近接收器并进入配对状态，在列表里选中它，按提示完成添加。
 
@@ -23,7 +23,7 @@
 
 ## 使用范围
 
-当前 Windows 版软件已完成构建和功能验证。接收器采用标准 USB 键盘、媒体键和麦克风接口；macOS 的完整按键、语音预设和管理软件仍待实机验证。软件需要运行 Buddy v1 / RBP/3 固件的 Vibe Remote Buddy 接收器，普通蓝牙适配器不能替代它。具体支持的遥控器以添加时的型号检查为准。
+Windows 版和 macOS（Apple 芯片，已签名公证）版软件均已完成构建和实机验证。接收器采用标准 USB 键盘、媒体键和麦克风接口；macOS 上的豆包、微信语音预设需要软件在后台运行。软件需要运行 Buddy v1 / RBP/3 固件的 Vibe Remote Buddy 接收器，普通蓝牙适配器不能替代它。具体支持的遥控器以添加时的型号检查为准。
 
 ## 更多资料
 

@@ -153,6 +153,8 @@ Fn 使用 Apple Top Case Usage Page 0x00ff / Usage 0x03，在原 8 字节 keyboa
 
 macOS 目前没有实机验证。Apple 驱动对 vendor usage 支持存在条件，不能保证保持接收器自有 VID/PID 的所有新 macOS 均会把报告当作 Fn；这部分是待验证实现，不宣称已实现免驱兼容认证，也不冒用 Apple 设备身份。
 
+2026-09-25 macOS 27.2 实测：host_os 识别为 macOS，接收器在键盘报告中正确发出 0x00FF/0x03 的按下与松开，但系统事件中没有 Fn。桌面应用运行时由 macOS 平台层把该报告转换为系统 Fn（见 [platforms.md](platforms.md)），豆包输入法实测可按住说话并上屏；应用未运行时仍不能触发。固件与协议不变。
+
 ## USB 固件更新扩展
 
 INFO.update_api=1 表示支持更新扩展，详细状态机和0x420–0x425字段见 [固件更新](firmware-update.md)。不要把只支持旧管理接口的设备视为可直接更新。
