@@ -5,6 +5,8 @@ $suffix = if ($info.dirty) { '-dirty' } else { '' }
 $name = "vibe-remote-buddy-app-$($info.version)-$($info.short_hash)-$($info.channel)$suffix-windows-x64-setup.exe"
 $installer = Join-Path $appRoot "out/distribution/$name"
 if (-not (Test-Path -LiteralPath $installer)) { throw "Installer missing: $installer" }
+$registeredApp = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Vibe Remote Buddy' -ErrorAction SilentlyContinue
+if ($registeredApp) { throw 'Smoke test requires a user account without an existing Vibe Remote Buddy installation' }
 
 # An existing directory with unrelated data catches unsafe recursive uninstall.
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
