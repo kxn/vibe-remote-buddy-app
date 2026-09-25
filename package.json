@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "test:release": "node --test scripts/release-inputs.node-test.mjs",
+    "test:release": "node --test scripts/release-inputs.node-test.mjs scripts/installer-uninstall.node-test.mjs",
     "tauri": "tauri",
     "release": "node scripts/release.mjs",
     "installer": "node scripts/make-installer.mjs",

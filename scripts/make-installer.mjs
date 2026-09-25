@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { root, sha256 } from "./release-inputs.mjs";
+import { uninstallCommands } from "./installer-uninstall.mjs";
 
 // Build the Windows NSIS installer from the verified clean distribution
 // (out/distribution/files). Only files recorded in build-info.json are
@@ -52,6 +53,10 @@ try {
       `!define PUBLISHER "Vibe Remote Buddy Project"`,
       "",
     ].join("\n"),
+  );
+  fs.writeFileSync(
+    path.join(root, "build/installer/uninstall-files.nsh"),
+    uninstallCommands([...Object.keys(info.sha256), "build-info.json"]),
   );
   execFileSync(makensis, [path.join(root, "installer/app-installer.nsi")], {
     stdio: "inherit",

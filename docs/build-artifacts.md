@@ -24,6 +24,6 @@ Windows 当前经过验证；新增平台需要先扩展打包脚本并验证，
 
 Windows 便携包还包含 `resources/installer/`：独立烧录助手、运行库、许可证及源码。默认使用 receiver-firmware 中经校验的三个板型发布镜像；BUDDY_FIRMWARE_DIR 可显式覆盖。每次打包重新用选定机型库生成 catalog.bin 并更新安装清单。缺失任何必需镜像或散列不符会失败，不生成缺功能的发行包。禁止单独发布助手 EXE 或删除其 _internal 目录。正式构建需要 Python，终端用户不需要。
 
-NSIS 安装程序为按用户安装：默认装到 `%LOCALAPPDATA%\Programs\Vibe Remote Buddy`，只写 HKCU 注册表和当前用户快捷方式，普通用户全程不触发 UAC。界面 11 种语言（英/简中/繁中/日/韩/德/法/西/意/俄/巴西葡语），按系统语言预选、可切换并记住选择；静默安装 `/S` 默认英语，`/D=<目录>` 可指定目录且必须是最后一个参数。卸载发现本地改编遥控型号（`resources\remotes` 下带 `user-edited` 标记）时询问是否保留，静默卸载 `/S` 默认保留；设置与覆盖数据在 app_config_dir，不在卸载范围内。
+NSIS 安装程序为按用户安装：默认装到 `%LOCALAPPDATA%\Programs\Vibe Remote Buddy`，只写 HKCU 注册表和当前用户快捷方式，普通用户全程不触发 UAC。界面 11 种语言（英/简中/繁中/日/韩/德/法/西/意/俄/巴西葡语），按系统语言预选、可切换并记住选择；静默安装 `/S` 默认英语，`/D=<目录>` 可指定目录且必须是最后一个参数。安装界面禁止选择磁盘根目录；卸载只删除打包清单内的文件及空目录，即使指定到已有目录也不会递归清空它。`resources\remotes` 下带 `user-edited` 标记的本地改编型号始终保留；设置与覆盖数据在 app_config_dir，不在卸载范围内。
 
 构建与 GitHub 发版详见 [release-pipeline.md](release-pipeline.md)。
