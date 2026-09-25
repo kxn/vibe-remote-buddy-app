@@ -22,6 +22,7 @@ fn show_main(app: &tauri::AppHandle) {
         let _ = w.set_focus();
     }
 }
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 fn tray_image() -> Result<tauri::image::Image<'static>, tauri::Error> {
     let size = platform::shell::tray_size();
     let bytes: &[u8] = match size {
@@ -599,8 +600,15 @@ fn main() {
                 MenuItem::with_id(app, "show", "打开 Vibe Remote Buddy", true, None::<&str>)?;
             let exit = MenuItem::with_id(app, "exit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show, &exit])?;
+            // macOS menu bar icons are monochrome templates tinted by the system.
+            #[cfg(target_os = "macos")]
+            let tray_icon =
+                tauri::image::Image::from_bytes(include_bytes!("../icons/tray-template.png"))?;
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = tray_image()?;
             TrayIconBuilder::with_id("main")
-                .icon(tray_image()?)
+                .icon(tray_icon)
+                .icon_as_template(cfg!(target_os = "macos"))
                 .tooltip("Vibe Remote Buddy")
                 .menu(&menu)
                 .show_menu_on_left_click(platform::TRAY_MENU_ON_LEFT_CLICK)
@@ -632,6 +640,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|w, event| {
+            #[cfg(not(target_os = "macos"))]
             if matches!(event, tauri::WindowEvent::ScaleFactorChanged { .. }) {
                 if let (Some(tray), Ok(icon)) = (w.app_handle().tray_by_id("main"), tray_image()) {
                     let _ = tray.set_icon(Some(icon));
