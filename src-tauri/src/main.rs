@@ -66,6 +66,21 @@ fn desktop_platform() -> &'static str {
 fn desktop_available() -> bool {
     platform::DESKTOP_AVAILABLE
 }
+/// Display name and icon per application path; only macOS provides them.
+#[tauri::command]
+async fn desktop_app_display(paths: Vec<String>) -> Vec<Option<serde_json::Value>> {
+    #[cfg(target_os = "macos")]
+    return tauri::async_runtime::spawn_blocking(move || {
+        paths
+            .iter()
+            .map(|p| platform::app_display::get(p).and_then(|d| serde_json::to_value(d).ok()))
+            .collect()
+    })
+    .await
+    .unwrap_or_default();
+    #[cfg(not(target_os = "macos"))]
+    paths.iter().map(|_| None).collect()
+}
 #[tauri::command]
 fn desktop_windows() -> Result<Vec<desktop::Window>, String> {
     desktop::list()
@@ -522,6 +537,7 @@ fn main() {
             installed_applications,
             launch_installed_application,
             desktop_windows,
+            desktop_app_display,
             desktop_foreground,
             desktop_activate,
             desktop_input_method,

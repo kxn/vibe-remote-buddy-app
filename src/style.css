@@ -620,6 +620,29 @@ main {
   color: #777;
   font-size: 0.85rem;
 }
+.window-list .window-app {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.window-app img {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+}
+.window-app > span {
+  color: inherit;
+  font-size: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
+}
 /* Status takes the same row before, during and after recording. */
 .remote-state {
   white-space: nowrap;
