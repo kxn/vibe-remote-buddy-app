@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { renderUserGuide } from "./render-user-guide.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const invocationDir = process.cwd();
@@ -159,7 +160,7 @@ try {
       "docs/remote-probe.md",
       path.join(stage, "REMOTE-PROBE.md"),
     );
-    fs.copyFileSync("docs/user-guide.md", path.join(stage, "USER-GUIDE.md"));
+    renderUserGuide(stage);
   }
   if (
     !fs.existsSync(path.join(stage, "Vibe Remote Buddy.exe")) ||

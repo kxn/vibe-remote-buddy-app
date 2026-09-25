@@ -28,6 +28,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "esbuild": "^0.25.12",
+    "marked": "^16.4.2",
     "prettier": "^3.9.7",
     "typescript": "~5.8.0",
     "vite": "^6.0.0",
