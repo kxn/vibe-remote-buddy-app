@@ -380,23 +380,38 @@ export function ReceiverSetup({
               <li>松开 BOOT。</li>
             </ol>
             <p className="muted">
-              <LoaderCircle className="spin" size={16} /> 等待开发板
+              {candidates.length ? (
+                candidates.length === 1 ? "已找到一块开发板" : `已找到 ${candidates.length} 块开发板`
+              ) : (
+                <><LoaderCircle className="spin" size={16} /> 等待开发板</>
+              )}
             </p>
-            <details>
-              <summary>仍未找到？</summary>
-              <p>
-                换一根 USB 数据线，直接连接电脑；有两个 USB
-                接口时尝试另一个。没有 BOOT 按钮时请查阅开发板说明。
-              </p>
-            </details>
-            {!!candidates.length && (
-              <button
-                onClick={() => {
-                  setSelected(undefined);
-                  setError("");
-                  setStep("find");
-                }}
-              >
+            {!candidates.length && (
+              <details>
+                <summary>仍未找到？</summary>
+                <p>
+                  换一根 USB 数据线，直接连接电脑；有两个 USB
+                  接口时尝试另一个。没有 BOOT 按钮时请查阅开发板说明。
+                </p>
+              </details>
+            )}
+            {candidates.length === 1 && (
+              <>
+                <div className="setup-device">
+                  <strong>{candidates[0].name} · {candidates[0].path}</strong>
+                  <small>标识 {candidates[0].serial || "未知"}</small>
+                </div>
+                <button className="primary" onClick={() => void check(candidates[0])}>
+                  连接这块开发板
+                </button>
+              </>
+            )}
+            {candidates.length > 1 && (
+              <button onClick={() => {
+                setSelected(undefined);
+                setError("");
+                setStep("find");
+              }}>
                 选择已连接的设备
               </button>
             )}
