@@ -4,7 +4,7 @@ use super::sys::{
 pub use crate::platform::types::{Focus, Window};
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
-    NSRunningApplication, NSWorkspace,
+    NSRunningApplication, NSWindowOrderingMode, NSWorkspace,
 };
 use std::{
     collections::HashMap,
@@ -207,8 +207,70 @@ fn key_front(number: u32, activate: bool) -> Result<bool, String> {
         true
     })
 }
+/// Our windows set aside while the picker is shown, and the app that was front.
+static SET_ASIDE: std::sync::Mutex<Option<(Vec<isize>, Option<i32>)>> = std::sync::Mutex::new(None);
+/// Before a picker is created: order out every window of this app.
+pub fn set_aside() {
+    set_aside_except(0);
+}
+/// Activating this app from the background brings its other windows forward;
+/// order them out first so only the requested window appears.
+fn set_aside_except(number: u32) {
+    let origin = front_pid();
+    if origin == Some(own_pid()) {
+        return;
+    }
+    let hidden = sys::on_main(Duration::from_millis(500), move || {
+        let mtm = objc2::MainThreadMarker::new().expect("main thread");
+        let mut hidden = Vec::new();
+        for w in NSApplication::sharedApplication(mtm).windows().iter() {
+            if w.windowNumber() != number as isize && w.isVisible() {
+                w.orderOut(None);
+                hidden.push(w.windowNumber());
+            }
+        }
+        hidden
+    })
+    .unwrap_or_default();
+    if let Ok(mut slot) = SET_ASIDE.lock() {
+        let previous = slot.take();
+        // Keep the first record if a picker is reopened before restoring.
+        *slot = Some(match previous {
+            Some((mut old, o)) => {
+                old.extend(hidden);
+                (old, o)
+            }
+            None => (hidden, origin),
+        });
+    }
+}
+/// Puts set-aside windows back behind other applications' windows, and returns
+/// focus to the previous application if the picker closed without switching.
+pub fn restore_set_aside() {
+    let Some((hidden, origin)) = SET_ASIDE.lock().ok().and_then(|mut s| s.take()) else {
+        return;
+    };
+    let _ = sys::on_main(Duration::from_millis(500), move || {
+        let mtm = objc2::MainThreadMarker::new().expect("main thread");
+        let app = NSApplication::sharedApplication(mtm);
+        for n in hidden {
+            if let Some(w) = app.windowWithWindowNumber(n) {
+                w.orderWindow_relativeTo(NSWindowOrderingMode::Below, 0);
+            }
+        }
+    });
+    if let Some(pid) = origin.filter(|_| front_pid() == Some(own_pid())) {
+        if let Some(running) = NSRunningApplication::runningApplicationWithProcessIdentifier(pid) {
+            running.activateWithOptions(NSApplicationActivationOptions::empty());
+            if sys::trusted() {
+                Ax::app(pid).set_bool("AXFrontmost", true);
+            }
+        }
+    }
+}
 fn activate_self(number: u32) -> Result<(), String> {
     // Never query our own AX tree here: the main thread may be the caller.
+    set_aside_except(number);
     key_front(number, true)?.then_some(()).ok_or("窗口已关闭")?;
     // macOS 14+ ignores self-activation that no user input in this app caused
     // (a remote key press). AXFrontmost is not cooperative; only set it off the

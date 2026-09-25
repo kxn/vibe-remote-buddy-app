@@ -158,6 +158,12 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
         }
         let _opening = Opening(app.clone());
         let origin = desktop::current_token();
+        // Creating the picker can activate this app and bring the main window
+        // forward on macOS; set our windows aside before that.
+        #[cfg(target_os = "macos")]
+        if app.get_webview_window("picker").is_none() {
+            platform::desktop::set_aside();
+        }
         let w = if let Some(w) = app.get_webview_window("picker") {
             w
         } else {
@@ -179,7 +185,12 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
             .visible(false)
             .focused(false)
             .build()
-            .map_err(|e| e.to_string())?
+            .map_err(|e| {
+                // No picker window, so no Destroyed event will restore ours.
+                #[cfg(target_os = "macos")]
+                platform::desktop::restore_set_aside();
+                e.to_string()
+            })?
         };
         let result = (|| -> Result<(), String> {
             let deadline = std::time::Instant::now() + Duration::from_secs(6);
@@ -618,6 +629,10 @@ fn main() {
                 if let (Some(tray), Ok(icon)) = (w.app_handle().tray_by_id("main"), tray_image()) {
                     let _ = tray.set_icon(Some(icon));
                 }
+            }
+            #[cfg(target_os = "macos")]
+            if w.label() == "picker" && matches!(event, tauri::WindowEvent::Destroyed) {
+                platform::desktop::restore_set_aside();
             }
             if w.label() != "main" {
                 return;
