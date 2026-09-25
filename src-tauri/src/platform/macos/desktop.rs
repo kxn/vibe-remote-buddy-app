@@ -125,6 +125,20 @@ pub fn current_token() -> String {
         return String::new();
     };
     let me = pid == own_pid();
+    // Our own foreground window is AppKit's key window (e.g. the just-ordered
+    // picker); window server ordering can still list the main window first.
+    if me {
+        let key = sys::on_main(Duration::from_millis(300), || {
+            let mtm = objc2::MainThreadMarker::new().expect("main thread");
+            NSApplication::sharedApplication(mtm)
+                .keyWindow()
+                .map(|w| w.windowNumber())
+                .unwrap_or(0)
+        });
+        if let Some(number) = key.ok().filter(|n| *n > 0) {
+            return format!("{pid}:{number}");
+        }
+    }
     let number = cg_windows(ON_SCREEN | EXCLUDE_DESKTOP, 0)
         .into_iter()
         // Our always-on-top picker is floating (layer 3); the tray item (25) is not a window.
@@ -155,6 +169,11 @@ fn handle(window: &Window) -> Result<(i32, u32), String> {
     if info.path != window.path {
         return Err("窗口已变化".into());
     }
+    // A window of ours that was just shown may not be in the window server list
+    // yet; activate_self checks it through AppKit instead.
+    if pid == own_pid() {
+        return Ok((pid, number));
+    }
     if !cg_windows(INCLUDING_WINDOW, number)
         .iter()
         .any(|w| w.number == number && w.pid == pid)
@@ -177,12 +196,23 @@ fn activate_self(number: u32) -> Result<(), String> {
     sys::on_main(Duration::from_millis(500), move || {
         let mtm = objc2::MainThreadMarker::new().expect("main thread");
         let app = NSApplication::sharedApplication(mtm);
-        if let Some(w) = app.windowWithWindowNumber(number as isize) {
-            w.makeKeyAndOrderFront(None);
-        }
+        let Some(w) = app.windowWithWindowNumber(number as isize) else {
+            return false;
+        };
+        w.makeKeyAndOrderFront(None);
         #[allow(deprecated)]
         app.activateIgnoringOtherApps(true);
-    })
+        true
+    })?
+    .then_some(())
+    .ok_or("窗口已关闭")?;
+    // macOS 14+ ignores self-activation that no user input in this app caused
+    // (a remote key press). AXFrontmost is not cooperative; only set it off the
+    // main thread, which must stay free to answer our own AX request.
+    if objc2::MainThreadMarker::new().is_none() && sys::trusted() {
+        Ax::app(own_pid()).set_bool("AXFrontmost", true);
+    }
+    Ok(())
 }
 pub fn activate(window: &Window) -> Result<(), String> {
     let (pid, number) = handle(window)?;
