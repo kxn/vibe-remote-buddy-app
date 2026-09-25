@@ -1,13 +1,13 @@
 {
   "format": 2,
   "target": "s3-q2-f4-ab2",
-  "version": "0.12.9",
+  "version": "0.12.10",
   "files": [
     {
       "offset": 0,
       "name": "bootloader.bin",
-      "size": 20912,
-      "sha256": "2f3364428ddc51a8a504fa944834650741f20d6fe7e212dcd8acd6749283853d"
+      "size": 13696,
+      "sha256": "4712704ecabc8d7c50b2707626a410b0f9caf64db4a0f15d567122cddfbf731c"
     },
     {
       "offset": 32768,
@@ -24,8 +24,8 @@
     {
       "offset": 131072,
       "name": "receiver.bin",
-      "size": 758816,
-      "sha256": "1485d75b7a0da55bcd216a6087dfc2130796d4f28987ed341acd9b2629d02418"
+      "size": 646224,
+      "sha256": "9d193fadae92c6c82b6f98dc822f431f826146fa1825726d7fe0171b4513cafa"
     },
     {
       "offset": 2752512,

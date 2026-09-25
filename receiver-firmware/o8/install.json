@@ -1,13 +1,13 @@
 {
   "format": 2,
   "target": "s3-o8-ab1",
-  "version": "0.12.9",
+  "version": "0.12.10",
   "files": [
     {
       "offset": 0,
       "name": "bootloader.bin",
-      "size": 20912,
-      "sha256": "a4a67d1384c8e80dd2f60c5ad9dcefc11f340d94af662aac322623653b97b0b6"
+      "size": 13696,
+      "sha256": "7e7a4ac4d251ce4ce9cf44f6a6659a3a7d6d6675db4f202a045e7e1fbe585494"
     },
     {
       "offset": 32768,
@@ -24,8 +24,8 @@
     {
       "offset": 131072,
       "name": "receiver.bin",
-      "size": 763424,
-      "sha256": "5e9949deeea7b8aa1809c0dc0c05fdcd34a4a1482cdc0be0c71dc606c19c64e8"
+      "size": 648976,
+      "sha256": "dbc00bc42ea4768e080382215dd1fd92e9dc4fe0d20dd0268a8bf79582240c6d"
     },
     {
       "offset": 4325376,
