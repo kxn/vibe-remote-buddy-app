@@ -1813,6 +1813,9 @@ function BackupDialog({
     </Dialog>
   );
 }
+// WebKit on macOS: platform-scoped styles live under .mac in style.css.
+if (navigator.userAgent.includes("Macintosh"))
+  document.documentElement.classList.add("mac");
 const releaseModalScroll = installModalScroll();
 if (import.meta.hot) import.meta.hot.dispose(releaseModalScroll);
 createRoot(document.getElementById("root")!).render(

@@ -643,6 +643,30 @@ main {
   min-width: 0;
   flex: 1;
 }
+/* macOS settings: "About" as a card like the groups above; firmware notes
+   read as a caption of the firmware row instead of a separate ruled line. */
+.mac .about-entry {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--bg);
+}
+.mac .about-entry:hover:not(:disabled) {
+  background: var(--soft);
+}
+.mac .settings-group .setting:has(+ p.muted) {
+  border-bottom: 0;
+  padding-bottom: 0.4rem;
+}
+.mac .settings-group .setting + p.muted {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+}
+/* showModal focuses the dialog itself; WebKit draws a ring around the sheet. */
+.mac dialog:focus {
+  outline: none;
+}
 /* macOS picker: compact list under the overlay title bar, native selection look. */
 :root:has(.window-picker.mac),
 :root:has(.window-picker.mac) body {
@@ -1181,10 +1205,10 @@ main {
   width: min(560px, calc(100vw - 28px));
   max-height: calc(100dvh - 32px);
   padding: 0;
-  border: 1px solid #ded8cd;
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: #fffdf8;
-  color: #36342e;
+  background: var(--bg);
+  color: var(--ink);
 }
 .receiver-setup::backdrop {
   background: #302d285c;
@@ -1199,10 +1223,10 @@ main {
   flex-wrap: wrap;
 }
 .receiver-setup > header {
-  border-bottom: 1px solid #e8e1d7;
+  border-bottom: 1px solid var(--line);
 }
 .receiver-setup > footer {
-  border-top: 1px solid #e8e1d7;
+  border-top: 1px solid var(--line);
   justify-content: flex-end;
 }
 .setup-body {
@@ -1212,12 +1236,12 @@ main {
 .setup-steps {
   display: flex;
   gap: 16px;
-  color: #81796c;
+  color: var(--muted);
   font-size: 12px;
   margin-bottom: 20px;
 }
 .setup-steps .active {
-  color: #a9583c;
+  color: var(--accent);
   font-weight: 600;
 }
 .setup-device {
@@ -1225,7 +1249,7 @@ main {
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-  border: 1px solid #ded8cd;
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 14px;
   margin: 12px 0;
@@ -1233,12 +1257,12 @@ main {
 .setup-device small,
 .setup-consent small {
   display: block;
-  color: #81796c;
+  color: var(--muted);
   font-size: 12px;
 }
 .setup-warning {
-  background: #faebe5;
-  color: #8e4334;
+  background: var(--tint);
+  color: var(--red);
   border-radius: 10px;
   padding: 14px;
   margin: 16px 0;
