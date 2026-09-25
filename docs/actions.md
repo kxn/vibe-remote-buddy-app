@@ -83,4 +83,5 @@ Windows 使用 TSF 枚举已启用的简体中文键盘服务，按输入法名�
 验证边界（2026-09-25，macOS 27.2，Apple Silicon，签名打包应用 + 小米 Remote 2 Pro + o8 接收器 buddy-0.12.10）：
 - 实机通过：主页键“任务视图”打开调度中心；“切换到 ChatGPT”切到前台并聚焦输入框；窗口选择器连续多轮打开、方向键移动、确认切换、返回键关闭，主窗口不闪现。
 - 只读探测：窗口与前台、`com.apple.Terminal` 枚举、ChatGPT 输入框 AXTextArea「Do anything」、TIS 找到豆包 `com.bytedance.inputmethod.doubaoime.pinyin`。
-- 未实机验证：微信输入法切换（本机未安装）、ZCode、窗口最大化/最小化/关闭/虚拟桌面/区域截图等其余命令、Intel Mac 与 macOS 12–13。
+- 逐项实机调用并用 AX 或系统状态核对：同应用和全局窗口切换、最大化（全屏）与还原、最小化、关闭、显示桌面、任务视图、区域截图、左右切换虚拟桌面；每次合成快捷键后系统修饰键状态都回到基线。调度中心必须经由 `open -a` 启动（直接执行系统 App 的二进制会被 SIGKILL）；全屏窗口在单独的 Space 中，窗口操作改用前台应用的 AXFocusedWindow。
+- 未实机验证：微信输入法切换（本机未安装）、ZCode、Intel Mac 与 macOS 12–13；本机只有一个桌面空间时，切换虚拟桌面只验证了按键已发送。
