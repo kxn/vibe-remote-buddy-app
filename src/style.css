@@ -643,6 +643,81 @@ main {
   min-width: 0;
   flex: 1;
 }
+/* macOS picker: compact list under the overlay title bar, native selection look. */
+:root:has(.window-picker.mac),
+:root:has(.window-picker.mac) body {
+  overflow: hidden;
+  background: var(--bg);
+}
+/* WKWebView keeps a legacy root scroll bar gutter even with overflow hidden. */
+:root:has(.window-picker.mac) {
+  scrollbar-width: none;
+}
+.window-picker.mac {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 0.5rem 0.5rem;
+  background: var(--bg);
+}
+/* Same height and centre line as the overlay title bar's traffic lights. */
+.window-picker.mac header {
+  height: 32px;
+  flex: 0 0 32px;
+  padding: 0;
+  justify-content: center;
+}
+.window-picker.mac h1 {
+  margin: 0;
+  font-size: 0.93rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.window-picker.mac .window-list {
+  gap: 2px;
+  padding: 0.25rem 0.25rem 0.25rem 0;
+  outline: none;
+}
+.window-picker.mac .window-list::-webkit-scrollbar {
+  width: 10px;
+}
+.window-picker.mac .window-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.window-picker.mac .window-list::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 3px solid var(--bg);
+  border-radius: 5px;
+}
+.window-picker.mac .window-list button {
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0.45rem 0.6rem;
+  outline: none;
+}
+.window-picker.mac .window-list button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.window-picker.mac .window-list button[aria-selected="true"] span {
+  color: inherit;
+}
+.window-picker.mac .window-list button[aria-selected="true"] .window-app > span > span {
+  opacity: 0.8;
+}
+.window-picker.mac .window-app > span {
+  gap: 0.1rem;
+}
+.window-picker.mac .window-list strong {
+  font-weight: 600;
+}
+.window-picker.mac > p {
+  margin: auto;
+  color: var(--muted);
+}
 /* Status takes the same row before, during and after recording. */
 .remote-state {
   white-space: nowrap;

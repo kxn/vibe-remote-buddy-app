@@ -171,7 +171,7 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
                 .picker
                 .lock()
                 .map_err(|e| e.to_string())? = PickerState::default();
-            tauri::WebviewWindowBuilder::new(
+            let builder = tauri::WebviewWindowBuilder::new(
                 &app,
                 "picker",
                 tauri::WebviewUrl::App("index.html?picker".into()),
@@ -183,7 +183,14 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
             .always_on_top(true)
             .skip_taskbar(true)
             .visible(false)
-            .focused(false)
+            .focused(false);
+            // Compact panel under the native traffic lights; the page draws the title.
+            #[cfg(target_os = "macos")]
+            let builder = builder
+                .inner_size(520.0, 440.0)
+                .title_bar_style(tauri::TitleBarStyle::Overlay)
+                .hidden_title(true);
+            builder
             .build()
             .map_err(|e| {
                 // No picker window, so no Destroyed event will restore ours.

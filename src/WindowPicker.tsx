@@ -8,6 +8,9 @@ interface AppDisplay {
   name: string;
   icon: string | null;
 }
+// WebKit on macOS: native traffic lights close the window, so the page only
+// draws the title under them (see .window-picker.mac).
+const mac = navigator.userAgent.includes("Macintosh");
 export function WindowPicker() {
   const [windows, setWindows] = useState<DesktopWindow[]>([]),
     [index, setIndex] = useState(0),
@@ -132,12 +135,14 @@ export function WindowPicker() {
     };
   }, [loading]);
   return (
-    <main className="window-picker">
+    <main className={`window-picker${mac ? " mac" : ""}`}>
       <header>
         <h1>窗口选择</h1>
-        <button onClick={close} aria-label="关闭">
-          ×
-        </button>
+        {!mac && (
+          <button onClick={close} aria-label="关闭">
+            ×
+          </button>
+        )}
       </header>
       {loading ? (
         <p>正在读取窗口…</p>
