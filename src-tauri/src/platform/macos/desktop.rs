@@ -191,8 +191,8 @@ fn ax_window(pid: i32, number: u32) -> Result<(Ax, Ax), String> {
         .ok_or("辅助功能无法访问目标窗口")?;
     Ok((app, window))
 }
-fn activate_self(number: u32) -> Result<(), String> {
-    // Never query our own AX tree here: the main thread may be the caller.
+/// Orders one of our windows front as the key window; false if it is gone.
+fn key_front(number: u32, activate: bool) -> Result<bool, String> {
     sys::on_main(Duration::from_millis(500), move || {
         let mtm = objc2::MainThreadMarker::new().expect("main thread");
         let app = NSApplication::sharedApplication(mtm);
@@ -200,12 +200,16 @@ fn activate_self(number: u32) -> Result<(), String> {
             return false;
         };
         w.makeKeyAndOrderFront(None);
-        #[allow(deprecated)]
-        app.activateIgnoringOtherApps(true);
+        if activate {
+            #[allow(deprecated)]
+            app.activateIgnoringOtherApps(true);
+        }
         true
-    })?
-    .then_some(())
-    .ok_or("窗口已关闭")?;
+    })
+}
+fn activate_self(number: u32) -> Result<(), String> {
+    // Never query our own AX tree here: the main thread may be the caller.
+    key_front(number, true)?.then_some(()).ok_or("窗口已关闭")?;
     // macOS 14+ ignores self-activation that no user input in this app caused
     // (a remote key press). AXFrontmost is not cooperative; only set it off the
     // main thread, which must stay free to answer our own AX request.
@@ -222,7 +226,11 @@ pub fn activate(window: &Window) -> Result<(), String> {
     }
     let raise: Box<dyn Fn()> = if pid == own_pid() {
         activate_self(number)?;
-        Box::new(|| ())
+        // Activation restores the previously key window (the main window);
+        // make the requested window key again.
+        Box::new(move || {
+            let _ = key_front(number, false);
+        })
     } else {
         require_trusted()?;
         let (app, win) = ax_window(pid, number)?;

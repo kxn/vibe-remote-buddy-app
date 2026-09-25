@@ -200,7 +200,11 @@ async fn show_window_picker(app: tauri::AppHandle) -> Result<(), String> {
             }
             let identity = platform::shell::picker_identity(&w)?;
             let current = desktop::current_token();
-            if current != origin && current != identity.token {
+            // Creating the hidden picker can activate this app on macOS; that
+            // is not the user moving to another window.
+            let ours = cfg!(target_os = "macos")
+                && current.split(':').next() == Some(std::process::id().to_string().as_str());
+            if current != origin && current != identity.token && !ours {
                 return Err("前台窗口已变化，已取消打开选择器".into());
             }
             w.show().map_err(|e| e.to_string())?;
