@@ -13,6 +13,7 @@
     "installer": "node scripts/make-installer.mjs",
     "release:archive": "node scripts/release.mjs --archive",
     "release:offline": "node scripts/release.mjs --offline",
+    "release:macos": "node scripts/release-macos.mjs",
     "firmware:import": "node scripts/import-firmware.mjs"
   },
   "dependencies": {
