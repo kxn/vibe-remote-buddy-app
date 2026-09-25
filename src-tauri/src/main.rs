@@ -613,6 +613,13 @@ fn main() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("启动 Vibe Remote Buddy 失败");
+        .build(tauri::generate_context!())
+        .expect("启动 Vibe Remote Buddy 失败")
+        .run(|_app, _event| {
+            // Clicking the Dock icon restores a window hidden to the background.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                show_main(_app);
+            }
+        });
 }
