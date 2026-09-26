@@ -159,6 +159,20 @@ run(process.execPath, ["node_modules/@tauri-apps/cli/tauri.js", "build", "--bund
 const built = path.join(root, "src-tauri/target/release/bundle/macos/Vibe Remote Buddy.app");
 sign(built, "src-tauri/macos/app.entitlements");
 run("codesign", ["--verify", "--deep", "--strict", "--verbose=2", built]);
+if (notarize) {
+  // Notarize and staple the app itself first, so the copy inside the DMG
+  // carries its own ticket and also opens offline after installation.
+  const zip = path.join(prepared, "notarize-app.zip");
+  fs.rmSync(zip, { force: true });
+  run("ditto", ["-c", "-k", "--keepParent", built, zip]);
+  try {
+    run("xcrun", ["notarytool", "submit", zip, ...notaryAuth, "--wait"]);
+  } finally {
+    fs.rmSync(zip, { force: true });
+  }
+  run("xcrun", ["stapler", "staple", built]);
+  run("xcrun", ["stapler", "validate", built]);
+}
 
 // 5. DMG, notarization, then the fixed latest application path.
 const out = path.join(root, "out");
@@ -183,8 +197,6 @@ if (notarize) {
   run("xcrun", ["notarytool", "submit", dmg, ...notaryAuth, "--wait"]);
   run("xcrun", ["stapler", "staple", dmg]);
   run("xcrun", ["stapler", "validate", dmg]);
-  // The ticket covers the same app signature, so staple the latest copy too.
-  run("xcrun", ["stapler", "staple", built]);
   run("spctl", ["--assess", "--type", "open", "--context", "context:primary-signature", "--verbose=2", dmg]);
   run("spctl", ["--assess", "--type", "execute", "--verbose=2", built]);
 }
