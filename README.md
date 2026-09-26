@@ -34,4 +34,4 @@ Windows 版和 macOS（Apple 芯片，已签名公证）版软件均已完成构
 
 ## 开源说明
 
-App 代码目前按 MIT 许可证开源。固件目前包含大量逆向分析相关内容，源码暂不公开；我们正在做净室处理，完成后会开源固件源码。这个仓库的 `receiver-firmware/` 现阶段只提供发布二进制、校验清单和必要声明。
+App 与[接收器固件源码](https://github.com/kxn/vibe-remote-buddy-firmware)分别按 MIT 许可证开源。固件仓库提供独立编译所需的源码和定义，不提供预编译镜像；本仓库的 `receiver-firmware/` 保存 App 发行包使用的固件镜像、校验清单和必要声明。两边通过 RBP/3 协议协作，各自维护实现。

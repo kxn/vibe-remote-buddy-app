@@ -1,6 +1,6 @@
 # 开发与构建
 
-这里集中说明 App 仓库的开发环境、构建和技术边界。普通使用步骤见[图文使用说明](user-guide.md)。App 源码采用 MIT 许可证；`receiver-firmware/` 只存放获准公开的固件二进制、校验清单和第三方声明。
+这里集中说明 App 仓库的开发环境、构建和技术边界。普通使用步骤见[图文使用说明](user-guide.md)。App 源码采用 MIT 许可证；[固件源码](https://github.com/kxn/vibe-remote-buddy-firmware)在独立仓库，`receiver-firmware/` 存放 App 发行包使用的固件二进制、校验清单和第三方声明。
 
 ## 工程结构
 
