@@ -33,6 +33,7 @@ NSIS 安装程序为按用户安装：默认装到 `%LOCALAPPDATA%\Programs\Vibe
 
 - `npm run release:macos`（仅在 macOS 上）：与 `npm run release` 共用输入准备（机型库、固件、build-info），生成 `out/latest/Vibe Remote Buddy.app` 与 `out/latest/build-info.json`，以及 `out/distribution/vibe-remote-buddy-app-<版本>-<提交前8位>-<channel>[-dirty]-macos-<架构>.dmg` 和 `.sha256`。`--offline` 与 Windows 相同；`--no-notarize` 只签名不公证。
 - 签名：`BUDDY_MAC_SIGN_IDENTITY` 为 Developer ID Application 证书名；`-` 表示 ad hoc 签名，仅供本机或 PR 测试，不会公证。应用包内每个 Mach-O（含初始化助手）都以 hardened runtime 签名；应用授权见 `src-tauri/macos/*.entitlements`，Info.plist 补充见 `src-tauri/Info.plist`。
+- `npm run release:macos:from-source`：先从 `firmware/` 子模块编译固件，再用它打包，要求同 `npm run firmware:build`。在 macOS 上需要先 source ESP-IDF 5.4 的 `export.sh`，使 `IDF_PATH` 生效（固件构建工具在非 Windows 平台会检查这一点）。默认的 `npm run release:macos` 仍使用 `receiver-firmware/`，不需要 ESP-IDF。
 - 公证：`BUDDY_NOTARY_PROFILE`（`xcrun notarytool store-credentials` 保存的钥匙串配置）或 `BUDDY_NOTARY_KEY` / `BUDDY_NOTARY_KEY_ID` / `BUDDY_NOTARY_ISSUER`（App Store Connect API 密钥）。公证后对 DMG 与应用 staple，并用 `spctl` 核验。
 - 资源在 `Contents/Resources/resources/`，包含机型、机型库、初始化助手（PyInstaller 单文件，避免 Tauri 复制资源时展开 onedir 的框架符号链接而破坏签名）、固件镜像及 `docs/` 下的说明和许可证。不要在签名后修改应用包；用户改编的型号保存在应用数据目录。
 - 在较新的 macOS 上，strip 后的 release proc-macro 动态库会被 dyld 拒绝加载，脚本为构建期依赖设置 `CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=false`，不影响最终应用。
