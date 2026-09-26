@@ -172,7 +172,12 @@ fs.mkdirSync(dmgRoot);
 run("ditto", [built, path.join(dmgRoot, "Vibe Remote Buddy.app")]);
 fs.symlinkSync("/Applications", path.join(dmgRoot, "Applications"));
 fs.rmSync(dmg, { force: true });
-run("hdiutil", ["create", "-volname", "Vibe Remote Buddy", "-srcfolder", dmgRoot, "-fs", "HFS+", "-format", "UDZO", "-ov", dmg]);
+try {
+  run("hdiutil", ["create", "-volname", "Vibe Remote Buddy", "-srcfolder", dmgRoot, "-fs", "HFS+", "-format", "UDZO", "-ov", dmg]);
+} finally {
+  // The /Applications link must not stay in the tree: test runners follow it.
+  fs.rmSync(dmgRoot, { recursive: true, force: true });
+}
 sign(dmg);
 if (notarize) {
   run("xcrun", ["notarytool", "submit", dmg, ...notaryAuth, "--wait"]);
