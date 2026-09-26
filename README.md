@@ -35,3 +35,5 @@ Windows 版和 macOS（Apple 芯片，已签名公证）版软件均已完成构
 ## 开源说明
 
 App 与[接收器固件源码](https://github.com/kxn/vibe-remote-buddy-firmware)分别按 MIT 许可证开源。固件仓库提供独立编译所需的源码和定义，不提供预编译镜像；本仓库的 `receiver-firmware/` 保存 App 发行包使用的固件镜像、校验清单和必要声明。两边通过 RBP/3 协议协作，各自维护实现。
+
+开发者可直接在本仓库运行 `npm run firmware:build` 从 `firmware/` 子模块编译三种板型；`npm run release:from-source` 会将新编译固件集成进 App。`npm run firmware:build:latest` 会先拉取固件仓库最新 `main`。分别向两个仓库提交 PR 的步骤见[开发与构建](docs/development.md#构建与发布)。

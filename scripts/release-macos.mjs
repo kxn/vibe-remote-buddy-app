@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { root, variants } from "./release-inputs.mjs";
 import { renderUserGuide } from "./render-user-guide.mjs";
+import { copyFirmwareNotices } from "./firmware-notices.mjs";
 
 if (process.platform !== "darwin") throw Error("macOS packaging runs on macOS");
 process.chdir(root);
@@ -42,7 +43,10 @@ const arch = { arm64: "arm64", x64: "x64" }[process.arch];
 }
 
 // 1. Catalog, firmware and build identity, exactly as the Windows release.
-run(process.execPath, ["scripts/release.mjs", "--prepare-only", ...(args.includes("--offline") ? ["--offline"] : [])]);
+run(process.execPath, ["scripts/release.mjs", "--prepare-only",
+  ...(args.includes("--offline") ? ["--offline"] : []),
+  ...(args.includes("--from-source") ? ["--from-source"] : []),
+  ...(args.includes("--latest-firmware") ? ["--latest-firmware"] : [])]);
 const prepared = path.join(root, "build/release-inputs");
 const buildInfoPath = path.join(prepared, "build-info.json");
 const info = JSON.parse(fs.readFileSync(buildInfoPath, "utf8"));
@@ -101,8 +105,7 @@ for (const variant of variants) {
 const docs = path.join(resources, "docs");
 fs.mkdirSync(docs);
 for (const name of ["LICENSE", "THIRD_PARTY_NOTICES.md"]) fs.copyFileSync(name, path.join(docs, name));
-fs.copyFileSync("receiver-firmware/NOTICES.md", path.join(docs, "FIRMWARE-NOTICES.md"));
-fs.cpSync("receiver-firmware/licenses", path.join(docs, "firmware-licenses"), { recursive: true });
+copyFirmwareNotices(docs, !!info.firmware_source);
 fs.copyFileSync("docs/remote-models.md", path.join(docs, "REMOTE-MODELS.md"));
 fs.copyFileSync("docs/remote-probe.md", path.join(docs, "REMOTE-PROBE.md"));
 renderUserGuide(docs);

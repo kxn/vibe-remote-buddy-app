@@ -14,8 +14,16 @@ import {
 } from "./release-inputs.mjs";
 import { syncCatalog } from "./sync-catalog.mjs";
 process.chdir(root);
-const args = process.argv.slice(2),
-  identity = buildIdentity();
+const args = process.argv.slice(2);
+if (args.includes("--latest-firmware") && !args.includes("--from-source"))
+  throw Error("--latest-firmware requires --from-source");
+if (args.includes("--from-source"))
+  execFileSync(
+    process.env.PYTHON || (process.platform === "win32" ? "python" : "python3"),
+    ["scripts/build-firmware.py", ...(args.includes("--latest-firmware") ? ["--latest"] : [])],
+    { cwd: root, stdio: "inherit" },
+  );
+const identity = buildIdentity();
 if (
   process.env.GITHUB_REF_TYPE === "tag" &&
   process.env.GITHUB_REF_NAME !== `v${identity.version}`
@@ -36,9 +44,9 @@ if (args.includes("--offline")) {
   });
   catalog = loadCatalog(catalogDir);
 } else catalog = await syncCatalog(catalogDir);
-const source = path.resolve(
-  process.env.BUDDY_FIRMWARE_DIR || path.join(root, "receiver-firmware"),
-);
+const source = path.resolve(args.includes("--from-source")
+  ? path.join(root, "build/firmware-from-source/latest")
+  : process.env.BUDDY_FIRMWARE_DIR || path.join(root, "receiver-firmware"));
 validateFirmware(source);
 fs.mkdirSync(firmwareDir, { recursive: true });
 fs.copyFileSync(
@@ -87,6 +95,14 @@ const info = {
     image_sha256: sha256(bytes),
   },
   firmware,
+  ...(args.includes("--from-source") ? {
+    firmware_source: {
+      commit: execFileSync("git", ["-C", "firmware", "rev-parse", "HEAD"],
+        { cwd: root, encoding: "utf8" }).trim(),
+      dirty: !!execFileSync("git", ["-C", "firmware", "status", "--porcelain"],
+        { cwd: root, encoding: "utf8" }).trim(),
+    },
+  } : {}),
 };
 writeJson(path.join(prepared, "build-info.json"), info);
 writeJson(path.join(prepared, "tauri-config.json"), {

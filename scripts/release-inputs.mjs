@@ -184,11 +184,20 @@ export function sourceDigest() {
   for (const f of [...new Set(files)].sort()) {
     hash.update(f);
     hash.update("\0");
-    hash.update(
-      fs.existsSync(path.join(root, f))
-        ? fs.readFileSync(path.join(root, f))
-        : "deleted",
-    );
+    const file = path.join(root, f);
+    if (f === "firmware") {
+      if (fs.existsSync(path.join(file, ".git"))) {
+        hash.update(execFileSync("git", ["-C", file, "rev-parse", "HEAD"]));
+        hash.update(execFileSync("git", ["-C", file, "diff", "--binary", "HEAD"]));
+        const extra = execFileSync("git", ["-C", file, "ls-files", "--others", "--exclude-standard", "-z"])
+          .toString().split("\0").filter(Boolean).sort();
+        for (const name of extra) {
+          hash.update(name);
+          hash.update("\0");
+          hash.update(fs.readFileSync(path.join(file, name)));
+        }
+      } else hash.update(execFileSync("git", ["ls-files", "--stage", "--", f], { cwd: root }));
+    } else hash.update(fs.existsSync(file) ? fs.readFileSync(file) : "deleted");
     hash.update("\0");
   }
   return hash.digest("hex");

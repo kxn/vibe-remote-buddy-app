@@ -9,6 +9,7 @@
 - `src-tauri/src/`：串口、文件、托盘和平台接口。
 - `resources/remotes/`：可编辑的遥控器外观与资源；正式机型知识库在 `resources/catalog/`。
 - `receiver-firmware/`：公开发布镜像及安装清单，不含固件源码。
+- `firmware/`：独立公开固件仓库的子模块，可与 App 源码一起修改并分别提交 PR。
 
 音频和标准键盘输入由接收器通过 USB 麦克风与 HID 提供。桌面应用管理设备和执行软件动作，不处理蓝牙协议、语音解码或识别。管理通道使用 Buddy v1 / RBP/3；旧 CH582 客户端和普通蓝牙适配器不兼容。一个接收器最多保存两只遥控器。
 
@@ -51,6 +52,10 @@ UI 测试使用模拟接口，不连接真实接收器。原生窗口测试会�
 
 `npm run installer` 用已校验的发行包制作按用户安装的 NSIS 安装程序；`npm run release:archive` 留存不可覆盖的归档。每份包的 `build-info.json` 记录版本、来源和文件校验值。应用、固件与机型库各有独立版本。离线构建可显式使用 `npm run release:offline`；在线构建要求锁定并校验最新机型库，网络失败会停止。
 
+已安装 ESP-IDF 5.4.0 且设置 `IDF_PATH` 后，可在 App 仓库直接运行 `npm run firmware:build`。脚本自动初始化 `firmware/` 子模块，编译三种板型，并在 `build/firmware-from-source/latest/` 生成经校验的完整固件安装包。`npm run release:from-source` 在构建 App 前执行同一流程，并把新固件放进 App 成品。macOS 可用 `npm run release:macos:from-source`。首次编译需要联网下载并校验 ITU 数值表；已有官方 ZIP 可通过 `BUDDY_ITU_G7221_ARCHIVE` 指定。
+
+上述命令默认使用 App 仓库固定的固件提交。需要拉取公开固件仓库 `main` 最新提交时，运行 `npm run firmware:build:latest`，或 `npm run release:from-source:latest`。更新后 App 的子模块指针会改变；请审查并提交该指针，正式发布使用固定提交以便复现。开发固件时可直接在 `firmware/` 修改、提交并向固件仓库发 PR；App 的集成改动向本仓库发 PR。两边改动有关联时，在 PR 描述中互相链接；等固件 PR 合并到公开仓库后，再更新 App 的子模块指针，避免 App CI 无法从固件仓库取得仅存在于贡献者 fork 的提交。已有的 `receiver-firmware/` 保留为无需 ESP-IDF 的默认 App 构建输入；审查新镜像后，运行 `npm run firmware:import:source` 可更新该目录。
+
 推送到 `main` 或提交 PR 只触发 CI 构建与测试。GitHub Actions 的手动发布和 `vX.Y.Z` 标签才进入正式发布流程。具体规则见[构建产物规范](build-artifacts.md)和[发布设计](release-pipeline.md)。当前 Windows 安装包没有代码签名。macOS 使用 `npm run release:macos` 生成签名的 `out/latest/Vibe Remote Buddy.app` 和公证后的 DMG，签名与公证参数见[构建产物规范](build-artifacts.md#macos)。
 
 ## 接收器与机型资源
@@ -59,7 +64,7 @@ UI 测试使用模拟接口，不连接真实接收器。原生窗口测试会�
 
 `resources/remotes/` 提供外观、布局和可编辑默认功能；同协议变种可通过资源配置接入，协议不同则需要固件驱动支持。详见[型号资源](remote-models.md)和[遥控器适配工具](remote-probe.md)。用户配置可能包含本机程序路径；导入后，软件动作需要重新保存授权。不要公开上传用户备份或诊断日志。
 
-首次安装接收器需要完整且经校验的镜像包。安装器检查 ESP32-S3、Flash、PSRAM 和安全状态，再选对应的 q2、o8 或 q2-f4 镜像；初始化会擦除原程序与数据，普通更新保留配置。开发者无需在公开 App 仓库添加固件源码。实现细节见[首次安装](receiver-setup-implementation.md)和[固件更新](firmware-update.md)。
+首次安装接收器需要完整且经校验的镜像包。安装器检查 ESP32-S3、Flash、PSRAM 和安全状态，再选对应的 q2、o8 或 q2-f4 镜像；初始化会擦除原程序与数据，普通更新保留配置。源码构建使用公开 `firmware/` 子模块，不依赖内部仓库。实现细节见[首次安装](receiver-setup-implementation.md)和[固件更新](firmware-update.md)。
 
 ## 深入阅读
 

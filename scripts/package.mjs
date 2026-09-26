@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { renderUserGuide } from "./render-user-guide.mjs";
+import { copyFirmwareNotices } from "./firmware-notices.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const invocationDir = process.cwd();
@@ -103,15 +104,7 @@ try {
       path.join(stage, "resources/catalog"),
       { recursive: true },
     );
-    fs.cpSync(
-      "receiver-firmware/NOTICES.md",
-      path.join(stage, "FIRMWARE-NOTICES.md"),
-    );
-    fs.cpSync(
-      "receiver-firmware/licenses",
-      path.join(stage, "firmware-licenses"),
-      { recursive: true },
-    );
+    copyFirmwareNotices(stage, !!build?.firmware_source);
     const installer = path.join(stage, "resources/installer");
     fs.mkdirSync(installer, { recursive: true });
     fs.cpSync("build/setup-helper/dist/receiver-setup", installer, {

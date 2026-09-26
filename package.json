@@ -10,11 +10,17 @@
     "test:release": "node --test scripts/release-inputs.node-test.mjs scripts/installer-uninstall.node-test.mjs",
     "tauri": "tauri",
     "release": "node scripts/release.mjs",
+    "release:from-source": "node scripts/release.mjs --from-source",
+    "release:from-source:latest": "node scripts/release.mjs --from-source --latest-firmware",
     "installer": "node scripts/make-installer.mjs",
     "release:archive": "node scripts/release.mjs --archive",
     "release:offline": "node scripts/release.mjs --offline",
     "release:macos": "node scripts/release-macos.mjs",
-    "firmware:import": "node scripts/import-firmware.mjs"
+    "release:macos:from-source": "node scripts/release-macos.mjs --from-source",
+    "firmware:import": "node scripts/import-firmware.mjs",
+    "firmware:import:source": "node scripts/import-firmware.mjs build/firmware-from-source/latest",
+    "firmware:build": "node scripts/build-firmware.mjs",
+    "firmware:build:latest": "node scripts/build-firmware.mjs --latest"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",

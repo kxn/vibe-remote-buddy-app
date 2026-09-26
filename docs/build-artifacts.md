@@ -3,6 +3,7 @@
 ## 固定入口
 
 - `npm run release`：完整生产构建并整理到 `out/latest/`。日常只从这里启动 `Vibe Remote Buddy.exe`，复制时复制整个目录。
+- `npm run firmware:build`：从公开固件子模块编译并生成 `build/firmware-from-source/latest/` 完整安装包；`npm run release:from-source` 使用该源码构建包生成 App 成品。带 `:latest` 的对应命令会先更新子模块，正式发布前提交更新后的指针。
 - `npm run installer`：把 `out/distribution/files` 的干净发行包打成 Windows NSIS 安装程序，固定输出 `out/distribution/vibe-remote-buddy-app-<版本>-<提交前8位>-<channel>[-dirty]-windows-x64-setup.exe`，附 `.sha256`。只打包 build-info 清单内文件并逐一核对散列；本地新增的机型不会进入安装包。需要 NSIS 3（`winget install NSIS.NSIS`，可用 BUDDY_NSIS_EXE 指定 makensis 路径）。
 - `npm run release:archive`：完整构建，同时在 `out/releases/` 留一份不可覆盖的包目录。
 - 归档名：`vibe-remote-buddy-app-<应用版本>-windows-<架构>-<UTC时间>-<提交前8位>[-dirty]`。压缩或对外发布时沿用该目录名，不另起名字。

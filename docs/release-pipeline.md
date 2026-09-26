@@ -5,7 +5,7 @@ App、固件、机型库独立版本；本次发行的组合在 build-info.json 
 ## 输入
 
 - App：package.json 的 version 是默认应用版本；BUDDY_APP_VERSION 可指定此次版本，Tauri 配置在 build/release-inputs 中生成覆盖值，不修改源码版本文件。关于页和 ZIP 文件名均包含版本及 App 提交前 8 位；未提交修改加 dirty。
-- 固件：receiver-firmware 当前二进制。用 `npm run firmware:import -- <目录>` 从完整固件产物导入，仅白名单复制文件，校验目标、应用描述符、大小、SHA256、安装偏移。不复制 ELF/map/私有源码。BUDDY_FIRMWARE_DIR 是开发时显式替换输入的选项。
+- 固件：默认使用 receiver-firmware 当前二进制。`npm run release:from-source` 从公开 `firmware/` 子模块编译并生成完整安装包；`npm run release:from-source:latest` 可先更新子模块到最新 main，正式发布应提交指针。用 `npm run firmware:import -- <目录>` 将审查后的完整固件产物导入 receiver-firmware，仅白名单复制文件，校验目标、应用描述符、大小、SHA256、安装偏移。不复制 ELF/map/源码。BUDDY_FIRMWARE_DIR 是开发时显式替换输入的选项。
 - 机型库：打包开始时解析 kxn/vibe-remote-buddy-models/main 的 SHA，所有后续请求使用该 SHA；资源逐文件核对索引大小/散列/身份。普通 release 不回退旧库；release:offline 明确使用仓库自带快照。
 
 ## 组合
