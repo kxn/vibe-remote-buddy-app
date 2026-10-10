@@ -13,7 +13,8 @@ macOS 适配不修改接收器协议。未获得辅助功能权限返回可识�
 macOS 专有处理（均为 `cfg(target_os = "macos")`，Windows 行为不变）：
 
 - 串口：macOS 为每个 USB 串口同时列出 `/dev/cu.*` 和 `/dev/tty.*`，只保留 callout 的 `cu.` 节点，否则一个接收器显示两次且不会自动连接。
-- Fn 语音预设：固件按主机类型对 macOS 发送 Apple Top Case Fn（0x00FF/0x03），但 macOS 不接受非 Apple 键盘的这一用法。`platform/macos/fn_bridge.rs` 用 IOHIDManager 监听接收器（VID 0xCAFE / PID 0x4016）自己的 Fn 按下与松开，同步合成系统 Fn（flagsChanged，kVK_Function）。系统已识别 Fn 时不重复；接收器拔出时释放 Fn。需要“输入监控”（读取接收器键盘）和“辅助功能”（发送按键）权限。
+- USB 管理发现同时支持旧身份 `CAFE:4016` 和固件 0.12.14 的新身份 `05AC:0220`，串口打开前使用同一规则校验。初始化仍识别 ESP32 下载模式和 USB 串口桥，不把 Apple VID 整体加入开发板候选。
+- Fn 语音预设：固件 0.12.14 使用 `05AC:0220` 和原生 Fn（0x00FF/0x03），由 macOS 系统驱动处理。`platform/macos/fn_bridge.rs` 的 IOHIDManager 只监听旧身份 `CAFE:4016`，将旧固件的 Fn 按下与松开同步合成系统 Fn（flagsChanged，kVK_Function），不会给新身份重复注入。系统已识别 Fn 时不重复；旧接收器拔出时释放 Fn。旧身份转发需要“输入监控”（读取接收器键盘）和“辅助功能”（发送按键）权限。
 - 资源：打包资源在 `Contents/Resources/resources/`；初始化助手为 onefile 可执行文件。保存或编辑的遥控器型号写入 app 数据目录（同名覆盖内置型号），不修改已签名的应用包。
 - 窗口：Dock 图标可恢复隐藏到后台的主窗口；菜单栏使用单色模板图标（`icons/tray-template.*`）。
 
