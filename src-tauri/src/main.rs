@@ -14,6 +14,7 @@ mod models;
 mod catalog;
 mod platform;
 mod receiver_setup;
+mod receiver_usb;
 use platform::{activate, desktop, ime, installed_apps};
 fn show_main(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
@@ -284,7 +285,7 @@ fn ports() -> Result<Vec<Port>, String> {
         .filter(|p| !cfg!(target_os = "macos") || p.port_name.starts_with("/dev/cu."))
         .filter_map(|p| {
             if let serialport::SerialPortType::UsbPort(u) = p.port_type {
-                if u.vid == 0xcafe && u.pid == 0x4016 {
+                if receiver_usb::supports_management(u.vid, u.pid) {
                     return Some(Port {
                         path: p.port_name,
                         serial: u.serial_number.unwrap_or_default(),

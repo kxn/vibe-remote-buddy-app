@@ -26,6 +26,8 @@ export const usages: [number, string][] = [
   [42, "Backspace"],
   [43, "Tab"],
   [44, "空格"],
+  [54, "Comma (,)"],
+  [55, "Period (.)"],
   [74, "Home"],
   [77, "End"],
   [75, "Page Up"],

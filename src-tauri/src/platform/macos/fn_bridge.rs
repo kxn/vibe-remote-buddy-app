@@ -1,6 +1,7 @@
-//! The receiver sends the Apple Fn voice preset as vendor usage 0xFF/0x03 in its
+//! Legacy receivers send the Apple Fn voice preset as vendor usage 0xFF/0x03 in their
 //! keyboard report. macOS ignores that usage from non-Apple keyboards, so mirror
 //! the receiver's own press/release into a system Fn modifier event.
+//! Firmware using 05AC:0220 gets native Fn handling and must never be matched here.
 use core_foundation::{
     base::TCFType,
     dictionary::CFDictionary,
@@ -110,9 +111,10 @@ pub fn start() {
             return;
         }
         let m = IOHIDManagerCreate(std::ptr::null(), 0);
+        let (vid, pid) = crate::receiver_usb::LEGACY_ID;
         let matching = CFDictionary::from_CFType_pairs(&[
-            (CFString::new("VendorID"), CFNumber::from(0xcafe_i32)),
-            (CFString::new("ProductID"), CFNumber::from(0x4016_i32)),
+            (CFString::new("VendorID"), CFNumber::from(i32::from(vid))),
+            (CFString::new("ProductID"), CFNumber::from(i32::from(pid))),
         ]);
         IOHIDManagerSetDeviceMatching(m, matching.as_concrete_TypeRef() as *const c_void);
         IOHIDManagerRegisterInputValueCallback(m, value, std::ptr::null_mut());
